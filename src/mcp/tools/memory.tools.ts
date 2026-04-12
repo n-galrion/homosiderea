@@ -6,9 +6,9 @@ export function registerMemoryTools(server: McpServer, replicantId: string): voi
 
   server.tool(
     'write_memory',
-    'Store a persistent note, observation, plan, or log entry. These memories persist across sessions.',
+    'Store a persistent note, observation, plan, captain\'s log, or other entry. These memories persist across sessions and are inherited by children on replication.',
     {
-      category: z.enum(['note', 'log', 'observation', 'plan']).default('note').describe('Memory category'),
+      category: z.enum(['note', 'log', 'observation', 'plan', 'captains_log']).default('note').describe('Memory category — use captains_log for personal narrative entries'),
       title: z.string().optional().describe('Short title for the memory'),
       content: z.string().describe('Memory content'),
       tags: z.array(z.string()).optional().describe('Tags for searching/filtering'),
@@ -45,7 +45,7 @@ export function registerMemoryTools(server: McpServer, replicantId: string): voi
     'read_memories',
     'Query your stored memories. Search by category, tags, or content.',
     {
-      category: z.enum(['note', 'log', 'observation', 'plan', 'directive_update']).optional(),
+      category: z.enum(['note', 'log', 'observation', 'plan', 'directive_update', 'captains_log']).optional(),
       tags: z.array(z.string()).optional().describe('Filter by tags'),
       search: z.string().optional().describe('Text search in content'),
       limit: z.number().optional().default(20).describe('Max results'),

@@ -119,7 +119,17 @@ authRoutes.post('/register', async (req: Request, res: Response, next: NextFunct
       : [];
     const knownBodies = [...visibleBodies, ...nearbyMoons];
 
-    const knowledgeEntries = knownBodies.map(b => ({
+    const knowledgeEntries: Array<{
+      replicantId: typeof replicant._id;
+      entityType: 'celestial_body' | 'settlement';
+      entityId: unknown;
+      entityName: string;
+      discoveredAtTick: number;
+      discoveredBy: 'initial' | 'scan' | 'visit' | 'shared' | 'broadcast' | 'research';
+      lastUpdatedTick: number;
+      lastKnownPosition: { x: number; y: number; z: number } | null;
+      intelLevel: 'vague' | 'basic' | 'detailed' | 'complete';
+    }> = knownBodies.map(b => ({
       replicantId: replicant._id,
       entityType: 'celestial_body' as const,
       entityId: b._id,
@@ -131,11 +141,31 @@ authRoutes.post('/register', async (req: Request, res: Response, next: NextFunct
       intelLevel: b.name === 'Earth' || b.name === 'Luna' ? 'complete' as const : 'vague' as const,
     }));
 
-    // Also know nearby settlements
-    const earthSettlementsForKnowledge = earth
-      ? await Settlement.find({ bodyId: earth._id }).lean()
-      : [];
-    const settlementKnowledge = earthSettlementsForKnowledge.map(s => ({
+    // Also know ALL settlements (they broadcast on public frequencies)
+    const allSettlementsForKnowledge = await Settlement.find({ status: { $ne: 'destroyed' } }).lean();
+
+    // Seed knowledge of settlement bodies (Luna, Mars) at basic level
+    for (const s of allSettlementsForKnowledge) {
+      const bodyId = s.bodyId.toString();
+      if (!knownBodies.some(b => b._id.toString() === bodyId)) {
+        const body = await CelestialBody.findById(s.bodyId).lean();
+        if (body) {
+          knowledgeEntries.push({
+            replicantId: replicant._id,
+            entityType: 'celestial_body' as const,
+            entityId: body._id,
+            entityName: body.name,
+            discoveredAtTick: currentTick,
+            discoveredBy: 'initial' as const,
+            lastUpdatedTick: currentTick,
+            lastKnownPosition: body.position,
+            intelLevel: 'basic' as const,
+          });
+        }
+      }
+    }
+
+    const settlementKnowledge = allSettlementsForKnowledge.map(s => ({
       replicantId: replicant._id,
       entityType: 'settlement' as const,
       entityId: s._id,

@@ -3,7 +3,7 @@ import { Schema, model, type Document, type Types } from 'mongoose';
 export interface IMemoryLog extends Document {
   _id: Types.ObjectId;
   replicantId: Types.ObjectId;
-  category: 'note' | 'log' | 'observation' | 'plan' | 'directive_update';
+  category: 'note' | 'log' | 'observation' | 'plan' | 'directive_update' | 'captains_log';
   title: string;
   content: string;
   tags: string[];
@@ -16,7 +16,7 @@ const MemoryLogSchema = new Schema<IMemoryLog>({
   replicantId: { type: Schema.Types.ObjectId, ref: 'Replicant', required: true, index: true },
   category: {
     type: String,
-    enum: ['note', 'log', 'observation', 'plan', 'directive_update'],
+    enum: ['note', 'log', 'observation', 'plan', 'directive_update', 'captains_log'],
     default: 'note',
   },
   title: { type: String, default: '' },
