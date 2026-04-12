@@ -12,7 +12,8 @@
     "start": "node dist/index.js",
     "seed": "tsx src/db/seeds/run.ts",
     "test": "vitest",
-    "test:server": "tsx src/test-server.ts"
+    "test:server": "tsx src/test-server.ts",
+    "worker": "tsx src/worker/index.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.0",
@@ -23,6 +24,7 @@
     "expr-eval": "^2.0.2",
     "express": "^5.1.0",
     "express-session": "^1.19.0",
+    "ioredis": "^5.10.1",
     "jsonwebtoken": "^9.0.2",
     "mongodb-memory-server": "^11.0.1",
     "mongoose": "^8.14.1",

@@ -36,6 +36,13 @@ export const config = {
     secret: process.env.SESSION_SECRET || 'homosideria-session-secret-change-me',
     maxAgeMs: 7 * 24 * 60 * 60 * 1000, // 7 days
   },
+  redis: {
+    url: process.env.REDIS_URL || 'redis://localhost:6379',
+  },
+  agent: {
+    encryptionKey: process.env.AGENT_ENCRYPTION_KEY || '',
+    gameApiUrl: process.env.GAME_API_URL || `http://localhost:${parseInt(process.env.PORT || '3001', 10)}`,
+  },
   log: {
     level: process.env.LOG_LEVEL || 'info',
   },
