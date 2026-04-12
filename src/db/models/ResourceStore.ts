@@ -3,7 +3,7 @@ import { Schema, model, type Document, type Types } from 'mongoose';
 export interface IResourceStore extends Document {
   _id: Types.ObjectId;
   ownerRef: {
-    kind: 'Ship' | 'Structure' | 'CelestialBody' | 'Colony';
+    kind: 'Ship' | 'Structure' | 'CelestialBody' | 'Colony' | 'Settlement';
     item: Types.ObjectId;
   };
   // Raw materials
@@ -35,7 +35,7 @@ export interface IResourceStore extends Document {
 
 const ResourceStoreSchema = new Schema<IResourceStore>({
   ownerRef: {
-    kind: { type: String, enum: ['Ship', 'Structure', 'CelestialBody', 'Colony'], required: true },
+    kind: { type: String, enum: ['Ship', 'Structure', 'CelestialBody', 'Colony', 'Settlement'], required: true },
     item: { type: Schema.Types.ObjectId, refPath: 'ownerRef.kind', required: true },
   },
   // Raw

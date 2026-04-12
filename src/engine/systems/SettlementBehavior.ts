@@ -1,24 +1,18 @@
-import { Settlement, Market, Replicant, Ship, PriceHistory } from '../../db/models/index.js';
+import { Settlement, Market, PriceHistory, ResourceStore } from '../../db/models/index.js';
 
 /**
  * Simulate human settlement behavior each tick.
- * Settlements are not static — they produce, consume, adjust prices,
- * shift attitudes, and occasionally generate events.
+ * Handles attitude drift, status checks, and market price updates.
+ * NOTE: Population growth/decline and status updates are now handled by
+ * SettlementEconomy.ts which runs before this phase. This phase focuses
+ * on attitude drift and market pricing.
  */
 export async function simulateSettlements(tick: number): Promise<number> {
   const settlements = await Settlement.find({ status: { $ne: 'destroyed' } });
   let updated = 0;
 
   for (const settlement of settlements) {
-    // 1. Population growth/decline
-    const growthRate = settlement.status === 'thriving' ? 0.0001
-      : settlement.status === 'stable' ? 0.00005
-      : settlement.status === 'struggling' ? -0.0001
-      : settlement.status === 'damaged' ? -0.001
-      : 0;
-    settlement.population = Math.max(0, Math.round(settlement.population * (1 + growthRate)));
-
-    // 2. Attitude drift — slowly regress toward neutral
+    // 1. Attitude drift — slowly regress toward neutral
     if (settlement.attitude.general > 0.5) {
       settlement.attitude.general -= 0.001;
     } else if (settlement.attitude.general < 0.5) {
@@ -26,18 +20,15 @@ export async function simulateSettlements(tick: number): Promise<number> {
     }
     settlement.attitude.general = Math.max(-1, Math.min(1, settlement.attitude.general));
 
-    // 3. Status updates based on population
+    // 2. Status: destroyed check (population handled by SettlementEconomy)
     if (settlement.population <= 0) {
       settlement.status = 'destroyed';
-    } else if (settlement.status === 'damaged' && tick % 100 === 0) {
-      // Damaged settlements slowly recover
-      settlement.status = 'struggling';
     }
 
     settlement.markModified('attitude');
     await settlement.save();
 
-    // 4. Market price fluctuation
+    // 3. Market price fluctuation (stockpile-driven)
     const market = await Market.findOne({ settlementId: settlement._id });
     if (market) {
       await fluctuateMarketPrices(market, settlement, tick);
@@ -50,8 +41,8 @@ export async function simulateSettlements(tick: number): Promise<number> {
 }
 
 /**
- * Fluctuate market prices based on supply, demand, and randomness.
- * Prices shift slightly each tick to create trading opportunities.
+ * Fluctuate market prices based on actual stockpile levels.
+ * Prices are driven by supply fundamentals with small random noise (±2%).
  */
 async function fluctuateMarketPrices(
   market: InstanceType<typeof Market>,
@@ -64,38 +55,44 @@ async function fluctuateMarketPrices(
   const buyPrices = market.prices.buy as Record<string, number>;
   const sellPrices = market.prices.sell as Record<string, number>;
 
-  const production = settlement.production as Record<string, number> || {};
   const consumption = settlement.consumption as Record<string, number> || {};
 
-  for (const resource of market.availableResources) {
-    // Base random walk: ±5%
-    const volatility = 0.05;
-    const change = 1 + (Math.random() - 0.5) * 2 * volatility;
+  // Get settlement's stockpile for supply-driven pricing
+  const stockpile = await ResourceStore.findOne({
+    'ownerRef.kind': 'Settlement',
+    'ownerRef.item': settlement._id,
+  });
 
-    // Supply/demand modifier:
-    // Resources the settlement PRODUCES are cheaper to buy (surplus)
-    // Resources the settlement CONSUMES they pay more for (demand)
-    const produces = production[resource] || 0;
-    const consumes = consumption[resource] || 0;
+  for (const resource of market.availableResources) {
+    // Compute supply multiplier from stockpile level
+    let supplyMultiplier = 1.0;
+
+    if (stockpile) {
+      const storeAny = stockpile as unknown as Record<string, number>;
+      const stock = storeAny[resource] ?? 0;
+      const consumptionRate = consumption[resource] || 1;
+      const ticksOfSupply = stock / consumptionRate;
+
+      if (ticksOfSupply > 100) supplyMultiplier = 0.8;       // surplus -> cheap
+      else if (ticksOfSupply > 50) supplyMultiplier = 0.9;
+      else if (ticksOfSupply < 5) supplyMultiplier = 2.0;     // crisis -> spike
+      else if (ticksOfSupply < 10) supplyMultiplier = 1.5;    // deficit -> expensive
+    }
+
+    // Small random noise ±2%
+    const noise = 1 + (Math.random() - 0.5) * 0.04;
 
     if (resource in buyPrices) {
-      let price = buyPrices[resource] * change;
-      // They pay MORE for things they consume (high demand)
-      if (consumes > 0) price *= 1 + (consumes / 500) * 0.1;
-      // They pay LESS for things they produce (low demand)
-      if (produces > 0) price *= 1 - (produces / 500) * 0.05;
-      buyPrices[resource] = Math.max(1, Math.round(price * 10) / 10);
+      // When supply is low (supplyMultiplier high), buy price goes UP (they want it badly)
+      buyPrices[resource] = Math.max(1, Math.round(buyPrices[resource] * supplyMultiplier * noise * 10) / 10);
     }
     if (resource in sellPrices) {
-      let price = sellPrices[resource] * change;
-      // They charge LESS for things they produce (surplus)
-      if (produces > 0) price *= 1 - (produces / 500) * 0.1;
-      // They charge MORE for things they consume (scarcity)
-      if (consumes > 0) price *= 1 + (consumes / 500) * 0.05;
-      sellPrices[resource] = Math.max(1, Math.round(price * 10) / 10);
+      // When supply is low, sell price goes UP (they hoard / charge more)
+      // When supply is high, sell price goes DOWN (they dump)
+      sellPrices[resource] = Math.max(1, Math.round(sellPrices[resource] * supplyMultiplier * noise * 10) / 10);
     }
 
-    // Ensure buy price < sell price (market spread — they buy low, sell high)
+    // Ensure buy price < sell price (market spread)
     if (resource in buyPrices && resource in sellPrices) {
       if (buyPrices[resource] >= sellPrices[resource]) {
         sellPrices[resource] = Math.round(buyPrices[resource] * 1.3 * 10) / 10;
@@ -107,10 +104,10 @@ async function fluctuateMarketPrices(
   if (settlement.attitude.general < 0) {
     const penalty = Math.abs(settlement.attitude.general);
     for (const resource of Object.keys(sellPrices)) {
-      sellPrices[resource] *= (1 + penalty * 0.5);
+      sellPrices[resource] = Math.round(sellPrices[resource] * (1 + penalty * 0.5) * 10) / 10;
     }
     for (const resource of Object.keys(buyPrices)) {
-      buyPrices[resource] *= (1 - penalty * 0.3);
+      buyPrices[resource] = Math.round(buyPrices[resource] * (1 - penalty * 0.3) * 10) / 10;
     }
   }
 

@@ -17,6 +17,8 @@ import { processNPCTraffic } from './systems/NPCTraffic.js';
 import { simulateWorldWithMC } from './systems/MCWorldSimulator.js';
 import { executeAllAMIs } from './systems/AMIExecutor.js';
 import { processPirateActivity } from './systems/PirateActivity.js';
+import { processSettlementEconomy } from './systems/SettlementEconomy.js';
+import { processNPCDispatch } from './systems/NPCDispatch.js';
 
 /**
  * Orchestrates the processing of a single game tick.
@@ -118,42 +120,56 @@ export class TickProcessor {
       errors.push(`Research: ${err instanceof Error ? err.message : String(err)}`);
     }
 
-    // Phase 11: Settlement Behavior (NPC simulation)
+    // Phase 11: Settlement Economy (consume, produce, population)
+    try {
+      await processSettlementEconomy(tickNumber);
+    } catch (err) {
+      errors.push(`SettlementEconomy: ${err instanceof Error ? err.message : String(err)}`);
+    }
+
+    // Phase 12: Settlement Behavior (price updates based on stockpiles, attitude drift)
     try {
       await simulateSettlements(tickNumber);
     } catch (err) {
       errors.push(`Settlements: ${err instanceof Error ? err.message : String(err)}`);
     }
 
-    // Phase 12: Hull Degradation & Maintenance
+    // Phase 13: Hull Degradation & Maintenance
     try {
       await processMaintenance(tickNumber);
     } catch (err) {
       errors.push(`Maintenance: ${err instanceof Error ? err.message : String(err)}`);
     }
 
-    // Phase 13: Orbital Fuel Drain
+    // Phase 14: Orbital Fuel Drain
     try {
       await processOrbitFuelDrain(tickNumber);
     } catch (err) {
       errors.push(`FuelConsumption: ${err instanceof Error ? err.message : String(err)}`);
     }
 
-    // Phase 14: Captain's Log (auto-generated log entries)
+    // Phase 15: Captain's Log (auto-generated log entries)
     try {
       await generateCaptainsLog(tickNumber);
     } catch (err) {
       errors.push(`CaptainsLog: ${err instanceof Error ? err.message : String(err)}`);
     }
 
-    // Phase 15: NPC Traffic
+    // Phase 16: NPC Traffic (fleet maintenance + random movement for non-dispatched ships)
     try {
       await processNPCTraffic(tickNumber);
     } catch (err) {
       errors.push(`NPCTraffic: ${err instanceof Error ? err.message : String(err)}`);
     }
 
-    // Phase 16: Pirate Activity
+    // Phase 17: NPC Dispatch (goal-driven freighter dispatch based on settlement deficits)
+    try {
+      await processNPCDispatch(tickNumber);
+    } catch (err) {
+      errors.push(`NPCDispatch: ${err instanceof Error ? err.message : String(err)}`);
+    }
+
+    // Phase 18: Pirate Activity
     try {
       const pirateLogs = await processPirateActivity(tickNumber);
       if (pirateLogs.length > 0) {
@@ -163,7 +179,7 @@ export class TickProcessor {
       errors.push(`PirateActivity: ${err instanceof Error ? err.message : String(err)}`);
     }
 
-    // Phase 17: MC World Simulation (LLM-driven dynamic events, every ~50 ticks)
+    // Phase 19: MC World Simulation (LLM-driven dynamic events, every ~50 ticks)
     try {
       const mcLogs = await simulateWorldWithMC(tickNumber);
       if (mcLogs.length > 0) {
@@ -173,7 +189,7 @@ export class TickProcessor {
       errors.push(`MCWorldSim: ${err instanceof Error ? err.message : String(err)}`);
     }
 
-    // Phase 18: Random Events
+    // Phase 20: Random Events
     try {
       const eventLogs = await processRandomEvents(tickNumber);
       if (eventLogs.length > 0) {
@@ -183,7 +199,7 @@ export class TickProcessor {
       errors.push(`RandomEvents: ${err instanceof Error ? err.message : String(err)}`);
     }
 
-    // Phase 16: Save Tick Record
+    // Save Tick Record
     const durationMs = Date.now() - startTime;
 
     tickRecord.completedAt = new Date();

@@ -1,4 +1,4 @@
-import { CelestialBody, Settlement, Market, Faction } from '../models/index.js';
+import { CelestialBody, Settlement, Market, Faction, ResourceStore } from '../models/index.js';
 
 interface SettlementSeed {
   name: string;
@@ -251,6 +251,7 @@ const settlements: SettlementSeed[] = [
 export async function seedSettlements(): Promise<void> {
   await Settlement.deleteMany({});
   await Market.deleteMany({});
+  await ResourceStore.deleteMany({ 'ownerRef.kind': 'Settlement' });
 
   const bodyCache = new Map<string, typeof CelestialBody.prototype>();
 
@@ -280,6 +281,19 @@ export async function seedSettlements(): Promise<void> {
       defenses: seed.defenses,
       status: seed.status,
       position: seed.position,
+    });
+
+    // Initialize settlement stockpile with production/consumption buffers
+    const stockpileInit: Record<string, number> = {};
+    for (const [resource, rate] of Object.entries(seed.production)) {
+      stockpileInit[resource] = (stockpileInit[resource] || 0) + rate * 100;
+    }
+    for (const [resource, rate] of Object.entries(seed.consumption)) {
+      stockpileInit[resource] = (stockpileInit[resource] || 0) + rate * 50;
+    }
+    await ResourceStore.create({
+      ownerRef: { kind: 'Settlement', item: settlement._id },
+      ...stockpileInit,
     });
 
     // Create market if seed has one
