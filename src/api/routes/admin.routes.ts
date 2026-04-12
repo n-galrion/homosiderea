@@ -1,6 +1,6 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import crypto from 'node:crypto';
-import { Tick, Replicant, CelestialBody, Settlement, Market, Ship, ActionQueue, Colony, Technology, Message, Faction, ResourceStore, PriceHistory, Notification } from '../../db/models/index.js';
+import { Tick, Replicant, CelestialBody, Settlement, Market, Ship, ActionQueue, Colony, Technology, Message, Faction, ResourceStore, PriceHistory, Notification, User } from '../../db/models/index.js';
 
 // GameLoop reference will be set at startup
 let gameLoopRef: { forceTick: () => Promise<unknown>; getCurrentTick: () => number } | null = null;
@@ -292,6 +292,35 @@ adminRoutes.post('/notifications/:id/read', async (req: Request, res: Response, 
   try {
     await Notification.findByIdAndUpdate(req.params.id, { read: true });
     res.json({ message: 'Marked as read' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Promote a user to a different role (REST API)
+adminRoutes.put('/users/:id/role', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { role } = req.body;
+    if (!role || !['operator', 'owner', 'spectator'].includes(role)) {
+      res.status(400).json({ error: 'VALIDATION', message: 'role must be operator, owner, or spectator' });
+      return;
+    }
+    const user = await User.findByIdAndUpdate(req.params.id, { role }, { new: true });
+    if (!user) {
+      res.status(404).json({ error: 'NOT_FOUND', message: 'User not found' });
+      return;
+    }
+    res.json({ message: `User ${user.username} role changed to ${role}`, user: { id: user._id, username: user.username, role: user.role } });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// List all users (admin view)
+adminRoutes.get('/users', async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const users = await User.find().select('-passwordHash').lean();
+    res.json(users);
   } catch (err) {
     next(err);
   }
