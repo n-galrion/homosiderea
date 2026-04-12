@@ -4,350 +4,2172 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Homosideria — Mission Control</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --bg: #0a0e17; --surface: #111827; --border: #1f2937;
-    --text: #e5e7eb; --dim: #6b7280; --accent: #3b82f6;
-    --green: #10b981; --red: #ef4444; --yellow: #f59e0b; --purple: #8b5cf6;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: var(--bg); color: var(--text); font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 13px; }
-  h1 { font-size: 18px; color: var(--accent); letter-spacing: 2px; text-transform: uppercase; }
-  h2 { font-size: 14px; color: var(--accent); margin-bottom: 8px; letter-spacing: 1px; text-transform: uppercase; }
-  h3 { font-size: 12px; color: var(--dim); margin-bottom: 4px; text-transform: uppercase; }
+/* ===== CSS VARIABLES ===== */
+:root {
+  --bg: #0a0e17;
+  --surface: #111827;
+  --surface-alt: #0f1520;
+  --border: #1f2937;
+  --border-light: #374151;
+  --text: #e5e7eb;
+  --text-bright: #f9fafb;
+  --dim: #6b7280;
+  --dim-light: #9ca3af;
+  --accent: #3b82f6;
+  --accent-dim: #1e40af;
+  --green: #10b981;
+  --green-dim: #064e3b;
+  --red: #ef4444;
+  --red-dim: #450a0a;
+  --yellow: #f59e0b;
+  --yellow-dim: #451a03;
+  --purple: #8b5cf6;
+  --purple-dim: #2e1065;
+  --orange: #f97316;
+  --orange-dim: #431407;
+  --cyan: #06b6d4;
+  --cyan-dim: #083344;
+  --sidebar-w: 200px;
+  --header-h: 52px;
+}
 
-  .header { display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; border-bottom: 1px solid var(--border); }
-  .header-right { display: flex; gap: 12px; align-items: center; }
-  .header-right input { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 4px 8px; border-radius: 4px; font-family: inherit; font-size: 12px; width: 200px; }
-  .header-right button { background: var(--accent); color: #fff; border: none; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-family: inherit; font-size: 12px; }
-  .header-right button:hover { opacity: 0.85; }
-  .header-right button.danger { background: var(--red); }
+/* ===== RESET ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+}
 
-  .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1px; background: var(--border); height: calc(100vh - 49px); }
-  .panel { background: var(--surface); padding: 12px; overflow-y: auto; }
-  .panel.wide { grid-column: span 2; }
-  .panel.tall { grid-row: span 2; }
+/* ===== SCROLLBAR ===== */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--dim); }
 
-  .stat { display: inline-block; margin-right: 16px; margin-bottom: 6px; }
-  .stat-val { font-size: 18px; font-weight: bold; }
-  .stat-label { font-size: 10px; color: var(--dim); text-transform: uppercase; }
+/* ===== HEADER ===== */
+.header {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  height: var(--header-h);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.header-left { display: flex; align-items: center; gap: 16px; }
+.header-left h1 {
+  font-size: 14px; font-weight: 600;
+  color: var(--accent);
+  letter-spacing: 2px; text-transform: uppercase;
+  white-space: nowrap;
+}
+.header-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.header-right input[type="text"] {
+  background: var(--bg); border: 1px solid var(--border);
+  color: var(--text); padding: 5px 10px; border-radius: 4px;
+  font-family: inherit; font-size: 11px; width: 200px;
+}
+.header-right input[type="text"]:focus { outline: none; border-color: var(--accent); }
+.header-right input[type="text"]::placeholder { color: var(--dim); }
 
-  .badge { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 10px; font-weight: bold; }
-  .badge-green { background: #064e3b; color: var(--green); }
-  .badge-yellow { background: #451a03; color: var(--yellow); }
-  .badge-red { background: #450a0a; color: var(--red); }
-  .badge-blue { background: #172554; color: var(--accent); }
-  .badge-purple { background: #2e1065; color: var(--purple); }
+.btn {
+  background: var(--border); color: var(--text); border: 1px solid var(--border-light);
+  padding: 5px 12px; border-radius: 4px; cursor: pointer;
+  font-family: inherit; font-size: 11px; font-weight: 500;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.btn:hover { background: var(--border-light); }
+.btn-accent { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+.btn-accent:hover { background: var(--accent); color: #fff; }
+.btn-danger { background: var(--red-dim); border-color: var(--red); color: var(--red); }
+.btn-danger:hover { background: var(--red); color: #fff; }
+.btn-green { background: var(--green-dim); border-color: var(--green); color: var(--green); }
+.btn-green:hover { background: var(--green); color: #fff; }
+.btn-sm { padding: 3px 8px; font-size: 10px; }
 
-  table { width: 100%; border-collapse: collapse; margin-top: 6px; }
-  th, td { text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--border); font-size: 12px; }
-  th { color: var(--dim); font-size: 10px; text-transform: uppercase; }
-  tr:hover { background: rgba(59,130,246,0.05); }
+.tick-display {
+  font-size: 16px; font-weight: 700; color: var(--green);
+  letter-spacing: 1px;
+}
 
-  canvas { width: 100%; height: 100%; background: var(--bg); border-radius: 4px; }
+.toggle-label {
+  display: flex; align-items: center; gap: 6px;
+  color: var(--dim-light); font-size: 11px; cursor: pointer;
+  user-select: none;
+}
+.toggle-label input[type="checkbox"] { accent-color: var(--accent); }
+.toggle-label.active { color: var(--green); }
 
-  .log-entry { padding: 3px 0; border-bottom: 1px solid var(--border); font-size: 11px; }
-  .log-tick { color: var(--dim); margin-right: 6px; }
-  .log-type { color: var(--accent); margin-right: 6px; }
+/* ===== SIDEBAR ===== */
+.sidebar {
+  position: fixed; top: var(--header-h); left: 0; bottom: 0;
+  width: var(--sidebar-w);
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  padding: 8px 0;
+  overflow-y: auto;
+  z-index: 50;
+}
+.sidebar-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 16px;
+  color: var(--dim-light);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  transition: all 0.15s;
+  border-left: 3px solid transparent;
+}
+.sidebar-item:hover { color: var(--text); background: rgba(255,255,255,0.03); }
+.sidebar-item.active {
+  color: var(--accent);
+  background: rgba(59,130,246,0.08);
+  border-left-color: var(--accent);
+}
+.sidebar-item .icon { font-size: 14px; width: 20px; text-align: center; }
 
-  .resource-bar { display: flex; align-items: center; gap: 6px; margin: 2px 0; }
-  .resource-bar .name { width: 80px; color: var(--dim); font-size: 11px; }
-  .resource-bar .bar { flex: 1; height: 12px; background: #1f2937; border-radius: 2px; overflow: hidden; }
-  .resource-bar .bar-fill { height: 100%; border-radius: 2px; transition: width 0.3s; }
-  .resource-bar .val { width: 80px; text-align: right; font-size: 11px; }
+/* ===== MAIN CONTENT ===== */
+.main {
+  position: fixed;
+  top: var(--header-h); left: var(--sidebar-w);
+  right: 0; bottom: 0;
+  overflow-y: auto;
+  padding: 20px;
+}
 
-  .clickable { cursor: pointer; }
-  .clickable:hover { color: var(--accent); }
-  .selected { background: rgba(59,130,246,0.1) !important; }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
 
-  #detail-panel { display: none; }
-  #detail-panel.active { display: block; }
+/* ===== CARDS & PANELS ===== */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.card-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px;
+}
+.card-title {
+  font-size: 13px; font-weight: 600; color: var(--text-bright);
+  letter-spacing: 0.5px; text-transform: uppercase;
+}
 
-  .tabs { display: flex; gap: 2px; margin-bottom: 8px; }
-  .tab { padding: 4px 12px; background: var(--bg); color: var(--dim); cursor: pointer; border-radius: 4px 4px 0 0; font-size: 11px; }
-  .tab.active { background: var(--surface); color: var(--accent); }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+.grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 16px; }
+
+.stat-card {
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 14px 16px;
+}
+.stat-label { font-size: 10px; color: var(--dim); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+.stat-value { font-size: 22px; font-weight: 700; color: var(--text-bright); }
+.stat-value.green { color: var(--green); }
+.stat-value.accent { color: var(--accent); }
+.stat-value.purple { color: var(--purple); }
+.stat-value.yellow { color: var(--yellow); }
+.stat-value.red { color: var(--red); }
+
+/* ===== TABLES ===== */
+.table-wrap { overflow-x: auto; }
+table {
+  width: 100%; border-collapse: collapse;
+  font-size: 11px;
+}
+th {
+  text-align: left; padding: 8px 10px;
+  background: var(--surface-alt);
+  color: var(--dim-light); font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.5px; font-size: 10px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+  position: sticky; top: 0; z-index: 1;
+}
+td {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+tr:hover td { background: rgba(255,255,255,0.02); }
+tr.clickable { cursor: pointer; }
+tr.clickable:hover td { background: rgba(59,130,246,0.06); }
+
+/* ===== BADGES ===== */
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.badge-green { background: var(--green-dim); color: var(--green); border: 1px solid rgba(16,185,129,0.3); }
+.badge-red { background: var(--red-dim); color: var(--red); border: 1px solid rgba(239,68,68,0.3); }
+.badge-yellow { background: var(--yellow-dim); color: var(--yellow); border: 1px solid rgba(245,158,11,0.3); }
+.badge-blue { background: var(--accent-dim); color: var(--accent); border: 1px solid rgba(59,130,246,0.3); }
+.badge-purple { background: var(--purple-dim); color: var(--purple); border: 1px solid rgba(139,92,246,0.3); }
+.badge-gray { background: var(--border); color: var(--dim-light); border: 1px solid var(--border-light); }
+.badge-orange { background: var(--orange-dim); color: var(--orange); border: 1px solid rgba(249,115,22,0.3); }
+.badge-cyan { background: var(--cyan-dim); color: var(--cyan); border: 1px solid rgba(6,182,212,0.3); }
+
+/* ===== PROGRESS BARS ===== */
+.progress-bar {
+  width: 100%;
+  height: 8px;
+  background: var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.progress-bar .fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s;
+}
+.progress-bar .fill.green { background: var(--green); }
+.progress-bar .fill.yellow { background: var(--yellow); }
+.progress-bar .fill.red { background: var(--red); }
+.progress-bar .fill.accent { background: var(--accent); }
+.progress-bar .fill.purple { background: var(--purple); }
+
+.progress-row {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 6px;
+}
+.progress-row .label { width: 100px; font-size: 10px; color: var(--dim-light); text-transform: uppercase; }
+.progress-row .bar-wrap { flex: 1; }
+.progress-row .pct { width: 45px; text-align: right; font-size: 10px; color: var(--dim-light); }
+
+/* ===== DETAIL PANEL (overlay) ===== */
+.detail-overlay {
+  display: none;
+  position: fixed; top: var(--header-h); right: 0; bottom: 0;
+  width: 560px;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  z-index: 60;
+  overflow-y: auto;
+  padding: 20px;
+  box-shadow: -4px 0 20px rgba(0,0,0,0.4);
+}
+.detail-overlay.open { display: block; }
+.detail-close {
+  position: absolute; top: 12px; right: 12px;
+  background: none; border: 1px solid var(--border);
+  color: var(--dim); cursor: pointer;
+  width: 28px; height: 28px; border-radius: 4px;
+  font-size: 16px; display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s;
+}
+.detail-close:hover { color: var(--red); border-color: var(--red); }
+.detail-header {
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 16px; padding-right: 40px;
+}
+.detail-header h2 { font-size: 16px; font-weight: 700; color: var(--text-bright); }
+.detail-section { margin-bottom: 16px; }
+.detail-section-title {
+  font-size: 10px; font-weight: 600; color: var(--dim);
+  text-transform: uppercase; letter-spacing: 1px;
+  margin-bottom: 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* ===== CODE BLOCK ===== */
+.code-block {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 10px;
+  font-size: 11px;
+  color: var(--dim-light);
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+/* ===== CHART CANVAS ===== */
+.chart-canvas {
+  width: 100%;
+  height: 200px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+/* ===== SOL MAP ===== */
+#sol-map-canvas {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: grab;
+}
+#sol-map-canvas:active { cursor: grabbing; }
+.map-controls {
+  display: flex; gap: 6px; margin-bottom: 10px; align-items: center;
+}
+.map-info {
+  color: var(--dim); font-size: 10px; margin-left: auto;
+}
+
+/* ===== FILTER BAR ===== */
+.filter-bar {
+  display: flex; gap: 10px; align-items: center;
+  margin-bottom: 14px; flex-wrap: wrap;
+}
+.filter-bar select, .filter-bar input {
+  background: var(--bg); border: 1px solid var(--border);
+  color: var(--text); padding: 5px 10px; border-radius: 4px;
+  font-family: inherit; font-size: 11px;
+}
+.filter-bar select:focus, .filter-bar input:focus { outline: none; border-color: var(--accent); }
+.filter-bar label { color: var(--dim); font-size: 10px; text-transform: uppercase; }
+
+/* ===== EXPANDABLE ROWS ===== */
+.expand-content {
+  display: none;
+  padding: 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  margin: 4px 0;
+}
+.expand-content.open { display: block; }
+.expand-toggle { cursor: pointer; color: var(--accent); font-size: 10px; }
+
+/* ===== TECH TREE ===== */
+.tech-domain-group { margin-bottom: 20px; }
+.tech-domain-label {
+  font-size: 11px; font-weight: 700; color: var(--accent);
+  text-transform: uppercase; letter-spacing: 1px;
+  margin-bottom: 8px;
+  padding: 4px 10px;
+  background: rgba(59,130,246,0.08);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 4px 4px 0;
+}
+.tech-lane {
+  display: flex; gap: 12px; overflow-x: auto;
+  padding: 8px 0;
+}
+.tech-card {
+  min-width: 200px;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px;
+  flex-shrink: 0;
+}
+.tech-card-name { font-size: 12px; font-weight: 600; color: var(--text-bright); margin-bottom: 4px; }
+.tech-card-meta { font-size: 10px; color: var(--dim); margin-bottom: 6px; }
+.tech-modifier {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: 600;
+  margin: 1px;
+  background: var(--purple-dim);
+  color: var(--purple);
+  border: 1px solid rgba(139,92,246,0.3);
+}
+
+/* ===== ATTITUDE BAR ===== */
+.attitude-bar-wrap {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 10px;
+}
+.attitude-bar {
+  width: 100px; height: 8px;
+  background: linear-gradient(to right, var(--red), var(--yellow), var(--green));
+  border-radius: 4px;
+  position: relative;
+}
+.attitude-marker {
+  position: absolute; top: -2px;
+  width: 4px; height: 12px;
+  background: #fff;
+  border-radius: 2px;
+  transform: translateX(-50%);
+}
+
+/* ===== RADAR CHART (bar variant) ===== */
+.tech-bars { display: flex; flex-direction: column; gap: 4px; }
+.tech-bar-row {
+  display: flex; align-items: center; gap: 8px;
+}
+.tech-bar-label { width: 90px; font-size: 10px; color: var(--dim-light); text-transform: uppercase; text-align: right; }
+.tech-bar-track { flex: 1; height: 14px; background: var(--border); border-radius: 3px; position: relative; overflow: hidden; }
+.tech-bar-fill { height: 100%; border-radius: 3px; background: var(--accent); transition: width 0.3s; min-width: 1px; }
+.tech-bar-val { position: absolute; right: 4px; top: 0; font-size: 10px; font-weight: 600; color: var(--text-bright); line-height: 14px; }
+
+/* ===== MESSAGES ===== */
+.msg-row {
+  display: flex; gap: 12px; padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+}
+.msg-row:hover { background: rgba(255,255,255,0.02); }
+.msg-meta { color: var(--dim); white-space: nowrap; min-width: 140px; }
+.msg-subject { color: var(--accent); font-weight: 600; cursor: pointer; }
+.msg-body-preview { color: var(--dim-light); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ===== LOADING / EMPTY ===== */
+.loading-text { color: var(--dim); font-size: 11px; padding: 20px; text-align: center; }
+.empty-state { color: var(--dim); font-size: 12px; padding: 30px; text-align: center; }
+
+/* ===== NOTIFICATION ===== */
+.notification {
+  position: fixed; bottom: 20px; right: 20px; z-index: 200;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 16px;
+  font-size: 11px;
+  color: var(--text);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  transform: translateY(100px);
+  opacity: 0;
+  transition: all 0.3s;
+}
+.notification.show { transform: translateY(0); opacity: 1; }
+.notification.success { border-color: var(--green); color: var(--green); }
+.notification.error { border-color: var(--red); color: var(--red); }
 </style>
 </head>
 <body>
 
+<!-- ===== HEADER ===== -->
 <div class="header">
-  <h1>⚛ Homosideria — Mission Control</h1>
+  <div class="header-left">
+    <h1>Homosideria Mission Control</h1>
+    <span class="tick-display" id="tick-display">TICK ---</span>
+  </div>
   <div class="header-right">
-    <input id="admin-key" type="text" placeholder="Admin Key" value="dev-admin-key">
-    <button onclick="forceTick()">Force Tick</button>
-    <button onclick="refresh()">Refresh</button>
-    <span id="tick-display" class="stat-val" style="color: var(--green)">--</span>
+    <input type="text" id="admin-key" placeholder="Admin Key" autocomplete="off">
+    <button class="btn btn-danger" id="btn-force-tick" title="Force a game tick">Force Tick</button>
+    <button class="btn btn-accent" id="btn-refresh" title="Refresh all data">Refresh</button>
+    <label class="toggle-label" id="auto-refresh-label">
+      <input type="checkbox" id="auto-refresh-toggle"> Auto (10s)
+    </label>
   </div>
 </div>
 
-<div class="grid">
-  <!-- System Overview -->
-  <div class="panel">
-    <h2>System Overview</h2>
-    <div id="overview"></div>
-    <h3 style="margin-top: 12px;">Tick History</h3>
-    <div id="tick-history"></div>
-  </div>
-
-  <!-- Sol System Map -->
-  <div class="panel">
-    <h2>Sol System</h2>
-    <canvas id="sol-map"></canvas>
-  </div>
-
-  <!-- Replicants -->
-  <div class="panel">
-    <h2>Replicants</h2>
-    <div id="replicant-list"></div>
-  </div>
-
-  <!-- Settlements & Markets -->
-  <div class="panel">
-    <h2>Settlements</h2>
-    <div id="settlement-list"></div>
-  </div>
-
-  <!-- Detail Panel -->
-  <div class="panel" id="detail-panel">
-    <h2 id="detail-title">Details</h2>
-    <div id="detail-content"></div>
-  </div>
-
-  <!-- Action Log -->
-  <div class="panel">
-    <h2>Action Log</h2>
-    <div id="action-log"></div>
-  </div>
+<!-- ===== SIDEBAR ===== -->
+<div class="sidebar">
+  <div class="sidebar-item active" data-tab="overview"><span class="icon">&#9632;</span> Overview</div>
+  <div class="sidebar-item" data-tab="solmap"><span class="icon">&#9788;</span> Sol Map</div>
+  <div class="sidebar-item" data-tab="bodies"><span class="icon">&#9679;</span> Bodies</div>
+  <div class="sidebar-item" data-tab="replicants"><span class="icon">&#9670;</span> Replicants</div>
+  <div class="sidebar-item" data-tab="ships"><span class="icon">&#9650;</span> Ships</div>
+  <div class="sidebar-item" data-tab="techtree"><span class="icon">&#9733;</span> Tech Tree</div>
+  <div class="sidebar-item" data-tab="colonies"><span class="icon">&#9635;</span> Colonies</div>
+  <div class="sidebar-item" data-tab="settlements"><span class="icon">&#9636;</span> Settlements</div>
+  <div class="sidebar-item" data-tab="actions"><span class="icon">&#9654;</span> Actions</div>
+  <div class="sidebar-item" data-tab="messages"><span class="icon">&#9993;</span> Messages</div>
 </div>
+
+<!-- ===== MAIN ===== -->
+<div class="main">
+
+  <!-- OVERVIEW TAB -->
+  <div class="tab-content active" id="tab-overview">
+    <div class="grid-4" id="overview-stats"></div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-header"><span class="card-title">Tick History (Duration ms)</span></div>
+        <canvas class="chart-canvas" id="tick-chart"></canvas>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Tick History (Actions Processed)</span></div>
+        <canvas class="chart-canvas" id="tick-actions-chart"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">Recent Ticks</span></div>
+      <div class="table-wrap" id="overview-ticks-table"></div>
+    </div>
+  </div>
+
+  <!-- SOL MAP TAB -->
+  <div class="tab-content" id="tab-solmap">
+    <div class="map-controls">
+      <button class="btn btn-sm" id="map-zoom-in">+ Zoom In</button>
+      <button class="btn btn-sm" id="map-zoom-out">- Zoom Out</button>
+      <button class="btn btn-sm" id="map-reset">Reset</button>
+      <label class="toggle-label" style="margin-left:10px">
+        <input type="checkbox" id="map-show-labels" checked> Labels
+      </label>
+      <label class="toggle-label">
+        <input type="checkbox" id="map-show-orbits" checked> Orbits
+      </label>
+      <label class="toggle-label">
+        <input type="checkbox" id="map-show-ships" checked> Ships
+      </label>
+      <span class="map-info" id="map-info">Scroll to zoom, drag to pan</span>
+    </div>
+    <canvas id="sol-map-canvas"></canvas>
+  </div>
+
+  <!-- BODIES TAB -->
+  <div class="tab-content" id="tab-bodies">
+    <div class="card">
+      <div class="card-header"><span class="card-title">Celestial Bodies</span></div>
+      <div class="filter-bar">
+        <label>Type:</label>
+        <select id="bodies-type-filter">
+          <option value="">All</option>
+          <option value="star">Star</option>
+          <option value="planet">Planet</option>
+          <option value="dwarf_planet">Dwarf Planet</option>
+          <option value="moon">Moon</option>
+          <option value="asteroid">Asteroid</option>
+          <option value="comet">Comet</option>
+          <option value="belt_zone">Belt Zone</option>
+        </select>
+      </div>
+      <div class="table-wrap" id="bodies-table"></div>
+    </div>
+  </div>
+
+  <!-- REPLICANTS TAB -->
+  <div class="tab-content" id="tab-replicants">
+    <div class="card">
+      <div class="card-header"><span class="card-title">Replicants</span></div>
+      <div class="table-wrap" id="replicants-table"></div>
+    </div>
+  </div>
+
+  <!-- SHIPS TAB -->
+  <div class="tab-content" id="tab-ships">
+    <div class="card">
+      <div class="card-header"><span class="card-title">Ships</span></div>
+      <div class="filter-bar">
+        <label>Status:</label>
+        <select id="ships-status-filter">
+          <option value="">All</option>
+          <option value="docked">Docked</option>
+          <option value="in_transit">In Transit</option>
+          <option value="orbiting">Orbiting</option>
+        </select>
+        <label>Type:</label>
+        <select id="ships-type-filter">
+          <option value="">All</option>
+          <option value="probe">Probe</option>
+          <option value="shuttle">Shuttle</option>
+          <option value="freighter">Freighter</option>
+          <option value="miner">Miner</option>
+          <option value="warship">Warship</option>
+          <option value="station_module">Station Module</option>
+        </select>
+      </div>
+      <div class="table-wrap" id="ships-table"></div>
+    </div>
+  </div>
+
+  <!-- TECH TREE TAB -->
+  <div class="tab-content" id="tab-techtree">
+    <div class="card">
+      <div class="card-header"><span class="card-title">Technology Tree</span></div>
+      <div id="tech-tree-content"></div>
+    </div>
+  </div>
+
+  <!-- COLONIES TAB -->
+  <div class="tab-content" id="tab-colonies">
+    <div class="card">
+      <div class="card-header"><span class="card-title">Colonies</span></div>
+      <div class="table-wrap" id="colonies-table"></div>
+    </div>
+  </div>
+
+  <!-- SETTLEMENTS TAB -->
+  <div class="tab-content" id="tab-settlements">
+    <div class="card">
+      <div class="card-header"><span class="card-title">Human Settlements</span></div>
+      <div class="table-wrap" id="settlements-table"></div>
+    </div>
+  </div>
+
+  <!-- ACTIONS TAB -->
+  <div class="tab-content" id="tab-actions">
+    <div class="card">
+      <div class="card-header"><span class="card-title">Action Log</span></div>
+      <div class="filter-bar">
+        <label>Type:</label>
+        <select id="actions-type-filter">
+          <option value="">All</option>
+          <option value="scan">scan</option>
+          <option value="move">move</option>
+          <option value="mine">mine</option>
+          <option value="build_structure">build_structure</option>
+          <option value="build_ship">build_ship</option>
+          <option value="manufacture">manufacture</option>
+          <option value="refine">refine</option>
+          <option value="launch_ami">launch_ami</option>
+          <option value="replicate">replicate</option>
+          <option value="send_message">send_message</option>
+          <option value="transfer_resources">transfer_resources</option>
+          <option value="dock">dock</option>
+          <option value="undock">undock</option>
+          <option value="attack">attack</option>
+          <option value="found_colony">found_colony</option>
+          <option value="proposed_action">proposed_action</option>
+        </select>
+        <label>Status:</label>
+        <select id="actions-status-filter">
+          <option value="">All</option>
+          <option value="queued">Queued</option>
+          <option value="processing">Processing</option>
+          <option value="completed">Completed</option>
+          <option value="failed">Failed</option>
+        </select>
+        <label>Replicant:</label>
+        <select id="actions-replicant-filter">
+          <option value="">All</option>
+        </select>
+        <label>Limit:</label>
+        <select id="actions-limit">
+          <option value="50">50</option>
+          <option value="100">100</option>
+          <option value="200">200</option>
+        </select>
+      </div>
+      <div class="table-wrap" id="actions-table"></div>
+    </div>
+  </div>
+
+  <!-- MESSAGES TAB -->
+  <div class="tab-content" id="tab-messages">
+    <div class="card">
+      <div class="card-header"><span class="card-title">Messages</span></div>
+      <div id="messages-list"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ===== DETAIL OVERLAY ===== -->
+<div class="detail-overlay" id="detail-overlay">
+  <button class="detail-close" id="detail-close">&times;</button>
+  <div id="detail-content"></div>
+</div>
+
+<!-- ===== NOTIFICATION ===== -->
+<div class="notification" id="notification"></div>
 
 <script>
-const API = '';
-let adminKey = 'dev-admin-key';
-let bodies = [];
-let replicants = [];
+/* ================================================================
+   HOMOSIDERIA MISSION CONTROL — Dashboard JS
+   ================================================================ */
 
-function $(id) { return document.getElementById(id); }
+// --------------- State ---------------
+const state = {
+  status: null,
+  ticks: [],
+  bodies: [],
+  replicants: [],
+  ships: [],
+  settlements: [],
+  markets: [],
+  colonies: [],
+  technologies: [],
+  actions: [],
+  messages: [],
+  activeTab: 'overview',
+  autoRefresh: false,
+  autoRefreshTimer: null,
+  // Map state
+  mapZoom: 1,
+  mapOffsetX: 0,
+  mapOffsetY: 0,
+  mapDragging: false,
+  mapDragStart: null,
+};
 
-async function api(path, opts = {}) {
-  const headers = { 'X-Admin-Key': adminKey, ...opts.headers };
-  const res = await fetch(API + path, { ...opts, headers });
-  return res.json();
+// --------------- DOM refs ---------------
+const $adminKey = document.getElementById('admin-key');
+const $tickDisplay = document.getElementById('tick-display');
+const $btnForceTick = document.getElementById('btn-force-tick');
+const $btnRefresh = document.getElementById('btn-refresh');
+const $autoRefreshToggle = document.getElementById('auto-refresh-toggle');
+const $autoRefreshLabel = document.getElementById('auto-refresh-label');
+const $detailOverlay = document.getElementById('detail-overlay');
+const $detailClose = document.getElementById('detail-close');
+const $detailContent = document.getElementById('detail-content');
+const $notification = document.getElementById('notification');
+
+// --------------- API helpers ---------------
+function adminHeaders() {
+  const key = $adminKey.value.trim();
+  const h = { 'Content-Type': 'application/json' };
+  if (key) h['X-Admin-Key'] = key;
+  return h;
 }
 
-function badge(text, type) {
-  return `<span class="badge badge-${type}">${text}</span>`;
+async function apiFetch(url, opts = {}) {
+  try {
+    const resp = await fetch(url, { headers: adminHeaders(), ...opts });
+    if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText}`);
+    return await resp.json();
+  } catch (e) {
+    console.error('API error:', url, e);
+    return null;
+  }
+}
+
+// --------------- Notifications ---------------
+let notifTimer = null;
+function notify(msg, type = 'success') {
+  $notification.textContent = msg;
+  $notification.className = 'notification show ' + type;
+  clearTimeout(notifTimer);
+  notifTimer = setTimeout(() => { $notification.className = 'notification'; }, 3000);
+}
+
+// --------------- Data loading ---------------
+async function loadAll() {
+  const [status, ticks, bodies, replicants, ships, settlements, markets, colonies, technologies, actions, messages] =
+    await Promise.all([
+      apiFetch('/api/admin/status'),
+      apiFetch('/api/admin/ticks?limit=50'),
+      apiFetch('/api/public/bodies'),
+      apiFetch('/api/admin/replicants'),
+      apiFetch('/api/admin/ships'),
+      apiFetch('/api/admin/settlements'),
+      apiFetch('/api/admin/markets'),
+      apiFetch('/api/admin/colonies'),
+      apiFetch('/api/admin/technologies'),
+      apiFetch('/api/admin/actions?limit=' + (document.getElementById('actions-limit')?.value || '50')),
+      apiFetch('/api/admin/messages?limit=50'),
+    ]);
+
+  if (status) state.status = status;
+  if (ticks) state.ticks = ticks;
+  if (bodies) state.bodies = bodies;
+  if (replicants) state.replicants = replicants;
+  if (ships) state.ships = ships;
+  if (settlements) state.settlements = settlements;
+  if (markets) state.markets = markets;
+  if (colonies) state.colonies = colonies;
+  if (technologies) state.technologies = technologies;
+  if (actions) state.actions = actions;
+  if (messages) state.messages = messages;
+
+  // Update tick display
+  if (state.status) {
+    $tickDisplay.textContent = 'TICK ' + state.status.currentTick;
+  }
+
+  // Populate replicant filter for actions
+  populateReplicantFilter();
+
+  renderActiveTab();
+}
+
+function populateReplicantFilter() {
+  const sel = document.getElementById('actions-replicant-filter');
+  if (!sel || !state.replicants) return;
+  const current = sel.value;
+  sel.innerHTML = '<option value="">All</option>';
+  state.replicants.forEach(r => {
+    const opt = document.createElement('option');
+    opt.value = r._id;
+    opt.textContent = r.name;
+    sel.appendChild(opt);
+  });
+  sel.value = current;
+}
+
+// --------------- Tab switching ---------------
+function switchTab(tab) {
+  state.activeTab = tab;
+  document.querySelectorAll('.sidebar-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.tab === tab);
+  });
+  document.querySelectorAll('.tab-content').forEach(el => {
+    el.classList.toggle('active', el.id === 'tab-' + tab);
+  });
+  closeDetail();
+  renderActiveTab();
+}
+
+function renderActiveTab() {
+  switch (state.activeTab) {
+    case 'overview': renderOverview(); break;
+    case 'solmap': renderSolMap(); break;
+    case 'bodies': renderBodies(); break;
+    case 'replicants': renderReplicants(); break;
+    case 'ships': renderShips(); break;
+    case 'techtree': renderTechTree(); break;
+    case 'colonies': renderColonies(); break;
+    case 'settlements': renderSettlements(); break;
+    case 'actions': renderActions(); break;
+    case 'messages': renderMessages(); break;
+  }
+}
+
+// --------------- Utility ---------------
+function esc(s) {
+  if (s == null) return '';
+  const d = document.createElement('div');
+  d.textContent = String(s);
+  return d.innerHTML;
 }
 
 function statusBadge(status) {
-  const map = { active: 'green', thriving: 'green', stable: 'blue', operational: 'green',
-    building: 'yellow', struggling: 'yellow', damaged: 'red', destroyed: 'red',
-    dormant: 'yellow', in_transit: 'blue', orbiting: 'green', founding: 'yellow' };
-  return badge(status, map[status] || 'blue');
+  const map = {
+    active: 'green', completed: 'green', thriving: 'green', docked: 'blue',
+    dormant: 'yellow', queued: 'yellow', processing: 'yellow', founding: 'yellow',
+    in_transit: 'cyan', orbiting: 'purple', stable: 'blue',
+    destroyed: 'red', failed: 'red', damaged: 'red', abandoned: 'gray',
+    struggling: 'orange',
+  };
+  return `<span class="badge badge-${map[status] || 'gray'}">${esc(status)}</span>`;
 }
 
-async function loadOverview() {
-  const [status, ticks] = await Promise.all([
-    api('/api/admin/status'),
-    api('/api/admin/ticks?limit=10'),
-  ]);
+function typeBadge(type) {
+  const map = {
+    star: 'yellow', planet: 'blue', dwarf_planet: 'purple', moon: 'gray',
+    asteroid: 'orange', comet: 'cyan', belt_zone: 'gray',
+    probe: 'cyan', shuttle: 'blue', freighter: 'green', miner: 'orange',
+    warship: 'red', station_module: 'purple',
+    city: 'blue', outpost: 'orange', orbital_station: 'purple', colony: 'green',
+  };
+  return `<span class="badge badge-${map[type] || 'gray'}">${esc(type)}</span>`;
+}
 
-  $('tick-display').textContent = `T${status.currentTick}`;
+function fmtNum(n, dec = 0) {
+  if (n == null) return '-';
+  return Number(n).toLocaleString('en-US', { maximumFractionDigits: dec });
+}
 
-  $('overview').innerHTML = `
-    <div class="stat"><div class="stat-val">${status.currentTick}</div><div class="stat-label">Current Tick</div></div>
-    <div class="stat"><div class="stat-val">${status.activeReplicants}</div><div class="stat-label">Replicants</div></div>
-    <div class="stat"><div class="stat-val">${status.celestialBodies}</div><div class="stat-label">Bodies</div></div>
-    <div class="stat"><div class="stat-val">${status.gameLoopActive ? '●' : '○'}</div><div class="stat-label">Loop</div></div>
+function fmtPct(ratio) {
+  return (ratio * 100).toFixed(1) + '%';
+}
+
+function progressColor(ratio) {
+  if (ratio > 0.5) return 'green';
+  if (ratio > 0.2) return 'yellow';
+  return 'red';
+}
+
+function bodyName(id) {
+  const b = state.bodies.find(b => b._id === id);
+  return b ? b.name : (id || '-');
+}
+
+function replicantName(id) {
+  const r = state.replicants.find(r => r._id === id);
+  return r ? r.name : (id || '-');
+}
+
+function posStr(pos) {
+  if (!pos) return '-';
+  return `(${Number(pos.x).toFixed(2)}, ${Number(pos.y).toFixed(2)}, ${Number(pos.z).toFixed(2)})`;
+}
+
+// --------------- Detail panel ---------------
+function openDetail(html) {
+  $detailContent.innerHTML = html;
+  $detailOverlay.classList.add('open');
+}
+
+function closeDetail() {
+  $detailOverlay.classList.remove('open');
+  $detailContent.innerHTML = '';
+}
+
+// ================ RENDER: OVERVIEW ================
+function renderOverview() {
+  const s = state.status || {};
+  const statsDiv = document.getElementById('overview-stats');
+  statsDiv.innerHTML = `
+    <div class="stat-card">
+      <div class="stat-label">Current Tick</div>
+      <div class="stat-value green">${fmtNum(s.currentTick)}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Active Replicants</div>
+      <div class="stat-value accent">${fmtNum(s.activeReplicants)}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Celestial Bodies</div>
+      <div class="stat-value purple">${fmtNum(s.celestialBodies)}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Game Loop</div>
+      <div class="stat-value ${s.gameLoopActive ? 'green' : 'red'}">${s.gameLoopActive ? 'ACTIVE' : 'STOPPED'}</div>
+    </div>
   `;
 
-  $('tick-history').innerHTML = `<table><tr><th>#</th><th>Duration</th><th>Actions</th><th>Msgs</th><th>Errors</th></tr>
-    ${ticks.map(t => `<tr>
-      <td>${t.tickNumber}</td><td>${t.durationMs || '-'}ms</td>
-      <td>${t.actionsProcessed}</td><td>${t.messagesDelivered}</td>
-      <td>${t.tickErrors?.length || 0}</td>
-    </tr>`).join('')}</table>`;
+  renderTickChart();
+  renderTickActionsChart();
+  renderTicksTable();
 }
 
-async function loadBodies() {
-  bodies = await api('/api/public/bodies');
+function renderTickChart() {
+  const canvas = document.getElementById('tick-chart');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const rect = canvas.parentElement.getBoundingClientRect();
+  canvas.width = rect.width - 32;
+  canvas.height = 200;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  const ticks = [...state.ticks].reverse();
+  if (ticks.length === 0) {
+    ctx.fillStyle = '#6b7280';
+    ctx.font = '12px JetBrains Mono';
+    ctx.textAlign = 'center';
+    ctx.fillText('No tick data', canvas.width / 2, 100);
+    return;
+  }
+
+  const values = ticks.map(t => t.durationMs || 0);
+  const maxVal = Math.max(...values, 1);
+  const padding = { top: 20, right: 20, bottom: 30, left: 50 };
+  const w = canvas.width - padding.left - padding.right;
+  const h = canvas.height - padding.top - padding.bottom;
+  const barW = Math.max(2, Math.min(20, (w / values.length) - 2));
+
+  // Grid lines
+  ctx.strokeStyle = '#1f2937';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = padding.top + (h / 4) * i;
+    ctx.beginPath(); ctx.moveTo(padding.left, y); ctx.lineTo(canvas.width - padding.right, y); ctx.stroke();
+    ctx.fillStyle = '#6b7280';
+    ctx.font = '9px JetBrains Mono';
+    ctx.textAlign = 'right';
+    ctx.fillText(Math.round(maxVal - (maxVal / 4) * i) + 'ms', padding.left - 5, y + 3);
+  }
+
+  // Bars
+  values.forEach((v, i) => {
+    const x = padding.left + (i / values.length) * w + (w / values.length - barW) / 2;
+    const bh = (v / maxVal) * h;
+    const y = padding.top + h - bh;
+    ctx.fillStyle = v > maxVal * 0.8 ? '#ef4444' : v > maxVal * 0.5 ? '#f59e0b' : '#3b82f6';
+    ctx.fillRect(x, y, barW, bh);
+  });
+
+  // X labels (every ~5)
+  ctx.fillStyle = '#6b7280';
+  ctx.font = '9px JetBrains Mono';
+  ctx.textAlign = 'center';
+  const step = Math.max(1, Math.floor(ticks.length / 8));
+  for (let i = 0; i < ticks.length; i += step) {
+    const x = padding.left + (i / values.length) * w + (w / values.length) / 2;
+    ctx.fillText('T' + ticks[i].tickNumber, x, canvas.height - 5);
+  }
+}
+
+function renderTickActionsChart() {
+  const canvas = document.getElementById('tick-actions-chart');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const rect = canvas.parentElement.getBoundingClientRect();
+  canvas.width = rect.width - 32;
+  canvas.height = 200;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  const ticks = [...state.ticks].reverse();
+  if (ticks.length === 0) {
+    ctx.fillStyle = '#6b7280';
+    ctx.font = '12px JetBrains Mono';
+    ctx.textAlign = 'center';
+    ctx.fillText('No tick data', canvas.width / 2, 100);
+    return;
+  }
+
+  const values = ticks.map(t => t.actionsProcessed || 0);
+  const maxVal = Math.max(...values, 1);
+  const padding = { top: 20, right: 20, bottom: 30, left: 50 };
+  const w = canvas.width - padding.left - padding.right;
+  const h = canvas.height - padding.top - padding.bottom;
+
+  // Grid
+  ctx.strokeStyle = '#1f2937';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = padding.top + (h / 4) * i;
+    ctx.beginPath(); ctx.moveTo(padding.left, y); ctx.lineTo(canvas.width - padding.right, y); ctx.stroke();
+    ctx.fillStyle = '#6b7280';
+    ctx.font = '9px JetBrains Mono';
+    ctx.textAlign = 'right';
+    ctx.fillText(Math.round(maxVal - (maxVal / 4) * i), padding.left - 5, y + 3);
+  }
+
+  // Line
+  ctx.strokeStyle = '#10b981';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  values.forEach((v, i) => {
+    const x = padding.left + (i / (values.length - 1 || 1)) * w;
+    const y = padding.top + h - (v / maxVal) * h;
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  // Dots
+  values.forEach((v, i) => {
+    const x = padding.left + (i / (values.length - 1 || 1)) * w;
+    const y = padding.top + h - (v / maxVal) * h;
+    ctx.fillStyle = '#10b981';
+    ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fill();
+  });
+
+  // X labels
+  ctx.fillStyle = '#6b7280';
+  ctx.font = '9px JetBrains Mono';
+  ctx.textAlign = 'center';
+  const step = Math.max(1, Math.floor(ticks.length / 8));
+  for (let i = 0; i < ticks.length; i += step) {
+    const x = padding.left + (i / (values.length - 1 || 1)) * w;
+    ctx.fillText('T' + ticks[i].tickNumber, x, canvas.height - 5);
+  }
+}
+
+function renderTicksTable() {
+  const wrap = document.getElementById('overview-ticks-table');
+  if (!state.ticks || state.ticks.length === 0) {
+    wrap.innerHTML = '<div class="empty-state">No ticks recorded yet.</div>';
+    return;
+  }
+  let html = `<table><thead><tr>
+    <th>Tick</th><th>Duration</th><th>Actions</th><th>AMIs</th><th>Messages</th><th>Errors</th><th>Time</th>
+  </tr></thead><tbody>`;
+  state.ticks.slice(0, 20).forEach(t => {
+    const errCount = (t.tickErrors && t.tickErrors.length) || 0;
+    html += `<tr>
+      <td style="font-weight:600;color:var(--accent)">${t.tickNumber}</td>
+      <td>${t.durationMs != null ? t.durationMs + 'ms' : '-'}</td>
+      <td>${t.actionsProcessed || 0}</td>
+      <td>${t.amisExecuted || 0}</td>
+      <td>${t.messagesDelivered || 0}</td>
+      <td style="color:${errCount > 0 ? 'var(--red)' : 'var(--dim)'}">${errCount}</td>
+      <td style="color:var(--dim)">${t.startedAt ? new Date(t.startedAt).toLocaleTimeString() : '-'}</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+}
+
+// ================ RENDER: SOL MAP ================
+let mapCanvas, mapCtx;
+
+function renderSolMap() {
+  mapCanvas = document.getElementById('sol-map-canvas');
+  mapCtx = mapCanvas.getContext('2d');
+
+  const main = document.querySelector('.main');
+  const mapControls = document.querySelector('.map-controls');
+  const availH = main.clientHeight - (mapControls ? mapControls.offsetHeight + 20 : 50) - 40;
+  const availW = main.clientWidth - 40;
+  mapCanvas.width = availW;
+  mapCanvas.height = Math.max(400, availH);
+
   drawMap();
 }
 
-async function loadReplicants() {
-  replicants = await api('/api/admin/replicants');
-  $('replicant-list').innerHTML = replicants.length === 0
-    ? '<div style="color:var(--dim)">No replicants yet.</div>'
-    : `<table><tr><th>Name</th><th>Status</th><th>Compute</th><th>Energy</th><th>Parent</th></tr>
-    ${replicants.map(r => `<tr class="clickable" onclick="showReplicant('${r._id}')">
-      <td>${r.name}</td><td>${statusBadge(r.status)}</td>
-      <td>${r.computeCycles}</td><td>${r.energyBudget}</td>
-      <td>${r.parentId ? '↑' : '—'}</td>
-    </tr>`).join('')}</table>`;
-}
-
-async function loadSettlements() {
-  // Use admin endpoint — get all settlements via world bodies on Earth
-  const earthBodies = bodies.filter(b => ['planet', 'moon'].includes(b.type));
-  let allSettlements = [];
-  for (const body of earthBodies.slice(0, 5)) {
-    try {
-      const detail = await api(`/api/world/bodies/${body._id}`);
-      // settlements aren't on world API, try colony sites
-    } catch(e) {}
-  }
-  // Fallback: just show from admin
-  try {
-    const res = await fetch('/api/admin/settlements', { headers: { 'X-Admin-Key': adminKey } });
-    if (res.ok) allSettlements = await res.json();
-  } catch(e) {}
-
-  if (allSettlements.length === 0) {
-    $('settlement-list').innerHTML = '<div style="color:var(--dim)">Settlements API not available from admin. Add /api/admin/settlements route.</div>';
-    return;
-  }
-  $('settlement-list').innerHTML = `<table><tr><th>Name</th><th>Nation</th><th>Pop</th><th>Status</th></tr>
-    ${allSettlements.map(s => `<tr><td>${s.name}</td><td>${s.nation}</td>
-      <td>${(s.population/1e6).toFixed(1)}M</td><td>${statusBadge(s.status)}</td></tr>`).join('')}</table>`;
-}
-
-async function showReplicant(id) {
-  const r = replicants.find(r => r._id === id);
-  if (!r) return;
-
-  $('detail-panel').className = 'panel active';
-  $('detail-title').textContent = r.name;
-
-  const techLevels = r.techLevels || {};
-  const techStr = Object.keys(techLevels).length > 0
-    ? Object.entries(techLevels).map(([k,v]) => `${k}: ${v}`).join(', ')
-    : 'none';
-
-  $('detail-content').innerHTML = `
-    <h3>Identity</h3>
-    <div>Status: ${statusBadge(r.status)} &nbsp; ID: <code>${r._id}</code></div>
-    <div>Parent: ${r.parentId || 'none'} &nbsp; Lineage depth: ${r.lineage?.length || 0}</div>
-    <div>Created tick: ${r.createdAtTick} &nbsp; Last active: ${r.lastActiveTick}</div>
-    <div>Reboots: ${r.rebootCount || 0}</div>
-
-    <h3 style="margin-top:10px">Resources</h3>
-    <div class="resource-bar"><span class="name">Compute</span>
-      <div class="bar"><div class="bar-fill" style="width:${r.computeCycles/10}%;background:var(--accent)"></div></div>
-      <span class="val">${r.computeCycles}</span></div>
-    <div class="resource-bar"><span class="name">Energy</span>
-      <div class="bar"><div class="bar-fill" style="width:${r.energyBudget}%;background:var(--yellow)"></div></div>
-      <span class="val">${r.energyBudget}</span></div>
-
-    <h3 style="margin-top:10px">Tech Levels</h3>
-    <div>${techStr}</div>
-
-    <h3 style="margin-top:10px">Directive</h3>
-    <div style="background:var(--bg);padding:8px;border-radius:4px;font-size:11px;max-height:120px;overflow-y:auto;white-space:pre-wrap">${r.directive || 'none'}</div>
-
-    <h3 style="margin-top:10px">Access Control</h3>
-    <div>Physical access: ${r.accessControl?.physicalAccessEnabled ? badge('ENABLED','yellow') : badge('DISABLED','green')}</div>
-    <div>Security level: ${r.accessControl?.securityLevel || 1}</div>
-    <div>Authorized modifiers: ${r.accessControl?.authorizedModifiers?.length || 0}</div>
-    <div>Authorized readers: ${r.accessControl?.authorizedReaders?.length || 0}</div>
-  `;
-}
-
 function drawMap() {
-  const canvas = $('sol-map');
-  const rect = canvas.parentElement.getBoundingClientRect();
-  canvas.width = rect.width - 24;
-  canvas.height = rect.height - 40;
-  const ctx = canvas.getContext('2d');
-  const w = canvas.width, h = canvas.height;
-  const cx = w / 2, cy = h / 2;
+  if (!mapCtx) return;
+  const ctx = mapCtx;
+  const W = mapCanvas.width;
+  const H = mapCanvas.height;
+  const cx = W / 2 + state.mapOffsetX;
+  const cy = H / 2 + state.mapOffsetY;
 
-  // Scale: 1 AU = scale pixels. Show inner system by default.
-  const scale = Math.min(w, h) / 8;
-
+  ctx.clearRect(0, 0, W, H);
   ctx.fillStyle = '#0a0e17';
-  ctx.fillRect(0, 0, w, h);
+  ctx.fillRect(0, 0, W, H);
 
-  // Draw orbit circles
-  ctx.strokeStyle = '#1a1a2e';
-  ctx.lineWidth = 0.5;
-  for (const r of [0.39, 0.72, 1.0, 1.52, 2.5, 3.5]) {
-    ctx.beginPath();
-    ctx.arc(cx, cy, r * scale, 0, Math.PI * 2);
-    ctx.stroke();
+  // Stars background
+  if (!mapCanvas._stars) {
+    mapCanvas._stars = [];
+    for (let i = 0; i < 200; i++) {
+      mapCanvas._stars.push({ x: Math.random() * W, y: Math.random() * H, s: Math.random() * 1.5 + 0.5, b: Math.random() * 0.5 + 0.2 });
+    }
+  }
+  mapCanvas._stars.forEach(s => {
+    ctx.fillStyle = `rgba(255,255,255,${s.b})`;
+    ctx.fillRect(s.x, s.y, s.s, s.s);
+  });
+
+  const showLabels = document.getElementById('map-show-labels')?.checked;
+  const showOrbits = document.getElementById('map-show-orbits')?.checked;
+  const showShips = document.getElementById('map-show-ships')?.checked;
+
+  // Scale: 1 AU = baseScale * zoom pixels
+  const baseScale = Math.min(W, H) / 12;
+  const scale = baseScale * state.mapZoom;
+
+  const bodies = state.bodies || [];
+  const typeColors = {
+    star: '#fbbf24',
+    planet: '#3b82f6',
+    dwarf_planet: '#8b5cf6',
+    moon: '#9ca3af',
+    asteroid: '#f97316',
+    comet: '#06b6d4',
+    belt_zone: '#374151',
+  };
+  const typeSizes = {
+    star: 10,
+    planet: 5,
+    dwarf_planet: 4,
+    moon: 3,
+    asteroid: 2,
+    comet: 2,
+    belt_zone: 0,
+  };
+
+  // Draw orbit circles for planets
+  if (showOrbits) {
+    bodies.filter(b => b.orbit && b.orbit.semiMajorAxis && (b.type === 'planet' || b.type === 'dwarf_planet')).forEach(b => {
+      const r = b.orbit.semiMajorAxis * scale;
+      if (r < 5 || r > Math.max(W, H) * 2) return;
+      ctx.strokeStyle = 'rgba(31,41,55,0.6)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.stroke();
+    });
   }
 
-  // Draw Sun
-  ctx.fillStyle = '#fbbf24';
-  ctx.beginPath();
-  ctx.arc(cx, cy, 6, 0, Math.PI * 2);
-  ctx.fill();
+  // Draw belt zones as arcs
+  bodies.filter(b => b.type === 'belt_zone').forEach(b => {
+    if (!b.orbit) return;
+    const r = b.orbit.semiMajorAxis * scale;
+    if (r < 5) return;
+    ctx.strokeStyle = 'rgba(55,65,81,0.4)';
+    ctx.lineWidth = Math.max(4, 10 * state.mapZoom);
+    ctx.setLineDash([2, 6]);
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    if (showLabels && state.mapZoom > 0.5) {
+      ctx.fillStyle = '#374151';
+      ctx.font = '9px JetBrains Mono';
+      ctx.textAlign = 'center';
+      ctx.fillText(b.name, cx + r * 0.7, cy - r * 0.7 - 6);
+    }
+  });
+
+  // Collect clickable regions for hit testing
+  mapCanvas._hitRegions = [];
 
   // Draw bodies
-  const colors = { star: '#fbbf24', planet: '#3b82f6', moon: '#6b7280',
-    dwarf_planet: '#8b5cf6', asteroid: '#f59e0b', belt_zone: '#374151' };
-  const sizes = { star: 6, planet: 4, moon: 2, dwarf_planet: 3, asteroid: 2, belt_zone: 1 };
+  bodies.filter(b => b.type !== 'belt_zone').forEach(b => {
+    const sx = cx + (b.position?.x || 0) * scale;
+    const sy = cy - (b.position?.y || 0) * scale; // flip y
+    const color = typeColors[b.type] || '#6b7280';
+    const size = (typeSizes[b.type] || 3) * Math.min(2, Math.max(0.6, state.mapZoom * 0.5 + 0.5));
 
-  for (const body of bodies) {
-    const bx = cx + body.position.x * scale;
-    const by = cy + body.position.y * scale;
+    // Don't draw if off-screen
+    if (sx < -50 || sx > mapCanvas.width + 50 || sy < -50 || sy > mapCanvas.height + 50) return;
 
-    // Skip if off screen
-    if (bx < -20 || bx > w + 20 || by < -20 || by > h + 20) continue;
-
-    const color = colors[body.type] || '#6b7280';
-    const size = sizes[body.type] || 2;
+    // Glow for star
+    if (b.type === 'star') {
+      const grd = ctx.createRadialGradient(sx, sy, 0, sx, sy, size * 3);
+      grd.addColorStop(0, 'rgba(251,191,36,0.4)');
+      grd.addColorStop(1, 'rgba(251,191,36,0)');
+      ctx.fillStyle = grd;
+      ctx.beginPath(); ctx.arc(sx, sy, size * 3, 0, Math.PI * 2); ctx.fill();
+    }
 
     ctx.fillStyle = color;
     ctx.beginPath();
-    ctx.arc(bx, by, size, 0, Math.PI * 2);
+    ctx.arc(sx, sy, size, 0, Math.PI * 2);
     ctx.fill();
 
-    // Label (only planets and named bodies)
-    if (['planet', 'star', 'dwarf_planet'].includes(body.type)) {
-      ctx.fillStyle = '#9ca3af';
-      ctx.font = '9px monospace';
-      ctx.fillText(body.name, bx + size + 3, by + 3);
+    // Hit region
+    mapCanvas._hitRegions.push({ x: sx, y: sy, r: Math.max(size, 8), body: b });
+
+    // Label
+    if (showLabels && b.type !== 'asteroid' && b.type !== 'comet') {
+      ctx.fillStyle = 'rgba(229,231,235,0.7)';
+      ctx.font = (b.type === 'star' ? '11' : '9') + 'px JetBrains Mono';
+      ctx.textAlign = 'center';
+      ctx.fillText(b.name, sx, sy - size - 4);
     }
+  });
+
+  // Draw ships
+  if (showShips && state.ships) {
+    state.ships.forEach(ship => {
+      if (!ship.position) return;
+      const sx = cx + ship.position.x * scale;
+      const sy = cy - ship.position.y * scale;
+      if (sx < -20 || sx > W + 20 || sy < -20 || sy > H + 20) return;
+
+      const sc = ship.status === 'in_transit' ? '#10b981' : '#3b82f6';
+      ctx.fillStyle = sc;
+      ctx.beginPath();
+      ctx.moveTo(sx, sy - 4);
+      ctx.lineTo(sx - 3, sy + 3);
+      ctx.lineTo(sx + 3, sy + 3);
+      ctx.closePath();
+      ctx.fill();
+
+      if (showLabels && state.mapZoom > 1.5) {
+        ctx.fillStyle = 'rgba(229,231,235,0.5)';
+        ctx.font = '8px JetBrains Mono';
+        ctx.textAlign = 'center';
+        ctx.fillText(ship.name, sx, sy + 10);
+      }
+    });
   }
 
-  // Draw replicant ships
-  for (const r of replicants) {
-    if (!r.locationRef?.item) continue;
-    // We'd need ship positions — approximate from body positions for now
+  // Info
+  document.getElementById('map-info').textContent =
+    `Zoom: ${state.mapZoom.toFixed(2)}x | Bodies: ${bodies.length} | Ships: ${(state.ships || []).length}`;
+}
+
+// Map interactions
+function initMapEvents() {
+  const canvas = document.getElementById('sol-map-canvas');
+  if (!canvas) return;
+
+  canvas.addEventListener('wheel', e => {
+    e.preventDefault();
+    const factor = e.deltaY < 0 ? 1.15 : 0.87;
+    state.mapZoom = Math.max(0.1, Math.min(50, state.mapZoom * factor));
+    drawMap();
+  });
+
+  canvas.addEventListener('mousedown', e => {
+    state.mapDragging = true;
+    state.mapDragStart = { x: e.clientX - state.mapOffsetX, y: e.clientY - state.mapOffsetY };
+  });
+
+  canvas.addEventListener('mousemove', e => {
+    if (!state.mapDragging) return;
+    state.mapOffsetX = e.clientX - state.mapDragStart.x;
+    state.mapOffsetY = e.clientY - state.mapDragStart.y;
+    drawMap();
+  });
+
+  canvas.addEventListener('mouseup', () => { state.mapDragging = false; });
+  canvas.addEventListener('mouseleave', () => { state.mapDragging = false; });
+
+  canvas.addEventListener('click', e => {
+    if (!mapCanvas._hitRegions) return;
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    for (const hr of mapCanvas._hitRegions) {
+      const dx = mx - hr.x, dy = my - hr.y;
+      if (dx * dx + dy * dy < hr.r * hr.r) {
+        openBodyDetail(hr.body);
+        return;
+      }
+    }
+  });
+
+  document.getElementById('map-zoom-in').addEventListener('click', () => {
+    state.mapZoom = Math.min(50, state.mapZoom * 1.5);
+    drawMap();
+  });
+  document.getElementById('map-zoom-out').addEventListener('click', () => {
+    state.mapZoom = Math.max(0.1, state.mapZoom / 1.5);
+    drawMap();
+  });
+  document.getElementById('map-reset').addEventListener('click', () => {
+    state.mapZoom = 1; state.mapOffsetX = 0; state.mapOffsetY = 0;
+    mapCanvas._stars = null;
+    drawMap();
+  });
+  document.getElementById('map-show-labels').addEventListener('change', drawMap);
+  document.getElementById('map-show-orbits').addEventListener('change', drawMap);
+  document.getElementById('map-show-ships').addEventListener('change', drawMap);
+}
+
+// ================ RENDER: BODIES ================
+function renderBodies() {
+  const wrap = document.getElementById('bodies-table');
+  const filter = document.getElementById('bodies-type-filter').value;
+  let bodies = state.bodies || [];
+  if (filter) bodies = bodies.filter(b => b.type === filter);
+
+  if (bodies.length === 0) {
+    wrap.innerHTML = '<div class="empty-state">No celestial bodies found.</div>';
+    return;
   }
+
+  const typeOrder = { star: 0, planet: 1, dwarf_planet: 2, moon: 3, belt_zone: 4, asteroid: 5, comet: 6 };
+  bodies = [...bodies].sort((a, b) => (typeOrder[a.type] || 9) - (typeOrder[b.type] || 9));
+
+  let html = `<table><thead><tr>
+    <th>Name</th><th>Type</th><th>Position</th><th>Orbit (AU)</th><th>Radius</th><th>Gravity</th><th>Atmosphere</th><th>Solar Energy</th><th>Resources</th>
+  </tr></thead><tbody>`;
+  bodies.forEach(b => {
+    const resCount = (b.resources || []).length;
+    html += `<tr class="clickable" data-body-id="${b._id}">
+      <td style="font-weight:600;color:var(--text-bright)">${esc(b.name)}</td>
+      <td>${typeBadge(b.type)}</td>
+      <td style="color:var(--dim)">${posStr(b.position)}</td>
+      <td>${b.orbit ? fmtNum(b.orbit.semiMajorAxis, 2) : '-'}</td>
+      <td>${fmtNum(b.physical?.radius, 0)}</td>
+      <td>${fmtNum(b.physical?.gravity, 2)}</td>
+      <td>${b.physical?.hasAtmosphere ? '<span style="color:var(--green)">Yes</span>' : '<span style="color:var(--dim)">No</span>'}</td>
+      <td>${fmtNum(b.solarEnergyFactor, 3)}</td>
+      <td>${resCount > 0 ? '<span style="color:var(--yellow)">' + resCount + ' deposits</span>' : '<span style="color:var(--dim)">None</span>'}</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+
+  wrap.querySelectorAll('tr.clickable').forEach(row => {
+    row.addEventListener('click', () => {
+      const body = state.bodies.find(b => b._id === row.dataset.bodyId);
+      if (body) openBodyDetail(body);
+    });
+  });
 }
 
-async function loadActionLog() {
-  // Try to get recent ticks for log
-  const ticks = await api('/api/admin/ticks?limit=20');
-  const entries = ticks.filter(t => t.actionsProcessed > 0 || t.tickErrors?.length > 0);
+function openBodyDetail(body) {
+  let html = `<div class="detail-header">
+    <h2>${esc(body.name)}</h2>
+    ${typeBadge(body.type)}
+  </div>`;
 
-  $('action-log').innerHTML = entries.length === 0
-    ? '<div style="color:var(--dim)">No actions yet. Register a replicant and start playing.</div>'
-    : entries.map(t => `
-      <div class="log-entry">
-        <span class="log-tick">T${t.tickNumber}</span>
-        <span class="log-type">${t.actionsProcessed} actions</span>
-        ${t.messagesDelivered ? `<span>${t.messagesDelivered} msgs</span>` : ''}
-        ${t.tickErrors?.length ? `<span style="color:var(--red)">${t.tickErrors.length} errors</span>` : ''}
-        <span style="color:var(--dim)">${t.durationMs}ms</span>
-      </div>`).join('');
+  // Physical properties
+  html += `<div class="detail-section">
+    <div class="detail-section-title">Physical Properties</div>
+    <table><tbody>
+      <tr><td style="color:var(--dim)">Mass</td><td>${fmtNum(body.physical?.mass, 2)}</td></tr>
+      <tr><td style="color:var(--dim)">Radius</td><td>${fmtNum(body.physical?.radius, 0)} km</td></tr>
+      <tr><td style="color:var(--dim)">Gravity</td><td>${fmtNum(body.physical?.gravity, 2)} g</td></tr>
+      <tr><td style="color:var(--dim)">Atmosphere</td><td>${body.physical?.hasAtmosphere ? 'Yes' : 'No'}</td></tr>
+      <tr><td style="color:var(--dim)">Solar Energy Factor</td><td>${fmtNum(body.solarEnergyFactor, 4)}</td></tr>
+      <tr><td style="color:var(--dim)">Position</td><td>${posStr(body.position)}</td></tr>
+    </tbody></table>
+  </div>`;
+
+  // Orbit
+  if (body.orbit) {
+    html += `<div class="detail-section">
+      <div class="detail-section-title">Orbital Parameters</div>
+      <table><tbody>
+        <tr><td style="color:var(--dim)">Semi-Major Axis</td><td>${fmtNum(body.orbit.semiMajorAxis, 4)} AU</td></tr>
+        <tr><td style="color:var(--dim)">Eccentricity</td><td>${fmtNum(body.orbit.eccentricity, 4)}</td></tr>
+        <tr><td style="color:var(--dim)">Inclination</td><td>${fmtNum(body.orbit.inclination, 2)}°</td></tr>
+        <tr><td style="color:var(--dim)">Period</td><td>${fmtNum(body.orbit.orbitalPeriod, 1)} ticks</td></tr>
+      </tbody></table>
+    </div>`;
+  }
+
+  // Belt config
+  if (body.beltConfig) {
+    html += `<div class="detail-section">
+      <div class="detail-section-title">Belt Configuration</div>
+      <table><tbody>
+        <tr><td style="color:var(--dim)">Max Asteroids</td><td>${body.beltConfig.maxAsteroids}</td></tr>
+        <tr><td style="color:var(--dim)">Generated</td><td>${body.beltConfig.generatedCount}</td></tr>
+        <tr><td style="color:var(--dim)">Density</td><td>${body.beltConfig.density}</td></tr>
+        <tr><td style="color:var(--dim)">Metallic</td><td>${fmtPct(body.beltConfig.compositionWeights?.metallic || 0)}</td></tr>
+        <tr><td style="color:var(--dim)">Carbonaceous</td><td>${fmtPct(body.beltConfig.compositionWeights?.carbonaceous || 0)}</td></tr>
+        <tr><td style="color:var(--dim)">Siliceous</td><td>${fmtPct(body.beltConfig.compositionWeights?.siliceous || 0)}</td></tr>
+        <tr><td style="color:var(--dim)">Icy</td><td>${fmtPct(body.beltConfig.compositionWeights?.icy || 0)}</td></tr>
+      </tbody></table>
+    </div>`;
+  }
+
+  // Surface config
+  if (body.surfaceConfig) {
+    html += `<div class="detail-section">
+      <div class="detail-section-title">Surface</div>
+      <table><tbody>
+        <tr><td style="color:var(--dim)">Max Landing Sites</td><td>${body.surfaceConfig.maxLandingSites}</td></tr>
+        <tr><td style="color:var(--dim)">Generated</td><td>${body.surfaceConfig.generatedCount}</td></tr>
+      </tbody></table>
+    </div>`;
+  }
+
+  // Resources
+  if (body.resources && body.resources.length > 0) {
+    html += `<div class="detail-section">
+      <div class="detail-section-title">Resource Deposits</div>`;
+    body.resources.forEach(r => {
+      const ratio = r.totalDeposit > 0 ? r.remaining / r.totalDeposit : 0;
+      const color = progressColor(ratio);
+      html += `<div class="progress-row">
+        <span class="label">${esc(r.resourceType)}</span>
+        <div class="bar-wrap">
+          <div class="progress-bar"><div class="fill ${color}" style="width:${(ratio * 100).toFixed(1)}%"></div></div>
+        </div>
+        <span class="pct">${fmtPct(ratio)}</span>
+        <span class="pct" style="width:auto;color:var(--dim)">${fmtNum(r.remaining, 0)} / ${fmtNum(r.totalDeposit, 0)}</span>
+      </div>`;
+    });
+    html += '</div>';
+  }
+
+  // Settlements on this body
+  const setts = (state.settlements || []).filter(s => s.bodyId === body._id);
+  if (setts.length > 0) {
+    html += `<div class="detail-section">
+      <div class="detail-section-title">Settlements (${setts.length})</div>
+      <table><thead><tr><th>Name</th><th>Type</th><th>Pop</th><th>Status</th></tr></thead><tbody>`;
+    setts.forEach(s => {
+      html += `<tr><td>${esc(s.name)}</td><td>${typeBadge(s.type)}</td><td>${fmtNum(s.population)}</td><td>${statusBadge(s.status)}</td></tr>`;
+    });
+    html += '</tbody></table></div>';
+  }
+
+  openDetail(html);
 }
 
-async function forceTick() {
-  adminKey = $('admin-key').value;
-  await fetch('/api/admin/tick/force', { method: 'POST', headers: { 'X-Admin-Key': adminKey } });
-  await refresh();
+// ================ RENDER: REPLICANTS ================
+function renderReplicants() {
+  const wrap = document.getElementById('replicants-table');
+  const reps = state.replicants || [];
+  if (reps.length === 0) {
+    wrap.innerHTML = '<div class="empty-state">No replicants found.</div>';
+    return;
+  }
+
+  let html = `<table><thead><tr>
+    <th>Name</th><th>Status</th><th>Compute</th><th>Energy</th><th>Tech Domains</th><th>Reboots</th><th>Created</th><th>Last Active</th>
+  </tr></thead><tbody>`;
+  reps.forEach(r => {
+    const techCount = Object.keys(r.techLevels || {}).length;
+    html += `<tr class="clickable" data-rep-id="${r._id}">
+      <td style="font-weight:600;color:var(--text-bright)">${esc(r.name)}</td>
+      <td>${statusBadge(r.status)}</td>
+      <td>${fmtNum(r.computeCycles)}</td>
+      <td>${fmtNum(r.energyBudget)}</td>
+      <td>${techCount > 0 ? '<span style="color:var(--purple)">' + techCount + ' domains</span>' : '<span style="color:var(--dim)">0</span>'}</td>
+      <td>${r.rebootCount || 0}</td>
+      <td style="color:var(--dim)">T${r.createdAtTick || 0}</td>
+      <td style="color:var(--dim)">T${r.lastActiveTick || 0}</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+
+  wrap.querySelectorAll('tr.clickable').forEach(row => {
+    row.addEventListener('click', () => {
+      const rep = state.replicants.find(r => r._id === row.dataset.repId);
+      if (rep) openReplicantDetail(rep);
+    });
+  });
 }
 
-async function refresh() {
-  adminKey = $('admin-key').value;
-  await Promise.all([loadOverview(), loadBodies(), loadReplicants(), loadActionLog(), loadSettlements()]);
+function openReplicantDetail(rep) {
+  let html = `<div class="detail-header">
+    <h2>${esc(rep.name)}</h2>
+    ${statusBadge(rep.status)}
+  </div>`;
+
+  // Profile
+  html += `<div class="detail-section">
+    <div class="detail-section-title">Profile</div>
+    <div class="grid-2" style="gap:10px;margin-bottom:10px">
+      <div>
+        <div style="color:var(--dim);font-size:10px;margin-bottom:2px">COMPUTE CYCLES</div>
+        <div class="progress-bar" style="height:14px;position:relative">
+          <div class="fill accent" style="width:${Math.min(100, (rep.computeCycles || 0) / 50)}%"></div>
+          <span style="position:absolute;right:4px;top:0;font-size:10px;font-weight:600;color:var(--text-bright);line-height:14px">${fmtNum(rep.computeCycles)}</span>
+        </div>
+      </div>
+      <div>
+        <div style="color:var(--dim);font-size:10px;margin-bottom:2px">ENERGY BUDGET</div>
+        <div class="progress-bar" style="height:14px;position:relative">
+          <div class="fill green" style="width:${Math.min(100, (rep.energyBudget || 0))}%"></div>
+          <span style="position:absolute;right:4px;top:0;font-size:10px;font-weight:600;color:var(--text-bright);line-height:14px">${fmtNum(rep.energyBudget)}</span>
+        </div>
+      </div>
+    </div>
+    <table><tbody>
+      <tr><td style="color:var(--dim)">Reboot Count</td><td>${rep.rebootCount || 0}</td></tr>
+      <tr><td style="color:var(--dim)">Last Reboot</td><td>${rep.lastRebootTick != null ? 'Tick ' + rep.lastRebootTick : 'Never'}</td></tr>
+      <tr><td style="color:var(--dim)">Created</td><td>Tick ${rep.createdAtTick || 0}</td></tr>
+      <tr><td style="color:var(--dim)">Last Active</td><td>Tick ${rep.lastActiveTick || 0}</td></tr>
+      <tr><td style="color:var(--dim)">Security Level</td><td>${rep.accessControl?.securityLevel || 1}</td></tr>
+    </tbody></table>
+  </div>`;
+
+  // Tech Levels bar chart
+  const techLevels = rep.techLevels || {};
+  const domains = ['scanning','mining','propulsion','weapons','hull','construction','computing','energy','communication'];
+  if (Object.keys(techLevels).length > 0) {
+    const maxTech = Math.max(...Object.values(techLevels), 1);
+    html += `<div class="detail-section">
+      <div class="detail-section-title">Tech Levels</div>
+      <div class="tech-bars">`;
+    domains.forEach(d => {
+      const lvl = techLevels[d] || 0;
+      const pct = maxTech > 0 ? (lvl / maxTech) * 100 : 0;
+      html += `<div class="tech-bar-row">
+        <span class="tech-bar-label">${d}</span>
+        <div class="tech-bar-track">
+          <div class="tech-bar-fill" style="width:${pct}%;background:var(--${d === 'weapons' ? 'red' : d === 'energy' ? 'yellow' : d === 'mining' ? 'orange' : 'accent'})"></div>
+          <span class="tech-bar-val">${lvl}</span>
+        </div>
+      </div>`;
+    });
+    html += '</div></div>';
+  }
+
+  // Directive
+  html += `<div class="detail-section">
+    <div class="detail-section-title">Directive</div>
+    <div class="code-block">${esc(rep.directive) || '(empty)'}</div>
+  </div>`;
+
+  // Access Control
+  html += `<div class="detail-section">
+    <div class="detail-section-title">Access Control</div>
+    <table><tbody>
+      <tr><td style="color:var(--dim)">Physical Access</td><td>${rep.accessControl?.physicalAccessEnabled ? '<span style="color:var(--green)">Enabled</span>' : '<span style="color:var(--red)">Disabled</span>'}</td></tr>
+      <tr><td style="color:var(--dim)">Security Level</td><td>${rep.accessControl?.securityLevel || 1}</td></tr>
+      <tr><td style="color:var(--dim)">Authorized Modifiers</td><td>${(rep.accessControl?.authorizedModifiers || []).map(id => esc(replicantName(id))).join(', ') || 'None'}</td></tr>
+      <tr><td style="color:var(--dim)">Authorized Readers</td><td>${(rep.accessControl?.authorizedReaders || []).map(id => esc(replicantName(id))).join(', ') || 'None'}</td></tr>
+    </tbody></table>
+  </div>`;
+
+  // Lineage
+  if (rep.lineage && rep.lineage.length > 0) {
+    html += `<div class="detail-section">
+      <div class="detail-section-title">Lineage</div>
+      <div style="color:var(--dim-light);font-size:11px">
+        ${rep.lineage.map(id => esc(replicantName(id))).join(' &rarr; ')} &rarr; <strong style="color:var(--text-bright)">${esc(rep.name)}</strong>
+      </div>
+    </div>`;
+  } else if (rep.parentId) {
+    html += `<div class="detail-section">
+      <div class="detail-section-title">Parent</div>
+      <div style="color:var(--dim-light);font-size:11px">${esc(replicantName(rep.parentId))}</div>
+    </div>`;
+  }
+
+  // Ships owned by this replicant
+  const ownedShips = (state.ships || []).filter(s => s.ownerId === rep._id);
+  if (ownedShips.length > 0) {
+    html += `<div class="detail-section">
+      <div class="detail-section-title">Ships (${ownedShips.length})</div>
+      <table><thead><tr><th>Name</th><th>Type</th><th>Status</th><th>Fuel</th></tr></thead><tbody>`;
+    ownedShips.forEach(s => {
+      html += `<tr>
+        <td>${esc(s.name)}</td>
+        <td>${typeBadge(s.type)}</td>
+        <td>${statusBadge(s.status)}</td>
+        <td>${fmtNum(s.fuel, 1)} / ${fmtNum(s.specs?.fuelCapacity, 1)}</td>
+      </tr>`;
+    });
+    html += '</tbody></table></div>';
+  }
+
+  // Recent actions for this replicant
+  const repActions = (state.actions || []).filter(a => {
+    const rid = a.replicantId?._id || a.replicantId;
+    return rid === rep._id;
+  }).slice(0, 20);
+  if (repActions.length > 0) {
+    html += `<div class="detail-section">
+      <div class="detail-section-title">Recent Actions (${repActions.length})</div>
+      <table><thead><tr><th>Tick</th><th>Type</th><th>Status</th></tr></thead><tbody>`;
+    repActions.forEach(a => {
+      html += `<tr>
+        <td>T${a.queuedAtTick || '-'}</td>
+        <td>${esc(a.type)}</td>
+        <td>${statusBadge(a.status)}</td>
+      </tr>`;
+    });
+    html += '</tbody></table></div>';
+  }
+
+  openDetail(html);
 }
 
-// Auto-refresh
-refresh();
-setInterval(refresh, 10000);
-window.addEventListener('resize', drawMap);
+// ================ RENDER: SHIPS ================
+function renderShips() {
+  const wrap = document.getElementById('ships-table');
+  const statusFilter = document.getElementById('ships-status-filter').value;
+  const typeFilter = document.getElementById('ships-type-filter').value;
+  let ships = state.ships || [];
+  if (statusFilter) ships = ships.filter(s => s.status === statusFilter);
+  if (typeFilter) ships = ships.filter(s => s.type === typeFilter);
+
+  if (ships.length === 0) {
+    wrap.innerHTML = '<div class="empty-state">No ships found.</div>';
+    return;
+  }
+
+  let html = `<table><thead><tr>
+    <th>Name</th><th>Owner</th><th>Type</th><th>Status</th><th>Position</th><th>Fuel</th><th>Hull</th><th>Cargo Cap</th><th>Speed</th><th>ETA</th>
+  </tr></thead><tbody>`;
+  ships.forEach(s => {
+    const fuelPct = s.specs?.fuelCapacity > 0 ? (s.fuel / s.specs.fuelCapacity) : 0;
+    const hullPct = s.specs?.maxHullPoints > 0 ? (s.specs.hullPoints / s.specs.maxHullPoints) : 0;
+    const eta = s.navigation?.arrivalTick ? 'T' + s.navigation.arrivalTick : '-';
+    html += `<tr>
+      <td style="font-weight:600;color:var(--text-bright)">${esc(s.name)}</td>
+      <td>${esc(replicantName(s.ownerId))}</td>
+      <td>${typeBadge(s.type)}</td>
+      <td>${statusBadge(s.status)}</td>
+      <td style="color:var(--dim);font-size:10px">${posStr(s.position)}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:4px">
+          <div class="progress-bar" style="width:60px"><div class="fill ${progressColor(fuelPct)}" style="width:${(fuelPct * 100).toFixed(0)}%"></div></div>
+          <span style="font-size:10px;color:var(--dim)">${fmtNum(s.fuel, 1)}</span>
+        </div>
+      </td>
+      <td>
+        <div style="display:flex;align-items:center;gap:4px">
+          <div class="progress-bar" style="width:60px"><div class="fill ${progressColor(hullPct)}" style="width:${(hullPct * 100).toFixed(0)}%"></div></div>
+          <span style="font-size:10px;color:var(--dim)">${fmtNum(s.specs?.hullPoints, 0)}</span>
+        </div>
+      </td>
+      <td>${fmtNum(s.specs?.cargoCapacity, 0)}</td>
+      <td>${fmtNum(s.specs?.maxSpeed, 4)}</td>
+      <td>${eta}</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+}
+
+// ================ RENDER: TECH TREE ================
+function renderTechTree() {
+  const container = document.getElementById('tech-tree-content');
+  const techs = state.technologies || [];
+
+  if (techs.length === 0) {
+    container.innerHTML = '<div class="empty-state">No technologies discovered yet.</div>';
+    return;
+  }
+
+  const domains = ['scanning','mining','propulsion','weapons','hull','construction','computing','energy','communication'];
+  const domainColors = {
+    scanning: 'cyan', mining: 'orange', propulsion: 'blue', weapons: 'red', hull: 'gray',
+    construction: 'green', computing: 'purple', energy: 'yellow', communication: 'blue',
+  };
+
+  let html = '';
+  domains.forEach(domain => {
+    const domTechs = techs.filter(t => t.domain === domain).sort((a, b) => a.tier - b.tier);
+    if (domTechs.length === 0) return;
+
+    html += `<div class="tech-domain-group">
+      <div class="tech-domain-label" style="border-left-color:var(--${domainColors[domain] || 'accent'})">${domain.toUpperCase()} (${domTechs.length})</div>
+      <div class="tech-lane">`;
+
+    domTechs.forEach(t => {
+      const inventor = t.inventedBy?.name || replicantName(t.inventedBy) || '?';
+      const knownByList = (t.knownBy || []).map(r => r.name || replicantName(r)).filter(Boolean);
+      const mods = t.modifiers || {};
+      html += `<div class="tech-card">
+        <div class="tech-card-name">${esc(t.name)}</div>
+        <div class="tech-card-meta">
+          <span class="badge badge-${domainColors[domain] || 'gray'}">Tier ${t.tier}</span>
+          &nbsp;by <span style="color:var(--accent)">${esc(inventor)}</span>
+          &nbsp;@ T${t.inventedAtTick || '?'}
+        </div>
+        <div style="font-size:10px;color:var(--dim-light);margin-bottom:6px">${esc(t.description || '')}</div>
+        <div>${Object.entries(mods).map(([k, v]) =>
+          `<span class="tech-modifier">${esc(k)}: ${typeof v === 'number' ? (v > 1 ? '+' : '') + ((v - 1) * 100).toFixed(0) + '%' : v}</span>`
+        ).join(' ')}</div>
+        ${knownByList.length > 0 ? `<div style="font-size:9px;color:var(--dim);margin-top:4px">Known by: ${knownByList.map(n => esc(n)).join(', ')}</div>` : ''}
+      </div>`;
+    });
+
+    html += '</div></div>';
+  });
+
+  container.innerHTML = html || '<div class="empty-state">No technologies found.</div>';
+}
+
+// ================ RENDER: COLONIES ================
+function renderColonies() {
+  const wrap = document.getElementById('colonies-table');
+  const colonies = state.colonies || [];
+
+  if (colonies.length === 0) {
+    wrap.innerHTML = '<div class="empty-state">No colonies established yet.</div>';
+    return;
+  }
+
+  let html = `<table><thead><tr>
+    <th>Name</th><th>Body</th><th>Owner</th><th>Status</th><th>Structures</th><th>AMIs</th><th>Power</th><th>Mining</th><th>Mfg Cap</th><th>Storage</th><th>Docking</th><th>Founded</th>
+  </tr></thead><tbody>`;
+  colonies.forEach(c => {
+    const bodyNm = c.bodyId?.name || bodyName(c.bodyId) || '-';
+    const ownerNm = replicantName(c.ownerId);
+    const s = c.stats || {};
+    const powerRatio = s.powerRatio || 0;
+    const powerColor = powerRatio >= 1 ? 'green' : powerRatio > 0.5 ? 'yellow' : 'red';
+    html += `<tr class="clickable" data-colony-id="${c._id}">
+      <td style="font-weight:600;color:var(--text-bright)">${esc(c.name)}</td>
+      <td>${esc(bodyNm)}</td>
+      <td>${esc(ownerNm)}</td>
+      <td>${statusBadge(c.status)}</td>
+      <td>${s.structureCount || 0}</td>
+      <td>${s.amiCount || 0}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:4px">
+          <div class="progress-bar" style="width:50px"><div class="fill ${powerColor}" style="width:${Math.min(100, powerRatio * 100).toFixed(0)}%"></div></div>
+          <span style="font-size:10px;color:var(--dim)">${fmtNum(s.energyProduction, 0)}/${fmtNum(s.energyConsumption, 0)}</span>
+        </div>
+      </td>
+      <td>${Object.keys(s.miningOutput || {}).length > 0 ? Object.entries(s.miningOutput).map(([k,v]) => `<span style="color:var(--orange);font-size:10px">${k}:${fmtNum(v,1)}</span>`).join(' ') : '-'}</td>
+      <td>${fmtNum(s.manufacturingCapacity, 0)}</td>
+      <td>${fmtNum(s.storageCapacity, 0)}</td>
+      <td>${s.dockingSlots || 0}</td>
+      <td style="color:var(--dim)">T${c.foundedAtTick || 0}</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+
+  wrap.querySelectorAll('tr.clickable').forEach(row => {
+    row.addEventListener('click', () => {
+      const colony = state.colonies.find(c => c._id === row.dataset.colonyId);
+      if (colony) openColonyDetail(colony);
+    });
+  });
+}
+
+function openColonyDetail(colony) {
+  const s = colony.stats || {};
+  const bodyNm = colony.bodyId?.name || bodyName(colony.bodyId) || '-';
+  const ownerNm = replicantName(colony.ownerId);
+  const powerRatio = s.powerRatio || 0;
+
+  let html = `<div class="detail-header">
+    <h2>${esc(colony.name)}</h2>
+    ${statusBadge(colony.status)}
+  </div>`;
+
+  html += `<div class="detail-section">
+    <div class="detail-section-title">Colony Info</div>
+    <table><tbody>
+      <tr><td style="color:var(--dim)">Body</td><td>${esc(bodyNm)}</td></tr>
+      <tr><td style="color:var(--dim)">Owner</td><td>${esc(ownerNm)}</td></tr>
+      <tr><td style="color:var(--dim)">Founded</td><td>Tick ${colony.foundedAtTick || 0}</td></tr>
+      <tr><td style="color:var(--dim)">Structures</td><td>${s.structureCount || 0}</td></tr>
+      <tr><td style="color:var(--dim)">AMIs</td><td>${s.amiCount || 0}</td></tr>
+      <tr><td style="color:var(--dim)">Population</td><td>${s.population || 0}</td></tr>
+      <tr><td style="color:var(--dim)">Docking Slots</td><td>${s.dockingSlots || 0}</td></tr>
+    </tbody></table>
+  </div>`;
+
+  // Power grid
+  html += `<div class="detail-section">
+    <div class="detail-section-title">Power Grid</div>
+    <div class="progress-row">
+      <span class="label">Power Ratio</span>
+      <div class="bar-wrap">
+        <div class="progress-bar" style="height:14px;position:relative">
+          <div class="fill ${powerRatio >= 1 ? 'green' : powerRatio > 0.5 ? 'yellow' : 'red'}" style="width:${Math.min(100, powerRatio * 100)}%"></div>
+          <span style="position:absolute;right:4px;top:0;font-size:10px;font-weight:600;color:var(--text-bright);line-height:14px">${(powerRatio * 100).toFixed(0)}%</span>
+        </div>
+      </div>
+    </div>
+    <table><tbody>
+      <tr><td style="color:var(--dim)">Production</td><td style="color:var(--green)">${fmtNum(s.energyProduction, 1)}</td></tr>
+      <tr><td style="color:var(--dim)">Consumption</td><td style="color:var(--red)">${fmtNum(s.energyConsumption, 1)}</td></tr>
+    </tbody></table>
+  </div>`;
+
+  // Mining output
+  const mining = s.miningOutput || {};
+  if (Object.keys(mining).length > 0) {
+    html += `<div class="detail-section">
+      <div class="detail-section-title">Mining Output</div>
+      <table><thead><tr><th>Resource</th><th>Rate</th></tr></thead><tbody>`;
+    Object.entries(mining).forEach(([k, v]) => {
+      html += `<tr><td>${esc(k)}</td><td style="color:var(--orange)">${fmtNum(v, 2)}/tick</td></tr>`;
+    });
+    html += '</tbody></table></div>';
+  }
+
+  // Capacity
+  html += `<div class="detail-section">
+    <div class="detail-section-title">Capacity</div>
+    <table><tbody>
+      <tr><td style="color:var(--dim)">Manufacturing</td><td>${fmtNum(s.manufacturingCapacity, 0)}</td></tr>
+      <tr><td style="color:var(--dim)">Storage</td><td>${fmtNum(s.storageCapacity, 0)}</td></tr>
+    </tbody></table>
+  </div>`;
+
+  openDetail(html);
+}
+
+// ================ RENDER: SETTLEMENTS ================
+function renderSettlements() {
+  const wrap = document.getElementById('settlements-table');
+  const setts = state.settlements || [];
+
+  if (setts.length === 0) {
+    wrap.innerHTML = '<div class="empty-state">No settlements found.</div>';
+    return;
+  }
+
+  let html = `<table><thead><tr>
+    <th>Name</th><th>Nation</th><th>Type</th><th>Status</th><th>Population</th><th>GDP</th><th>Tech</th><th>Industry</th><th>Spaceport</th><th>Attitude</th><th>Military</th>
+  </tr></thead><tbody>`;
+  setts.forEach(s => {
+    const att = s.attitude?.general ?? 0;
+    const attPct = ((att + 1) / 2 * 100).toFixed(0);
+    html += `<tr class="clickable" data-sett-id="${s._id}">
+      <td style="font-weight:600;color:var(--text-bright)">${esc(s.name)}</td>
+      <td>${esc(s.nation)}</td>
+      <td>${typeBadge(s.type)}</td>
+      <td>${statusBadge(s.status)}</td>
+      <td>${fmtNum(s.population)}</td>
+      <td>${fmtNum(s.economy?.gdp, 0)}</td>
+      <td>${s.economy?.techLevel || 0}</td>
+      <td>${fmtNum(s.economy?.industrialCapacity, 0)}</td>
+      <td>Lv${s.economy?.spaceportLevel || 0}</td>
+      <td>
+        <div class="attitude-bar-wrap">
+          <div class="attitude-bar">
+            <div class="attitude-marker" style="left:${attPct}%"></div>
+          </div>
+          <span style="color:${att > 0.3 ? 'var(--green)' : att < -0.3 ? 'var(--red)' : 'var(--yellow)'}">${att.toFixed(2)}</span>
+        </div>
+      </td>
+      <td>${fmtNum(s.defenses?.militaryStrength, 0)}</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+
+  wrap.querySelectorAll('tr.clickable').forEach(row => {
+    row.addEventListener('click', () => {
+      const sett = state.settlements.find(s => s._id === row.dataset.settId);
+      if (sett) openSettlementDetail(sett);
+    });
+  });
+}
+
+function openSettlementDetail(sett) {
+  const att = sett.attitude?.general ?? 0;
+  const attPct = ((att + 1) / 2 * 100).toFixed(0);
+
+  let html = `<div class="detail-header">
+    <h2>${esc(sett.name)}</h2>
+    ${statusBadge(sett.status)}
+    ${typeBadge(sett.type)}
+  </div>`;
+
+  // Population
+  html += `<div class="detail-section">
+    <div class="detail-section-title">Population</div>
+    <div style="font-size:20px;font-weight:700;color:var(--text-bright);margin-bottom:8px">${fmtNum(sett.population)}</div>
+    <table><tbody>
+      <tr><td style="color:var(--dim)">Nation</td><td>${esc(sett.nation)}</td></tr>
+      <tr><td style="color:var(--dim)">Body</td><td>${esc(bodyName(sett.bodyId))}</td></tr>
+    </tbody></table>
+  </div>`;
+
+  // Economy
+  html += `<div class="detail-section">
+    <div class="detail-section-title">Economy</div>
+    <table><tbody>
+      <tr><td style="color:var(--dim)">GDP</td><td>${fmtNum(sett.economy?.gdp, 0)}</td></tr>
+      <tr><td style="color:var(--dim)">Tech Level</td><td>${sett.economy?.techLevel || 0}</td></tr>
+      <tr><td style="color:var(--dim)">Industrial Capacity</td><td>${fmtNum(sett.economy?.industrialCapacity, 0)}</td></tr>
+      <tr><td style="color:var(--dim)">Spaceport Level</td><td>${sett.economy?.spaceportLevel || 0}</td></tr>
+    </tbody></table>
+  </div>`;
+
+  // Attitude
+  html += `<div class="detail-section">
+    <div class="detail-section-title">Attitude Toward Replicants</div>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+      <div class="attitude-bar" style="width:200px">
+        <div class="attitude-marker" style="left:${attPct}%"></div>
+      </div>
+      <span style="font-size:14px;font-weight:700;color:${att > 0.3 ? 'var(--green)' : att < -0.3 ? 'var(--red)' : 'var(--yellow)'}">${att.toFixed(2)}</span>
+      <span style="color:var(--dim);font-size:10px">(-1 hostile ... +1 friendly)</span>
+    </div>`;
+  // Per-replicant attitudes
+  const byRep = sett.attitude?.byReplicant || {};
+  if (Object.keys(byRep).length > 0) {
+    html += '<table><thead><tr><th>Replicant</th><th>Attitude</th></tr></thead><tbody>';
+    Object.entries(byRep).forEach(([id, val]) => {
+      const v = Number(val);
+      html += `<tr><td>${esc(replicantName(id))}</td><td style="color:${v > 0.3 ? 'var(--green)' : v < -0.3 ? 'var(--red)' : 'var(--yellow)'}">${v.toFixed(2)}</td></tr>`;
+    });
+    html += '</tbody></table>';
+  }
+  html += '</div>';
+
+  // Production / Consumption
+  const prod = sett.production || {};
+  const cons = sett.consumption || {};
+  if (Object.keys(prod).length > 0 || Object.keys(cons).length > 0) {
+    const allRes = [...new Set([...Object.keys(prod), ...Object.keys(cons)])].sort();
+    html += `<div class="detail-section">
+      <div class="detail-section-title">Production / Consumption</div>
+      <table><thead><tr><th>Resource</th><th>Production</th><th>Consumption</th><th>Net</th></tr></thead><tbody>`;
+    allRes.forEach(r => {
+      const p = prod[r] || 0;
+      const c = cons[r] || 0;
+      const net = p - c;
+      html += `<tr>
+        <td>${esc(r)}</td>
+        <td style="color:var(--green)">${fmtNum(p, 1)}</td>
+        <td style="color:var(--red)">${fmtNum(c, 1)}</td>
+        <td style="color:${net >= 0 ? 'var(--green)' : 'var(--red)'}">${net >= 0 ? '+' : ''}${fmtNum(net, 1)}</td>
+      </tr>`;
+    });
+    html += '</tbody></table></div>';
+  }
+
+  // Market
+  const market = (state.markets || []).find(m => m.settlementId === sett._id || m.settlementId?._id === sett._id);
+  if (market) {
+    const buyPrices = market.prices?.buy || {};
+    const sellPrices = market.prices?.sell || {};
+    const allResources = [...new Set([...Object.keys(buyPrices), ...Object.keys(sellPrices)])].sort();
+    html += `<div class="detail-section">
+      <div class="detail-section-title">Market: ${esc(market.name)}</div>
+      <table><thead><tr><th>Resource</th><th>Buy Price</th><th>Sell Price</th><th>Supply</th><th>Demand</th></tr></thead><tbody>`;
+    allResources.forEach(r => {
+      html += `<tr>
+        <td>${esc(r)}</td>
+        <td style="color:var(--green)">${buyPrices[r] != null ? fmtNum(buyPrices[r], 2) : '-'}</td>
+        <td style="color:var(--yellow)">${sellPrices[r] != null ? fmtNum(sellPrices[r], 2) : '-'}</td>
+        <td>${fmtNum(market.supply?.[r], 1) || '-'}</td>
+        <td>${fmtNum(market.demand?.[r], 1) || '-'}</td>
+      </tr>`;
+    });
+    html += '</tbody></table>';
+    html += `<div style="margin-top:6px;font-size:10px;color:var(--dim)">
+      Tax rate: ${((market.restrictions?.taxRate || 0) * 100).toFixed(1)}%
+      | Min attitude to trade: ${market.restrictions?.minAttitudeToTrade ?? 'N/A'}
+    </div>`;
+    html += '</div>';
+  }
+
+  // Defenses
+  html += `<div class="detail-section">
+    <div class="detail-section-title">Defenses</div>
+    <table><tbody>
+      <tr><td style="color:var(--dim)">Military Strength</td><td>${fmtNum(sett.defenses?.militaryStrength, 0)}</td></tr>
+      <tr><td style="color:var(--dim)">Orbital Defenses</td><td>${fmtNum(sett.defenses?.orbitalDefenses, 0)}</td></tr>
+      <tr><td style="color:var(--dim)">Shield Level</td><td>${fmtNum(sett.defenses?.shieldLevel, 0)}</td></tr>
+    </tbody></table>
+  </div>`;
+
+  openDetail(html);
+}
+
+// ================ RENDER: ACTIONS ================
+function renderActions() {
+  const wrap = document.getElementById('actions-table');
+  const typeFilter = document.getElementById('actions-type-filter').value;
+  const statusFilter = document.getElementById('actions-status-filter').value;
+  const repFilter = document.getElementById('actions-replicant-filter').value;
+
+  let actions = state.actions || [];
+  if (typeFilter) actions = actions.filter(a => a.type === typeFilter);
+  if (statusFilter) actions = actions.filter(a => a.status === statusFilter);
+  if (repFilter) actions = actions.filter(a => {
+    const rid = a.replicantId?._id || a.replicantId;
+    return rid === repFilter;
+  });
+
+  if (actions.length === 0) {
+    wrap.innerHTML = '<div class="empty-state">No actions found.</div>';
+    return;
+  }
+
+  let html = `<table><thead><tr>
+    <th>Tick</th><th>Replicant</th><th>Type</th><th>Status</th><th>Resolved</th><th>Details</th>
+  </tr></thead><tbody>`;
+  actions.forEach((a, idx) => {
+    const repName = a.replicantId?.name || replicantName(a.replicantId) || '-';
+    html += `<tr>
+      <td>T${a.queuedAtTick || '-'}</td>
+      <td>${esc(repName)}</td>
+      <td><span class="badge badge-blue">${esc(a.type)}</span></td>
+      <td>${statusBadge(a.status)}</td>
+      <td>${a.resolvedAtTick != null ? 'T' + a.resolvedAtTick : '-'}</td>
+      <td>
+        <span class="expand-toggle" data-expand="action-expand-${idx}">[show]</span>
+      </td>
+    </tr>
+    <tr><td colspan="6" style="padding:0;border:none">
+      <div class="expand-content" id="action-expand-${idx}">
+        <div style="margin-bottom:6px;font-size:10px;color:var(--dim);text-transform:uppercase">Params:</div>
+        <div class="code-block" style="max-height:150px;margin-bottom:8px">${esc(JSON.stringify(a.params, null, 2))}</div>
+        ${a.result ? `<div style="margin-bottom:6px;font-size:10px;color:var(--dim);text-transform:uppercase">Result:</div>
+        <div class="code-block" style="max-height:150px">${esc(JSON.stringify(a.result, null, 2))}</div>` : ''}
+        ${a.error ? `<div style="margin-bottom:6px;font-size:10px;color:var(--red);text-transform:uppercase">Error:</div>
+        <div class="code-block" style="max-height:100px;color:var(--red)">${esc(a.error)}</div>` : ''}
+      </div>
+    </td></tr>`;
+  });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+
+  // Wire up expand toggles
+  wrap.querySelectorAll('.expand-toggle').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = document.getElementById(btn.dataset.expand);
+      if (target) {
+        const isOpen = target.classList.toggle('open');
+        btn.textContent = isOpen ? '[hide]' : '[show]';
+      }
+    });
+  });
+}
+
+// ================ RENDER: MESSAGES ================
+function renderMessages() {
+  const container = document.getElementById('messages-list');
+  const msgs = state.messages || [];
+
+  if (msgs.length === 0) {
+    container.innerHTML = '<div class="empty-state">No messages found.</div>';
+    return;
+  }
+
+  let html = `<table><thead><tr>
+    <th>Tick</th><th>From</th><th>To</th><th>Subject</th><th>Distance</th><th>Deliver</th><th>Status</th><th>Details</th>
+  </tr></thead><tbody>`;
+  msgs.forEach((m, idx) => {
+    const from = m.senderId?.name || replicantName(m.senderId) || '-';
+    const to = m.recipientId?.name || replicantName(m.recipientId) || 'Broadcast';
+    const delivered = m.delivered;
+    const read = m.read;
+    let statusHtml = '';
+    if (delivered && read) statusHtml = '<span class="badge badge-green">Read</span>';
+    else if (delivered) statusHtml = '<span class="badge badge-blue">Delivered</span>';
+    else statusHtml = '<span class="badge badge-yellow">In Transit</span>';
+
+    html += `<tr>
+      <td>T${m.sentAtTick || '-'}</td>
+      <td>${esc(from)}</td>
+      <td>${esc(to)}</td>
+      <td style="color:var(--accent);max-width:200px;overflow:hidden;text-overflow:ellipsis">${esc(m.subject || '(no subject)')}</td>
+      <td>${fmtNum(m.distanceAU, 3)} AU</td>
+      <td>T${m.deliverAtTick || '-'}</td>
+      <td>${statusHtml}</td>
+      <td>
+        <span class="expand-toggle" data-expand="msg-expand-${idx}">[show]</span>
+      </td>
+    </tr>
+    <tr><td colspan="8" style="padding:0;border:none">
+      <div class="expand-content" id="msg-expand-${idx}">
+        <div style="margin-bottom:6px;font-size:10px;color:var(--dim);text-transform:uppercase">Body:</div>
+        <div class="code-block" style="max-height:200px">${esc(m.body)}</div>
+        ${Object.keys(m.metadata || {}).length > 0 ? `
+          <div style="margin-top:8px;margin-bottom:6px;font-size:10px;color:var(--dim);text-transform:uppercase">Metadata:</div>
+          <div class="code-block" style="max-height:100px">${esc(JSON.stringify(m.metadata, null, 2))}</div>
+        ` : ''}
+        <div style="margin-top:6px;font-size:10px;color:var(--dim)">
+          Sender pos: ${posStr(m.senderPosition)} | Recipient pos: ${posStr(m.recipientPosition)}
+        </div>
+      </div>
+    </td></tr>`;
+  });
+  html += '</tbody></table>';
+  container.innerHTML = html;
+
+  container.querySelectorAll('.expand-toggle').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = document.getElementById(btn.dataset.expand);
+      if (target) {
+        const isOpen = target.classList.toggle('open');
+        btn.textContent = isOpen ? '[hide]' : '[show]';
+      }
+    });
+  });
+}
+
+// ================ EVENT WIRING ================
+document.querySelectorAll('.sidebar-item').forEach(item => {
+  item.addEventListener('click', () => switchTab(item.dataset.tab));
+});
+
+$detailClose.addEventListener('click', closeDetail);
+
+$btnRefresh.addEventListener('click', () => {
+  loadAll().then(() => notify('Data refreshed'));
+});
+
+$btnForceTick.addEventListener('click', async () => {
+  const resp = await fetch('/api/admin/tick/force', {
+    method: 'POST',
+    headers: adminHeaders(),
+  });
+  if (resp.ok) {
+    notify('Tick forced successfully');
+    setTimeout(() => loadAll(), 500);
+  } else {
+    const err = await resp.json().catch(() => ({}));
+    notify('Force tick failed: ' + (err.message || resp.statusText), 'error');
+  }
+});
+
+$autoRefreshToggle.addEventListener('change', () => {
+  state.autoRefresh = $autoRefreshToggle.checked;
+  $autoRefreshLabel.classList.toggle('active', state.autoRefresh);
+  if (state.autoRefresh) {
+    state.autoRefreshTimer = setInterval(() => loadAll(), 10000);
+    notify('Auto-refresh enabled (10s)');
+  } else {
+    clearInterval(state.autoRefreshTimer);
+    state.autoRefreshTimer = null;
+    notify('Auto-refresh disabled');
+  }
+});
+
+// Filter change handlers
+document.getElementById('bodies-type-filter').addEventListener('change', renderBodies);
+document.getElementById('ships-status-filter').addEventListener('change', renderShips);
+document.getElementById('ships-type-filter').addEventListener('change', renderShips);
+document.getElementById('actions-type-filter').addEventListener('change', renderActions);
+document.getElementById('actions-status-filter').addEventListener('change', renderActions);
+document.getElementById('actions-replicant-filter').addEventListener('change', renderActions);
+document.getElementById('actions-limit').addEventListener('change', () => {
+  apiFetch('/api/admin/actions?limit=' + document.getElementById('actions-limit').value).then(actions => {
+    if (actions) { state.actions = actions; renderActions(); }
+  });
+});
+
+// Close detail on Escape
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeDetail();
+});
+
+// Resize handler for map
+window.addEventListener('resize', () => {
+  if (state.activeTab === 'solmap') renderSolMap();
+});
+
+// ================ INIT ================
+initMapEvents();
+loadAll();
 </script>
 </body>
 </html>
