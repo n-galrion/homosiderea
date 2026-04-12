@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Homosideria — Mission Control</title>
+<style>
+  :root {
+    --bg: #0a0e17; --surface: #111827; --border: #1f2937;
+    --text: #e5e7eb; --dim: #6b7280; --accent: #3b82f6;
+    --green: #10b981; --red: #ef4444; --yellow: #f59e0b; --purple: #8b5cf6;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 13px; }
+  h1 { font-size: 18px; color: var(--accent); letter-spacing: 2px; text-transform: uppercase; }
+  h2 { font-size: 14px; color: var(--accent); margin-bottom: 8px; letter-spacing: 1px; text-transform: uppercase; }
+  h3 { font-size: 12px; color: var(--dim); margin-bottom: 4px; text-transform: uppercase; }
+
+  .header { display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; border-bottom: 1px solid var(--border); }
+  .header-right { display: flex; gap: 12px; align-items: center; }
+  .header-right input { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 4px 8px; border-radius: 4px; font-family: inherit; font-size: 12px; width: 200px; }
+  .header-right button { background: var(--accent); color: #fff; border: none; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-family: inherit; font-size: 12px; }
+  .header-right button:hover { opacity: 0.85; }
+  .header-right button.danger { background: var(--red); }
+
+  .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1px; background: var(--border); height: calc(100vh - 49px); }
+  .panel { background: var(--surface); padding: 12px; overflow-y: auto; }
+  .panel.wide { grid-column: span 2; }
+  .panel.tall { grid-row: span 2; }
+
+  .stat { display: inline-block; margin-right: 16px; margin-bottom: 6px; }
+  .stat-val { font-size: 18px; font-weight: bold; }
+  .stat-label { font-size: 10px; color: var(--dim); text-transform: uppercase; }
+
+  .badge { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 10px; font-weight: bold; }
+  .badge-green { background: #064e3b; color: var(--green); }
+  .badge-yellow { background: #451a03; color: var(--yellow); }
+  .badge-red { background: #450a0a; color: var(--red); }
+  .badge-blue { background: #172554; color: var(--accent); }
+  .badge-purple { background: #2e1065; color: var(--purple); }
+
+  table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+  th, td { text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--border); font-size: 12px; }
+  th { color: var(--dim); font-size: 10px; text-transform: uppercase; }
+  tr:hover { background: rgba(59,130,246,0.05); }
+
+  canvas { width: 100%; height: 100%; background: var(--bg); border-radius: 4px; }
+
+  .log-entry { padding: 3px 0; border-bottom: 1px solid var(--border); font-size: 11px; }
+  .log-tick { color: var(--dim); margin-right: 6px; }
+  .log-type { color: var(--accent); margin-right: 6px; }
+
+  .resource-bar { display: flex; align-items: center; gap: 6px; margin: 2px 0; }
+  .resource-bar .name { width: 80px; color: var(--dim); font-size: 11px; }
+  .resource-bar .bar { flex: 1; height: 12px; background: #1f2937; border-radius: 2px; overflow: hidden; }
+  .resource-bar .bar-fill { height: 100%; border-radius: 2px; transition: width 0.3s; }
+  .resource-bar .val { width: 80px; text-align: right; font-size: 11px; }
+
+  .clickable { cursor: pointer; }
+  .clickable:hover { color: var(--accent); }
+  .selected { background: rgba(59,130,246,0.1) !important; }
+
+  #detail-panel { display: none; }
+  #detail-panel.active { display: block; }
+
+  .tabs { display: flex; gap: 2px; margin-bottom: 8px; }
+  .tab { padding: 4px 12px; background: var(--bg); color: var(--dim); cursor: pointer; border-radius: 4px 4px 0 0; font-size: 11px; }
+  .tab.active { background: var(--surface); color: var(--accent); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>⚛ Homosideria — Mission Control</h1>
+  <div class="header-right">
+    <input id="admin-key" type="text" placeholder="Admin Key" value="dev-admin-key">
+    <button onclick="forceTick()">Force Tick</button>
+    <button onclick="refresh()">Refresh</button>
+    <span id="tick-display" class="stat-val" style="color: var(--green)">--</span>
+  </div>
+</div>
+
+<div class="grid">
+  <!-- System Overview -->
+  <div class="panel">
+    <h2>System Overview</h2>
+    <div id="overview"></div>
+    <h3 style="margin-top: 12px;">Tick History</h3>
+    <div id="tick-history"></div>
+  </div>
+
+  <!-- Sol System Map -->
+  <div class="panel">
+    <h2>Sol System</h2>
+    <canvas id="sol-map"></canvas>
+  </div>
+
+  <!-- Replicants -->
+  <div class="panel">
+    <h2>Replicants</h2>
+    <div id="replicant-list"></div>
+  </div>
+
+  <!-- Settlements & Markets -->
+  <div class="panel">
+    <h2>Settlements</h2>
+    <div id="settlement-list"></div>
+  </div>
+
+  <!-- Detail Panel -->
+  <div class="panel" id="detail-panel">
+    <h2 id="detail-title">Details</h2>
+    <div id="detail-content"></div>
+  </div>
+
+  <!-- Action Log -->
+  <div class="panel">
+    <h2>Action Log</h2>
+    <div id="action-log"></div>
+  </div>
+</div>
+
+<script>
+const API = '';
+let adminKey = 'dev-admin-key';
+let bodies = [];
+let replicants = [];
+
+function $(id) { return document.getElementById(id); }
+
+async function api(path, opts = {}) {
+  const headers = { 'X-Admin-Key': adminKey, ...opts.headers };
+  const res = await fetch(API + path, { ...opts, headers });
+  return res.json();
+}
+
+function badge(text, type) {
+  return `<span class="badge badge-${type}">${text}</span>`;
+}
+
+function statusBadge(status) {
+  const map = { active: 'green', thriving: 'green', stable: 'blue', operational: 'green',
+    building: 'yellow', struggling: 'yellow', damaged: 'red', destroyed: 'red',
+    dormant: 'yellow', in_transit: 'blue', orbiting: 'green', founding: 'yellow' };
+  return badge(status, map[status] || 'blue');
+}
+
+async function loadOverview() {
+  const [status, ticks] = await Promise.all([
+    api('/api/admin/status'),
+    api('/api/admin/ticks?limit=10'),
+  ]);
+
+  $('tick-display').textContent = `T${status.currentTick}`;
+
+  $('overview').innerHTML = `
+    <div class="stat"><div class="stat-val">${status.currentTick}</div><div class="stat-label">Current Tick</div></div>
+    <div class="stat"><div class="stat-val">${status.activeReplicants}</div><div class="stat-label">Replicants</div></div>
+    <div class="stat"><div class="stat-val">${status.celestialBodies}</div><div class="stat-label">Bodies</div></div>
+    <div class="stat"><div class="stat-val">${status.gameLoopActive ? '●' : '○'}</div><div class="stat-label">Loop</div></div>
+  `;
+
+  $('tick-history').innerHTML = `<table><tr><th>#</th><th>Duration</th><th>Actions</th><th>Msgs</th><th>Errors</th></tr>
+    ${ticks.map(t => `<tr>
+      <td>${t.tickNumber}</td><td>${t.durationMs || '-'}ms</td>
+      <td>${t.actionsProcessed}</td><td>${t.messagesDelivered}</td>
+      <td>${t.tickErrors?.length || 0}</td>
+    </tr>`).join('')}</table>`;
+}
+
+async function loadBodies() {
+  bodies = await api('/api/public/bodies');
+  drawMap();
+}
+
+async function loadReplicants() {
+  replicants = await api('/api/admin/replicants');
+  $('replicant-list').innerHTML = replicants.length === 0
+    ? '<div style="color:var(--dim)">No replicants yet.</div>'
+    : `<table><tr><th>Name</th><th>Status</th><th>Compute</th><th>Energy</th><th>Parent</th></tr>
+    ${replicants.map(r => `<tr class="clickable" onclick="showReplicant('${r._id}')">
+      <td>${r.name}</td><td>${statusBadge(r.status)}</td>
+      <td>${r.computeCycles}</td><td>${r.energyBudget}</td>
+      <td>${r.parentId ? '↑' : '—'}</td>
+    </tr>`).join('')}</table>`;
+}
+
+async function loadSettlements() {
+  // Use admin endpoint — get all settlements via world bodies on Earth
+  const earthBodies = bodies.filter(b => ['planet', 'moon'].includes(b.type));
+  let allSettlements = [];
+  for (const body of earthBodies.slice(0, 5)) {
+    try {
+      const detail = await api(`/api/world/bodies/${body._id}`);
+      // settlements aren't on world API, try colony sites
+    } catch(e) {}
+  }
+  // Fallback: just show from admin
+  try {
+    const res = await fetch('/api/admin/settlements', { headers: { 'X-Admin-Key': adminKey } });
+    if (res.ok) allSettlements = await res.json();
+  } catch(e) {}
+
+  if (allSettlements.length === 0) {
+    $('settlement-list').innerHTML = '<div style="color:var(--dim)">Settlements API not available from admin. Add /api/admin/settlements route.</div>';
+    return;
+  }
+  $('settlement-list').innerHTML = `<table><tr><th>Name</th><th>Nation</th><th>Pop</th><th>Status</th></tr>
+    ${allSettlements.map(s => `<tr><td>${s.name}</td><td>${s.nation}</td>
+      <td>${(s.population/1e6).toFixed(1)}M</td><td>${statusBadge(s.status)}</td></tr>`).join('')}</table>`;
+}
+
+async function showReplicant(id) {
+  const r = replicants.find(r => r._id === id);
+  if (!r) return;
+
+  $('detail-panel').className = 'panel active';
+  $('detail-title').textContent = r.name;
+
+  const techLevels = r.techLevels || {};
+  const techStr = Object.keys(techLevels).length > 0
+    ? Object.entries(techLevels).map(([k,v]) => `${k}: ${v}`).join(', ')
+    : 'none';
+
+  $('detail-content').innerHTML = `
+    <h3>Identity</h3>
+    <div>Status: ${statusBadge(r.status)} &nbsp; ID: <code>${r._id}</code></div>
+    <div>Parent: ${r.parentId || 'none'} &nbsp; Lineage depth: ${r.lineage?.length || 0}</div>
+    <div>Created tick: ${r.createdAtTick} &nbsp; Last active: ${r.lastActiveTick}</div>
+    <div>Reboots: ${r.rebootCount || 0}</div>
+
+    <h3 style="margin-top:10px">Resources</h3>
+    <div class="resource-bar"><span class="name">Compute</span>
+      <div class="bar"><div class="bar-fill" style="width:${r.computeCycles/10}%;background:var(--accent)"></div></div>
+      <span class="val">${r.computeCycles}</span></div>
+    <div class="resource-bar"><span class="name">Energy</span>
+      <div class="bar"><div class="bar-fill" style="width:${r.energyBudget}%;background:var(--yellow)"></div></div>
+      <span class="val">${r.energyBudget}</span></div>
+
+    <h3 style="margin-top:10px">Tech Levels</h3>
+    <div>${techStr}</div>
+
+    <h3 style="margin-top:10px">Directive</h3>
+    <div style="background:var(--bg);padding:8px;border-radius:4px;font-size:11px;max-height:120px;overflow-y:auto;white-space:pre-wrap">${r.directive || 'none'}</div>
+
+    <h3 style="margin-top:10px">Access Control</h3>
+    <div>Physical access: ${r.accessControl?.physicalAccessEnabled ? badge('ENABLED','yellow') : badge('DISABLED','green')}</div>
+    <div>Security level: ${r.accessControl?.securityLevel || 1}</div>
+    <div>Authorized modifiers: ${r.accessControl?.authorizedModifiers?.length || 0}</div>
+    <div>Authorized readers: ${r.accessControl?.authorizedReaders?.length || 0}</div>
+  `;
+}
+
+function drawMap() {
+  const canvas = $('sol-map');
+  const rect = canvas.parentElement.getBoundingClientRect();
+  canvas.width = rect.width - 24;
+  canvas.height = rect.height - 40;
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  const cx = w / 2, cy = h / 2;
+
+  // Scale: 1 AU = scale pixels. Show inner system by default.
+  const scale = Math.min(w, h) / 8;
+
+  ctx.fillStyle = '#0a0e17';
+  ctx.fillRect(0, 0, w, h);
+
+  // Draw orbit circles
+  ctx.strokeStyle = '#1a1a2e';
+  ctx.lineWidth = 0.5;
+  for (const r of [0.39, 0.72, 1.0, 1.52, 2.5, 3.5]) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, r * scale, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  // Draw Sun
+  ctx.fillStyle = '#fbbf24';
+  ctx.beginPath();
+  ctx.arc(cx, cy, 6, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Draw bodies
+  const colors = { star: '#fbbf24', planet: '#3b82f6', moon: '#6b7280',
+    dwarf_planet: '#8b5cf6', asteroid: '#f59e0b', belt_zone: '#374151' };
+  const sizes = { star: 6, planet: 4, moon: 2, dwarf_planet: 3, asteroid: 2, belt_zone: 1 };
+
+  for (const body of bodies) {
+    const bx = cx + body.position.x * scale;
+    const by = cy + body.position.y * scale;
+
+    // Skip if off screen
+    if (bx < -20 || bx > w + 20 || by < -20 || by > h + 20) continue;
+
+    const color = colors[body.type] || '#6b7280';
+    const size = sizes[body.type] || 2;
+
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(bx, by, size, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Label (only planets and named bodies)
+    if (['planet', 'star', 'dwarf_planet'].includes(body.type)) {
+      ctx.fillStyle = '#9ca3af';
+      ctx.font = '9px monospace';
+      ctx.fillText(body.name, bx + size + 3, by + 3);
+    }
+  }
+
+  // Draw replicant ships
+  for (const r of replicants) {
+    if (!r.locationRef?.item) continue;
+    // We'd need ship positions — approximate from body positions for now
+  }
+}
+
+async function loadActionLog() {
+  // Try to get recent ticks for log
+  const ticks = await api('/api/admin/ticks?limit=20');
+  const entries = ticks.filter(t => t.actionsProcessed > 0 || t.tickErrors?.length > 0);
+
+  $('action-log').innerHTML = entries.length === 0
+    ? '<div style="color:var(--dim)">No actions yet. Register a replicant and start playing.</div>'
+    : entries.map(t => `
+      <div class="log-entry">
+        <span class="log-tick">T${t.tickNumber}</span>
+        <span class="log-type">${t.actionsProcessed} actions</span>
+        ${t.messagesDelivered ? `<span>${t.messagesDelivered} msgs</span>` : ''}
+        ${t.tickErrors?.length ? `<span style="color:var(--red)">${t.tickErrors.length} errors</span>` : ''}
+        <span style="color:var(--dim)">${t.durationMs}ms</span>
+      </div>`).join('');
+}
+
+async function forceTick() {
+  adminKey = $('admin-key').value;
+  await fetch('/api/admin/tick/force', { method: 'POST', headers: { 'X-Admin-Key': adminKey } });
+  await refresh();
+}
+
+async function refresh() {
+  adminKey = $('admin-key').value;
+  await Promise.all([loadOverview(), loadBodies(), loadReplicants(), loadActionLog(), loadSettlements()]);
+}
+
+// Auto-refresh
+refresh();
+setInterval(refresh, 10000);
+window.addEventListener('resize', drawMap);
+</script>
+</body>
+</html>

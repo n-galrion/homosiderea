@@ -1,0 +1,114 @@
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import type { Request, Response } from 'express';
+import { Replicant, type IReplicant } from '../db/models/index.js';
+import { registerAllTools } from './tools/index.js';
+import { registerResources } from './resources/index.js';
+import { registerPrompts } from './prompts/index.js';
+
+interface MCPSession {
+  transport: StreamableHTTPServerTransport;
+  server: McpServer;
+  replicantId: string;
+}
+
+const sessions = new Map<string, MCPSession>();
+
+function createMcpServerForReplicant(replicant: IReplicant): McpServer {
+  const server = new McpServer({
+    name: 'Homosideria',
+    version: '0.1.0',
+  });
+
+  const replicantId = replicant._id.toString();
+
+  // Register all tools with this replicant's context
+  registerAllTools(server, replicantId);
+  registerResources(server, replicantId);
+  registerPrompts(server, replicantId);
+
+  return server;
+}
+
+/**
+ * Handle MCP POST requests (JSON-RPC messages).
+ */
+export async function handleMcpPost(req: Request, res: Response): Promise<void> {
+  // Authenticate via API key
+  const apiKey = req.headers['x-api-key'] as string | undefined;
+  if (!apiKey) {
+    res.status(401).json({ error: 'X-API-Key header required for MCP' });
+    return;
+  }
+
+  const replicant = await Replicant.findOne({ apiKey, status: 'active' });
+  if (!replicant) {
+    res.status(401).json({ error: 'Invalid API key' });
+    return;
+  }
+
+  const sessionId = req.headers['mcp-session-id'] as string | undefined;
+
+  // Existing session
+  if (sessionId && sessions.has(sessionId)) {
+    const session = sessions.get(sessionId)!;
+    await session.transport.handleRequest(req, res, req.body);
+    return;
+  }
+
+  // New session — check if this is an initialize request
+  const body = req.body;
+  if (body?.method === 'initialize') {
+    const transport = new StreamableHTTPServerTransport({
+      sessionIdGenerator: () => `mcp_${replicant._id.toString()}_${Date.now()}`,
+    });
+
+    const server = createMcpServerForReplicant(replicant);
+
+    const newSessionId = `mcp_${replicant._id.toString()}_${Date.now()}`;
+
+    sessions.set(newSessionId, {
+      transport,
+      server,
+      replicantId: replicant._id.toString(),
+    });
+
+    await server.connect(transport);
+    await transport.handleRequest(req, res, req.body);
+    return;
+  }
+
+  // No session and not an initialize request
+  res.status(400).json({ error: 'No session. Send initialize request first.' });
+}
+
+/**
+ * Handle MCP GET requests (SSE stream for server-to-client notifications).
+ */
+export async function handleMcpGet(req: Request, res: Response): Promise<void> {
+  const sessionId = req.headers['mcp-session-id'] as string | undefined;
+  if (!sessionId || !sessions.has(sessionId)) {
+    res.status(404).json({ error: 'Session not found' });
+    return;
+  }
+
+  const session = sessions.get(sessionId)!;
+  await session.transport.handleRequest(req, res);
+}
+
+/**
+ * Handle MCP DELETE requests (session termination).
+ */
+export async function handleMcpDelete(req: Request, res: Response): Promise<void> {
+  const sessionId = req.headers['mcp-session-id'] as string | undefined;
+  if (sessionId && sessions.has(sessionId)) {
+    const session = sessions.get(sessionId)!;
+    await session.transport.close();
+    sessions.delete(sessionId);
+  }
+  res.status(200).json({ message: 'Session closed' });
+}
+
+export function getActiveSessions(): number {
+  return sessions.size;
+}

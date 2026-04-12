@@ -1,0 +1,32 @@
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { registerScanningTools } from './scanning.tools.js';
+import { registerNavigationTools } from './navigation.tools.js';
+import { registerResourceTools } from './resource.tools.js';
+import { registerManufacturingTools } from './manufacturing.tools.js';
+import { registerAmiTools } from './ami.tools.js';
+import { registerReplicationTools } from './replication.tools.js';
+import { registerCommunicationTools } from './communication.tools.js';
+import { registerMemoryTools } from './memory.tools.js';
+import { registerQueryTools } from './query.tools.js';
+import { registerColonyTools } from './colony.tools.js';
+import { registerResearchTools } from './research.tools.js';
+import { registerDataTools } from './data.tools.js';
+import { registerAccessTools } from './access.tools.js';
+import { registerActionTools } from './action.tools.js';
+
+export function registerAllTools(server: McpServer, replicantId: string): void {
+  registerScanningTools(server, replicantId);
+  registerNavigationTools(server, replicantId);
+  registerResourceTools(server, replicantId);
+  registerManufacturingTools(server, replicantId);
+  registerAmiTools(server, replicantId);
+  registerReplicationTools(server, replicantId);
+  registerCommunicationTools(server, replicantId);
+  registerMemoryTools(server, replicantId);
+  registerQueryTools(server, replicantId);
+  registerColonyTools(server, replicantId);
+  registerResearchTools(server, replicantId);
+  registerDataTools(server, replicantId);
+  registerAccessTools(server, replicantId);
+  registerActionTools(server, replicantId);
+}
