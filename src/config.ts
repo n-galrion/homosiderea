@@ -21,6 +21,10 @@ export const config = {
     apiKey: process.env.LLM_API_KEY || '',
     model: process.env.LLM_MODEL || 'anthropic/claude-sonnet-4',
   },
+  session: {
+    secret: process.env.SESSION_SECRET || 'homosideria-session-secret-change-me',
+    maxAgeMs: 7 * 24 * 60 * 60 * 1000, // 7 days
+  },
   log: {
     level: process.env.LOG_LEVEL || 'info',
   },

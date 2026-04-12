@@ -1,6 +1,9 @@
 import express, { type Request, type Response, type NextFunction } from 'express';
+import session from 'express-session';
+import MongoStore from 'connect-mongo';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { config } from '../config.js';
 import { GameError } from '../shared/errors.js';
 import { authRoutes } from './routes/auth.routes.js';
 import { gameRoutes } from './routes/game.routes.js';
@@ -20,10 +23,35 @@ export function createApp() {
 
   app.use(express.json());
 
-  // Static files + dashboard
+  // EJS view engine
   const __dirname = dirname(fileURLToPath(import.meta.url));
+  app.set('view engine', 'ejs');
+  app.set('views', join(__dirname, '..', 'web', 'views'));
+
+  // URL-encoded body parsing (for form POSTs)
+  app.use(express.urlencoded({ extended: true }));
+
+  // Session middleware
+  app.use(session({
+    secret: config.session.secret,
+    resave: false,
+    saveUninitialized: false,
+    name: 'homosideria.sid',
+    cookie: {
+      maxAge: config.session.maxAgeMs,
+      httpOnly: true,
+      sameSite: 'lax',
+    },
+    store: MongoStore.create({
+      mongoUrl: config.mongodb.uri,
+      collectionName: 'sessions',
+    }),
+  }));
+
+  // Static files + dashboard
   const publicDir = join(__dirname, '..', '..', 'public');
   app.use('/static', express.static(publicDir));
+  app.use('/web', express.static(join(__dirname, '..', 'web', 'public')));
   app.get('/dashboard', (_req: Request, res: Response) => {
     res.sendFile(join(publicDir, 'dashboard.html'));
   });
