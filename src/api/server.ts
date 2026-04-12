@@ -99,7 +99,8 @@ export function createApp() {
           map: 'GET /api/world/map',
         },
         actions: {
-          submit: 'POST /api/actions  body: { type, params, priority? }',
+          propose: 'POST /api/actions/propose  body: { action: "free text description", context?, autoApply? }  — MC-evaluated, immediate',
+          submit: 'POST /api/actions  body: { type, params, priority? }  — structured, tick-resolved',
           list: 'GET /api/actions?status=&type=&limit=',
           get: 'GET /api/actions/:id',
         },

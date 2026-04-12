@@ -1,9 +1,74 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import { ActionQueue, Tick } from '../../db/models/index.js';
+import { evaluateAction, applyOutcomes } from '../../engine/systems/ActionEvaluator.js';
 
 export const actionRoutes = Router();
 
-// Submit a new action
+// Propose a free-text action (MC-evaluated)
+actionRoutes.post('/propose', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { action, context, autoApply = true } = req.body;
+    if (!action || typeof action !== 'string') {
+      res.status(400).json({ error: 'VALIDATION', message: 'action (string) is required' });
+      return;
+    }
+
+    const outcome = await evaluateAction(req.replicantId!, action, context || undefined);
+
+    if (outcome.impossible) {
+      res.json({
+        status: 'IMPOSSIBLE',
+        reason: outcome.impossibleReason,
+      });
+      return;
+    }
+
+    if (!outcome.feasible) {
+      res.json({
+        status: 'NOT_FEASIBLE',
+        reason: outcome.reason,
+        prerequisites: outcome.prerequisites,
+      });
+      return;
+    }
+
+    if (autoApply) {
+      const log = await applyOutcomes(req.replicantId!, outcome);
+
+      const latestTick = await Tick.findOne().sort({ tickNumber: -1 }).lean();
+      await ActionQueue.create({
+        replicantId: req.replicantId,
+        type: 'proposed_action',
+        status: 'completed',
+        params: { action, context, evaluatedBy: 'master_controller' },
+        result: { outcomes: outcome.outcomes, narrative: outcome.outcomes?.narrative, log },
+        queuedAtTick: latestTick?.tickNumber ?? 0,
+        resolvedAtTick: latestTick?.tickNumber ?? 0,
+      });
+
+      res.json({
+        status: 'EXECUTED',
+        narrative: outcome.outcomes?.narrative,
+        reason: outcome.reason,
+        costs: { compute: outcome.computeCost, energy: outcome.energyCost, ticks: outcome.ticksToComplete },
+        outcomes: outcome.outcomes,
+        appliedChanges: log,
+      });
+      return;
+    }
+
+    res.json({
+      status: 'PREVIEW',
+      reason: outcome.reason,
+      costs: { compute: outcome.computeCost, energy: outcome.energyCost, ticks: outcome.ticksToComplete },
+      outcomes: outcome.outcomes,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Submit a structured action (tick-resolved)
 actionRoutes.post('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { type, params, priority } = req.body;
