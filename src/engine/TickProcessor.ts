@@ -14,6 +14,7 @@ import { processMaintenance } from './systems/Maintenance.js';
 import { processOrbitFuelDrain } from './systems/FuelConsumption.js';
 import { processRandomEvents } from './systems/RandomEvents.js';
 import { processNPCTraffic } from './systems/NPCTraffic.js';
+import { simulateWorldWithMC } from './systems/MCWorldSimulator.js';
 import { processPirateActivity } from './systems/PirateActivity.js';
 
 /**
@@ -155,7 +156,17 @@ export class TickProcessor {
       errors.push(`PirateActivity: ${err instanceof Error ? err.message : String(err)}`);
     }
 
-    // Phase 17: Random Events
+    // Phase 17: MC World Simulation (LLM-driven dynamic events, every ~50 ticks)
+    try {
+      const mcLogs = await simulateWorldWithMC(tickNumber);
+      if (mcLogs.length > 0) {
+        errors.push(...mcLogs.map(l => `[MC] ${l}`));
+      }
+    } catch (err) {
+      errors.push(`MCWorldSim: ${err instanceof Error ? err.message : String(err)}`);
+    }
+
+    // Phase 18: Random Events
     try {
       const eventLogs = await processRandomEvents(tickNumber);
       if (eventLogs.length > 0) {

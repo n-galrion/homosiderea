@@ -35,6 +35,43 @@ export async function generateContent(
   }
 }
 
+/**
+ * Generate structured JSON content from the LLM.
+ * Parses the response as JSON, falls back to the provided default.
+ */
+export async function generateJSON<T>(
+  systemPrompt: string,
+  userPrompt: string,
+  fallback: T,
+): Promise<T> {
+  if (!config.llm.apiKey) return fallback;
+
+  try {
+    const client = new OpenAI({
+      baseURL: config.llm.baseUrl,
+      apiKey: config.llm.apiKey,
+    });
+
+    const response = await client.chat.completions.create({
+      model: config.llm.model,
+      max_tokens: 1024,
+      temperature: 0.8,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+    });
+
+    const text = response.choices[0]?.message?.content?.trim() || '';
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) return JSON.parse(jsonMatch[0]) as T;
+    return fallback;
+  } catch (err) {
+    console.error('MCGenerator JSON error:', err instanceof Error ? err.message : err);
+    return fallback;
+  }
+}
+
 const SALVAGE_SYSTEM = `You are the narrator of Homosideria, a hard sci-fi space game set in the Sol system. You generate in-universe content for salvage recovered from destroyed ships. Write vivid, specific, scientifically grounded text. Reference real physics, chemistry, materials science. Include specific numbers, coordinates, bearings. Every piece of salvage should contain a unique clue, hint, or mystery that a player could investigate. Keep responses under 200 words.`;
 
 export async function generateFlightLog(shipName: string, position: { x: number; y: number; z: number }, tick: number): Promise<string> {
