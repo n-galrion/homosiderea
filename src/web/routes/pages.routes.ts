@@ -58,7 +58,7 @@ pagesRoutes.get('/replicants', requireAuth, requireRole('owner', 'operator', 'sp
 pagesRoutes.post('/replicants/create', requireAuth, requireRole('owner', 'operator', 'spectator'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = res.locals.user;
-    const { name, directive } = req.body;
+    const { name, directive, background, personality } = req.body;
 
     // Call the internal registration API via fetch to localhost
     const port = config.server.port;
@@ -81,9 +81,21 @@ pagesRoutes.post('/replicants/create', requireAuth, requireRole('owner', 'operat
       return;
     }
 
+    // Apply identity fields that the register API doesn't handle
+    const replicantId = (data as Record<string, string>).id;
+    if (background || personality) {
+      const replicant = await Replicant.findById(replicantId);
+      if (replicant) {
+        if (background) replicant.identity.background = background.trim();
+        if (personality) replicant.identity.personality = personality.trim();
+        replicant.markModified('identity');
+        await replicant.save();
+      }
+    }
+
     // Link replicant to user
     await User.findByIdAndUpdate(user._id, {
-      $push: { replicantIds: (data as Record<string, string>).id },
+      $push: { replicantIds: replicantId },
     });
 
     // Promote user to owner if they were spectator

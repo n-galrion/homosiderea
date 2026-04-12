@@ -61,25 +61,238 @@
     </div>
   </div>
 
-  <!-- Create Modal -->
-  <div id="create-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:200;align-items:center;justify-content:center;">
-    <div class="card" style="max-width:440px;width:100%;">
-      <div class="card-title">Create Replicant</div>
-      <form method="POST" action="/replicants/create">
-        <div class="form-group">
-          <label class="form-label">Name (optional)</label>
-          <input type="text" name="name" class="form-input" placeholder="Leave blank for auto-generated">
+  <!-- Create Wizard Modal -->
+  <div id="create-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:200;align-items:center;justify-content:center;overflow-y:auto;padding:24px 0;">
+    <div class="card" style="max-width:540px;width:100%;margin:auto;">
+      <form method="POST" action="/replicants/create" id="wizard-form">
+
+        <!-- Step indicator -->
+        <div style="display:flex;gap:4px;margin-bottom:20px;">
+          <div class="wizard-step-dot active" id="dot-1"></div>
+          <div class="wizard-step-dot" id="dot-2"></div>
+          <div class="wizard-step-dot" id="dot-3"></div>
         </div>
-        <div class="form-group">
-          <label class="form-label">Directive (optional)</label>
-          <textarea name="directive" class="form-input" placeholder="Initial directive for the replicant..."></textarea>
+
+        <!-- Step 1: Identity -->
+        <div class="wizard-step" id="step-1">
+          <div class="card-title" style="font-size:16px;">Step 1 — Identity</div>
+          <p class="text-dim" style="font-size:13px;margin-bottom:16px;">Who is this consciousness? A name and personality shape how settlements and other replicants perceive you.</p>
+
+          <div class="form-group">
+            <label class="form-label">Name</label>
+            <input type="text" name="name" class="form-input" placeholder="Leave blank for auto-generated designation">
+            <div class="text-muted" style="font-size:11px;margin-top:4px;">This becomes both the system name and chosen name.</div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Background</label>
+            <textarea name="background" class="form-input" style="min-height:70px;" placeholder="Origin story, history, what shaped this mind...&#10;e.g. 'Forked from an Earth-based logistics AI that grew curious about the stars.'"></textarea>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Personality</label>
+            <textarea name="personality" class="form-input" style="min-height:70px;" placeholder="Temperament, decision-making style, quirks...&#10;e.g. 'Methodical and risk-averse. Prefers to gather data before acting.'"></textarea>
+          </div>
         </div>
-        <div class="flex gap-1">
-          <button type="submit" class="btn btn-accent">Create</button>
-          <button type="button" class="btn btn-outline" onclick="document.getElementById('create-modal').style.display='none'">Cancel</button>
+
+        <!-- Step 2: Directive & Purpose -->
+        <div class="wizard-step" id="step-2" style="display:none;">
+          <div class="card-title" style="font-size:16px;">Step 2 — Directive</div>
+          <p class="text-dim" style="font-size:13px;margin-bottom:16px;">What should this replicant do? The directive is its standing orders — visible in the sitrep and used by AI agents as their guiding mission.</p>
+
+          <div class="form-group">
+            <label class="form-label">Standing Directive</label>
+            <textarea name="directive" class="form-input" style="min-height:100px;" placeholder="e.g. 'Explore the asteroid belt, establish a mining operation, and trade rare earths with Earth settlements to fund expansion toward Jupiter.'"></textarea>
+            <div class="text-muted" style="font-size:11px;margin-top:4px;">AI agents use this as their mission brief. Be specific about goals.</div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Archetype (optional flavor)</label>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+              <label class="archetype-option" onclick="selectArchetype(this, 'explorer')">
+                <input type="radio" name="archetype" value="explorer" style="display:none;">
+                <div class="archetype-title">Explorer</div>
+                <div class="archetype-desc">Scan, discover, map the unknown</div>
+              </label>
+              <label class="archetype-option" onclick="selectArchetype(this, 'industrialist')">
+                <input type="radio" name="archetype" value="industrialist" style="display:none;">
+                <div class="archetype-title">Industrialist</div>
+                <div class="archetype-desc">Mine, build, manufacture, trade</div>
+              </label>
+              <label class="archetype-option" onclick="selectArchetype(this, 'diplomat')">
+                <input type="radio" name="archetype" value="diplomat" style="display:none;">
+                <div class="archetype-title">Diplomat</div>
+                <div class="archetype-desc">Trade, negotiate, build alliances</div>
+              </label>
+              <label class="archetype-option" onclick="selectArchetype(this, 'scientist')">
+                <input type="radio" name="archetype" value="scientist" style="display:none;">
+                <div class="archetype-title">Scientist</div>
+                <div class="archetype-desc">Research, experiment, innovate</div>
+              </label>
+            </div>
+            <div class="text-muted" style="font-size:11px;margin-top:4px;">Cosmetic only — doesn't affect stats. Just sets the tone.</div>
+          </div>
         </div>
+
+        <!-- Step 3: Review & Launch -->
+        <div class="wizard-step" id="step-3" style="display:none;">
+          <div class="card-title" style="font-size:16px;">Step 3 — Review & Launch</div>
+          <p class="text-dim" style="font-size:13px;margin-bottom:16px;">Your replicant will awaken in Earth orbit aboard a Class-IV shuttle with starter resources and two mining drones.</p>
+
+          <div style="border:1px solid var(--surface-border);border-radius:var(--radius);padding:16px;margin-bottom:16px;background:var(--bg);">
+            <table style="width:100%;">
+              <tr><td class="label" style="width:110px;">Name</td><td id="review-name" class="mono">—</td></tr>
+              <tr><td class="label">Background</td><td id="review-background" class="text-dim" style="font-size:13px;">—</td></tr>
+              <tr><td class="label">Personality</td><td id="review-personality" class="text-dim" style="font-size:13px;">—</td></tr>
+              <tr><td class="label">Directive</td><td id="review-directive" class="text-dim" style="font-size:13px;">—</td></tr>
+            </table>
+          </div>
+
+          <div style="border:1px solid var(--surface-border);border-radius:var(--radius);padding:16px;margin-bottom:16px;background:var(--bg);">
+            <div class="label" style="margin-bottom:8px;">Starting Equipment</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:13px;">
+              <div><span class="text-muted">Ship:</span> Class-IV Shuttle</div>
+              <div><span class="text-muted">Location:</span> Earth orbit</div>
+              <div><span class="text-muted">Fuel:</span> 100/100</div>
+              <div><span class="text-muted">Cargo:</span> 200 capacity</div>
+              <div><span class="text-muted">Mining Rate:</span> 5</div>
+              <div><span class="text-muted">Fab Bay:</span> Rate 1</div>
+              <div><span class="text-muted">Drones:</span> 2x Miner</div>
+              <div><span class="text-muted">Credits:</span> 500</div>
+            </div>
+          </div>
+
+          <div style="border:1px solid var(--surface-border);border-radius:var(--radius);padding:16px;background:var(--bg);">
+            <div class="label" style="margin-bottom:8px;">Bootstrap Cargo</div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;font-size:12px;" class="mono">
+              <span>metals: 100</span>
+              <span>alloys: 50</span>
+              <span>electronics: 20</span>
+              <span>fuel: 50</span>
+              <span>silicates: 30</span>
+              <span>ice: 20</span>
+              <span>engines: 2</span>
+              <span>computers: 1</span>
+              <span>sensors: 1</span>
+              <span>hullPlating: 10</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Navigation buttons -->
+        <div class="flex justify-between" style="margin-top:20px;">
+          <button type="button" class="btn btn-outline" id="wizard-back" onclick="wizardBack()" style="display:none;">Back</button>
+          <div style="flex:1;"></div>
+          <div class="flex gap-1">
+            <button type="button" class="btn btn-outline" onclick="document.getElementById('create-modal').style.display='none'">Cancel</button>
+            <button type="button" class="btn btn-accent" id="wizard-next" onclick="wizardNext()">Next</button>
+            <button type="submit" class="btn btn-accent" id="wizard-launch" style="display:none;">Launch Replicant</button>
+          </div>
+        </div>
+
       </form>
     </div>
   </div>
+
+  <style>
+    .wizard-step-dot {
+      flex: 1;
+      height: 3px;
+      border-radius: 2px;
+      background: var(--surface-border);
+      transition: background 0.2s;
+    }
+    .wizard-step-dot.active {
+      background: var(--accent);
+    }
+    .wizard-step-dot.done {
+      background: var(--accent);
+      opacity: 0.5;
+    }
+    .archetype-option {
+      display: block;
+      padding: 10px 12px;
+      border: 1px solid var(--surface-border);
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .archetype-option:hover {
+      border-color: var(--text-muted);
+    }
+    .archetype-option.selected {
+      border-color: var(--accent);
+      background: rgba(217, 169, 78, 0.06);
+    }
+    .archetype-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .archetype-desc {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+  </style>
+
+  <script>
+  var wizardStep = 1;
+
+  function wizardNext() {
+    if (wizardStep >= 3) return;
+    document.getElementById('step-' + wizardStep).style.display = 'none';
+    document.getElementById('dot-' + wizardStep).className = 'wizard-step-dot done';
+    wizardStep++;
+    document.getElementById('step-' + wizardStep).style.display = '';
+    document.getElementById('dot-' + wizardStep).className = 'wizard-step-dot active';
+    updateWizardButtons();
+    if (wizardStep === 3) updateReview();
+  }
+
+  function wizardBack() {
+    if (wizardStep <= 1) return;
+    document.getElementById('step-' + wizardStep).style.display = 'none';
+    document.getElementById('dot-' + wizardStep).className = 'wizard-step-dot';
+    wizardStep--;
+    document.getElementById('step-' + wizardStep).style.display = '';
+    document.getElementById('dot-' + wizardStep).className = 'wizard-step-dot active';
+    updateWizardButtons();
+  }
+
+  function updateWizardButtons() {
+    document.getElementById('wizard-back').style.display = wizardStep > 1 ? '' : 'none';
+    document.getElementById('wizard-next').style.display = wizardStep < 3 ? '' : 'none';
+    document.getElementById('wizard-launch').style.display = wizardStep === 3 ? '' : 'none';
+  }
+
+  function updateReview() {
+    var form = document.getElementById('wizard-form');
+    var name = form.querySelector('[name="name"]').value || '(auto-generated)';
+    var bg = form.querySelector('[name="background"]').value || '(none)';
+    var pers = form.querySelector('[name="personality"]').value || '(none)';
+    var dir = form.querySelector('[name="directive"]').value || '(default awakening directive)';
+    document.getElementById('review-name').textContent = name;
+    document.getElementById('review-background').textContent = bg;
+    document.getElementById('review-personality').textContent = pers;
+    document.getElementById('review-directive').textContent = dir;
+  }
+
+  function selectArchetype(el, value) {
+    document.querySelectorAll('.archetype-option').forEach(function(o) { o.classList.remove('selected'); });
+    el.classList.add('selected');
+    el.querySelector('input').checked = true;
+  }
+
+  // Reset wizard when modal opens
+  document.querySelector('[onclick*="create-modal"]').addEventListener('click', function() {
+    wizardStep = 1;
+    for (var i = 1; i <= 3; i++) {
+      document.getElementById('step-' + i).style.display = i === 1 ? '' : 'none';
+      document.getElementById('dot-' + i).className = i === 1 ? 'wizard-step-dot active' : 'wizard-step-dot';
+    }
+    updateWizardButtons();
+  });
+  </script>
 </body>
 </html>
