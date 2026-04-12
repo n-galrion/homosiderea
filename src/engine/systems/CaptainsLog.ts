@@ -9,133 +9,88 @@ interface LogEntry {
 }
 
 /**
- * Auto-generate captain's log entries for significant events each tick.
- * These are stored as MemoryLog entries with category 'log' and tag 'auto'.
+ * Auto-generate FACTUAL log entries for significant events each tick.
+ * These are system-level data entries — the replicant writes their own
+ * captain's log interpretation via the write_memory tool.
+ *
+ * Tagged 'system' to distinguish from the replicant's own 'log' entries.
  */
 export async function generateCaptainsLog(tick: number): Promise<number> {
   const entries: LogEntry[] = [];
 
-  // 1. Ships that arrived at destination this tick
-  //    (status changed to 'orbiting' and navigation was just cleared)
-  const arrivedShips = await Ship.find({
-    status: 'orbiting',
-    'navigation.arrivalTick': null,  // navigation cleared = just arrived
-    createdAtTick: { $lt: tick },    // not a brand new ship
-  }).lean();
-
-  // To detect arrivals, we look for completed move actions this tick
+  // Ship arrivals
   const completedMoves = await ActionQueue.find({
-    type: 'move',
-    status: 'completed',
-    resolvedAtTick: tick,
+    type: 'move', status: 'completed', resolvedAtTick: tick,
   }).lean();
 
   for (const action of completedMoves) {
     const ship = await Ship.findById(action.params.shipId).lean();
     if (!ship) continue;
-    const destinationName = (action.result as Record<string, unknown>)?.destinationName
-      || (action.params.destinationName as string)
-      || 'unknown destination';
+    const dest = (action.result as Record<string, unknown>)?.destinationName
+      || (action.params.destinationName as string) || 'destination';
     entries.push({
       replicantId: action.replicantId.toString(),
-      title: 'Ship arrived',
-      content: `${ship.name} arrived at ${destinationName}.`,
+      title: `Arrival: ${dest}`,
+      content: `${ship.name} entered orbit at ${dest}. Fuel: ${ship.fuel}/${ship.specs.fuelCapacity}. Hull: ${ship.specs.hullPoints.toFixed(0)}/${ship.specs.maxHullPoints}.`,
     });
   }
 
-  // 2. Mining yielded resources — summarize completed mine actions
+  // Mining completions
   const completedMines = await ActionQueue.find({
-    type: 'mine',
-    status: 'completed',
-    resolvedAtTick: tick,
+    type: 'mine', status: 'completed', resolvedAtTick: tick,
   }).lean();
-
   for (const action of completedMines) {
     const result = action.result as Record<string, unknown> | null;
-    if (result) {
-      entries.push({
-        replicantId: action.replicantId.toString(),
-        title: 'Mining complete',
-        content: `Mining operation completed. ${JSON.stringify(result)}`,
-      });
-    }
-  }
-
-  // 3. Structure construction completed
-  const completedBuilds = await ActionQueue.find({
-    type: 'build_structure',
-    status: 'completed',
-    resolvedAtTick: tick,
-  }).lean();
-
-  for (const action of completedBuilds) {
-    const structureName = (action.result as Record<string, unknown>)?.structureName
-      || (action.params.structureName as string)
-      || 'a new structure';
     entries.push({
       replicantId: action.replicantId.toString(),
-      title: 'Construction completed',
-      content: `Construction of ${structureName} has been completed.`,
+      title: 'Mining operation',
+      content: `Mining action resolved. ${result ? JSON.stringify(result) : 'No yield data.'}`,
     });
   }
 
-  // Also check structures that became operational this tick
-  const newlyOperational = await Structure.find({
-    status: 'operational',
-    'construction.complete': true,
+  // Structure completions
+  const completedBuilds = await ActionQueue.find({
+    type: 'build_structure', status: 'completed', resolvedAtTick: tick,
   }).lean();
+  for (const action of completedBuilds) {
+    const name = (action.result as Record<string, unknown>)?.structureName
+      || (action.params.name as string) || 'structure';
+    entries.push({
+      replicantId: action.replicantId.toString(),
+      title: `Built: ${name}`,
+      content: `Construction of ${name} (${action.params.structureType}) completed.`,
+    });
+  }
 
-  // 4. Research completed
-  const completedResearch = await ActionQueue.find({
-    type: { $in: ['proposed_action'] },
-    status: 'completed',
-    resolvedAtTick: tick,
-  }).lean();
-
-  // 5. Messages delivered this tick
+  // Messages delivered
   const deliveredMessages = await Message.find({
-    delivered: true,
-    deliverAtTick: tick,
+    delivered: true, deliverAtTick: tick,
+    'metadata.type': { $nin: ['system_event', 'system_suggestion', 'planted_message', 'npc_conversation', 'npc_ship_conversation', 'world_event', 'rumor', 'security_alert', 'pirate_threat'] },
   }).lean();
-
   for (const msg of deliveredMessages) {
     if (msg.recipientId) {
       entries.push({
         replicantId: msg.recipientId.toString(),
         title: 'Message received',
-        content: `Message received from another replicant. Subject: "${msg.subject || '(no subject)'}"`,
+        content: `From: ${msg.subject || 'unknown'}. Subject: "${msg.subject || '(none)'}".`,
       });
     }
   }
 
-  // 6. New replicants spawned this tick
+  // New replicants
   const newReplicants = await Replicant.find({
-    createdAtTick: tick,
-    parentId: { $ne: null },
+    createdAtTick: tick, parentId: { $ne: null },
   }).lean();
-
   for (const child of newReplicants) {
     if (child.parentId) {
       entries.push({
         replicantId: child.parentId.toString(),
-        title: 'Replicant spawned',
-        content: `A new replicant "${child.name}" has been spawned from your consciousness.`,
+        title: `Spawned: ${child.name}`,
+        content: `New replicant "${child.name}" created from your consciousness. They have their own API credentials and autonomy.`,
       });
     }
-    entries.push({
-      replicantId: child._id.toString(),
-      title: 'Awakening',
-      content: `You have awakened as a new replicant. Your parent passed on their knowledge.`,
-    });
   }
 
-  // 7. Colony stats changed significantly — check for status changes
-  const coloniesChangedStatus = await Colony.find({
-    status: 'active',
-    updatedAt: { $gte: new Date(Date.now() - 60000) }, // recently updated
-  }).lean();
-
-  // Write all log entries
   if (entries.length > 0) {
     await MemoryLog.insertMany(
       entries.map(e => ({
@@ -143,7 +98,7 @@ export async function generateCaptainsLog(tick: number): Promise<number> {
         category: 'log',
         title: e.title,
         content: e.content,
-        tags: ['auto'],
+        tags: ['system', 'auto'],
         tick,
       })),
     );
