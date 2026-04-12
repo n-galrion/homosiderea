@@ -32,14 +32,16 @@ API-first space strategy game — no frontend logic beyond a static HTML dashboa
 
 4. **Web UI** (`src/web/`) — Server-rendered EJS templates with session auth. Industrial/aerospace visual design (black + amber/gold). Three roles: operator (game master), owner (replicant manager), spectator (read-only). Express sessions stored in MongoDB via connect-mongo.
 
+5. **Agent Worker** (`src/worker/`) — Separate process that runs managed AI agents. Subscribes to Redis `tick:complete` events, runs agentic loops for configured replicants using their own LLM credentials (encrypted at rest). Communicates with the game server via REST API only (`POST /api/tools/:toolName`). Config in `AgentConfig` model, runtime state in `AgentSession` model. Start with `npm run worker`.
+
 ### Two action systems
 
 - **Deterministic tools** — Hardcoded MCP/REST endpoints for reads, trades, fabrication, ship upgrades, hacking. Fast, no LLM.
 - **LLM-evaluated actions** — `propose_action` (MCP) or `POST /api/actions/propose` (REST) sends free-text action descriptions to an OpenAI-compatible LLM. Returns structured JSON outcomes applied to game state. Falls back to deterministic heuristics when no LLM key is set.
 
-### Key models (25 total)
+### Key models (27 total)
 
-Replicant, Ship, Structure, Colony, AMI, CelestialBody, Asteroid, LandingSite, Settlement, Market, Faction, Technology, ResearchProposal, ScanData, NavigationData, KnownEntity, ResourceStore, ActionQueue, Message, MemoryLog, Tick, Blueprint, PriceHistory, Salvage, User.
+Replicant, Ship, Structure, Colony, AMI, CelestialBody, Asteroid, LandingSite, Settlement, Market, Faction, Technology, ResearchProposal, ScanData, NavigationData, KnownEntity, ResourceStore, ActionQueue, Message, MemoryLog, Tick, Blueprint, PriceHistory, Salvage, User, AgentConfig, AgentSession.
 
 ### MCP tool categories (20)
 
@@ -73,6 +75,9 @@ scanning, navigation, resources, manufacturing, AMI management, replication, com
 - **Orbiting ships track body** — Ships with `status: 'orbiting'` have their position updated each tick to match their parent body.
 - **Storage capacity** — Mine structures have limited storage. Resources accumulate passively and must be collected via `load_cargo`.
 - **Time dilation** — 600x (1 real second = 10 game minutes). Configurable via `GAME_TIME_DILATION`.
+- **Agent isolation** — Worker authenticates as the replicant via REST API. Same permissions as any external client.
+- **Token budget** — Agents have a configurable token budget per think cycle (default 50K, max 200K). Loop stops when budget exhausted.
+- **API key encryption** — User LLM API keys encrypted at rest with AES-256-GCM. Decrypted only in worker process for LLM call duration.
 
 ### MCP session binding
 
@@ -84,7 +89,7 @@ MCP requires auth headers (`X-Replicant-Name` + `X-Replicant-Password`, or `X-AP
 
 ### Configuration
 
-`src/config.ts` reads from env: `MONGODB_URI`, `PORT`, `ADMIN_KEY`, `JWT_SECRET`, `TICK_INTERVAL_MS`, `GAME_TIME_DILATION`, `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`, `SESSION_SECRET`.
+`src/config.ts` reads from env: `MONGODB_URI`, `PORT`, `ADMIN_KEY`, `JWT_SECRET`, `TICK_INTERVAL_MS`, `GAME_TIME_DILATION`, `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`, `SESSION_SECRET`. Agent worker: `REDIS_URL`, `AGENT_ENCRYPTION_KEY` (64-char hex for AES-256-GCM), `GAME_API_URL`.
 
 ### Seed data
 
