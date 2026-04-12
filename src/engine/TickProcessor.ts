@@ -54,6 +54,13 @@ export class TickProcessor {
       errors.push(`EnergyProduction: ${err instanceof Error ? err.message : String(err)}`);
     }
 
+    // Phase 2b: Replicant Energy Regeneration
+    try {
+      await regenReplicantEnergy(tickNumber);
+    } catch (err) {
+      errors.push(`EnergyRegen: ${err instanceof Error ? err.message : String(err)}`);
+    }
+
     // Phase 3: AMI Execution
     try {
       amisExecuted = await executeAllAMIs(tickNumber);

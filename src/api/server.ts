@@ -128,6 +128,9 @@ export function createApp() {
           list: 'GET /api/ships',
           get: 'GET /api/ships/:id',
           inventory: 'GET /api/ships/:id/inventory',
+          autofactory: 'GET /api/ships/:id/autofactory  — list recipes; POST to fabricate',
+          route: 'GET /api/ships/:id/route/:bodyId  — preview route: distance, fuel, travel time, ETA',
+          upgrades: 'GET /api/ships/:id/upgrades  — available upgrades with costs and effects',
         },
         structures: {
           list: 'GET /api/structures',

@@ -6,17 +6,17 @@
 
 ## Gameplay Bugs (TODO)
 - [ ] Mining yields invisible — likely cargo was full from unenforceable trade. Now that cargo is enforced, mining should visibly work. VERIFY on next playtest.
-- [ ] Mining drones start as 'idle' not 'active' — need either auto-activate on start_mining or a tool to activate them
+- [x] Mining drones start as 'idle' not 'active' — FIXED: start_mining now auto-activates idle miner AMIs on the ship
 - [ ] Fuel tank vs cargo fuel — no transfer mechanism between ship.fuel and cargo fuel
-- [ ] Energy budget drains with no regen — solar panels/rest not discoverable. Need energy regen mechanic or clearer docs.
+- [x] Energy budget drains with no regen — FIXED: replicants now regen 1 energy/tick base + bonus from owned solar arrays, capped at 200
 - [ ] scan missed Luna at 0.003 AU — sensor logic may not check moons of current body
 
 ## Missing Features (TODO)
 - [ ] Structured trade action (not just propose_action) — the `trade` MCP tool exists but Meridian didn't discover it. Need better discoverability.
-- [ ] calculate_route REST endpoint — MCP tool exists, not available via REST
+- [x] calculate_route REST endpoint — FIXED: added GET /api/ships/:id/route/:bodyId with distance, travel time, fuel cost, game/real time estimates
 - [ ] Technology persistence verification — list_technologies tool exists but wasn't available to Meridian (MCP not connected?)
 - [ ] Communication threads — hail_settlement creates messages but Meridian didn't see them in inbox (may be self-addressed system messages, not proper inbox items)
-- [ ] upgrade_ship_system cost/benefit not discoverable — need an info endpoint or include in action-types
+- [x] upgrade_ship_system cost/benefit not discoverable — FIXED: added GET /api/ships/:id/upgrades returning all system upgrade costs and effects
 
 ## Infrastructure Ideas (TODO)
 - [ ] Passive resource accumulation at mine structures — mines should have their own storage, fill up over time, replicant collects periodically
@@ -26,5 +26,5 @@
 
 ## Polish (TODO)
 - [ ] Pre-computed body positions in initial list don't match current orbital positions
-- [ ] Upgrade costs should be queryable before committing
-- [ ] Energy regen from solar panels at colonies needs to flow to replicant's budget
+- [x] Upgrade costs should be queryable before committing — FIXED: GET /api/ships/:id/upgrades endpoint
+- [x] Energy regen from solar panels at colonies needs to flow to replicant's budget — FIXED: regenReplicantEnergy in ResourceProduction.ts

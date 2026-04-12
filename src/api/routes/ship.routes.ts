@@ -1,5 +1,6 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
-import { Ship, ResourceStore, Tick } from '../../db/models/index.js';
+import { Ship, CelestialBody, ResourceStore, Tick } from '../../db/models/index.js';
+import { distance, travelTimeTicks, fuelCost } from '../../shared/physics.js';
 import { gameHoursPerTick, gameHoursToRealMs, formatGameTime, formatRealWait } from '../../shared/gameTime.js';
 
 export const shipRoutes = Router();
@@ -205,6 +206,126 @@ shipRoutes.post('/:id/autofactory', async (req: Request, res: Response, next: Ne
       quantity,
       consumed: Object.fromEntries(Object.entries(recipe.inputs).map(([r, a]) => [r, a * quantity])),
       produced: Object.fromEntries(Object.entries(recipe.outputs).map(([r, a]) => [r, a * quantity])),
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Calculate route without committing
+shipRoutes.get('/:id/route/:bodyId', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const ship = await Ship.findOne({ _id: req.params.id, ownerId: req.replicantId }).lean();
+    if (!ship) {
+      res.status(404).json({ error: 'NOT_FOUND', message: 'Ship not found' });
+      return;
+    }
+
+    const destBody = await CelestialBody.findById(req.params.bodyId).lean();
+    if (!destBody) {
+      res.status(404).json({ error: 'NOT_FOUND', message: 'Destination body not found' });
+      return;
+    }
+
+    const latestTick = await Tick.findOne().sort({ tickNumber: -1 }).lean();
+    const currentTick = latestTick?.tickNumber ?? 0;
+
+    const dist = distance(ship.position, destBody.position);
+    const travelTicks = travelTimeTicks(ship.position, destBody.position, ship.specs.maxSpeed);
+    const fuel = fuelCost(dist);
+    const feasible = ship.fuel >= fuel;
+    const gameHoursTravel = travelTicks * gameHoursPerTick();
+
+    res.json({
+      from: ship.name,
+      to: destBody.name,
+      distanceAU: parseFloat(dist.toFixed(6)),
+      travelTicks,
+      fuelCost: fuel,
+      fuelAvailable: ship.fuel,
+      feasible,
+      estimatedArrivalTick: currentTick + travelTicks,
+      estimatedArrival: {
+        gameTime: formatGameTime(gameHoursTravel),
+        realTime: formatRealWait(gameHoursTravel),
+        realTimeMs: gameHoursToRealMs(gameHoursTravel),
+      },
+      shipSpeed: ship.specs.maxSpeed,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Get upgrade costs for a ship system
+shipRoutes.get('/:id/upgrades', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const ship = await Ship.findOne({ _id: req.params.id, ownerId: req.replicantId }).lean();
+    if (!ship) {
+      res.status(404).json({ error: 'NOT_FOUND', message: 'Ship not found' });
+      return;
+    }
+
+    const upgrades: Record<string, {
+      currentValue: number;
+      newValue: number;
+      improvement: string;
+      cost: Record<string, number>;
+    }> = {
+      sensors: {
+        currentValue: ship.specs.sensorRange,
+        newValue: parseFloat((ship.specs.sensorRange + 0.2).toFixed(2)),
+        improvement: `+0.2 AU sensor range`,
+        cost: { sensors: 2, electronics: 5 },
+      },
+      engines: {
+        currentValue: ship.specs.maxSpeed,
+        newValue: parseFloat((ship.specs.maxSpeed + 0.001).toFixed(4)),
+        improvement: `+0.001 AU/tick max speed`,
+        cost: { engines: 1, alloys: 10 },
+      },
+      hull: {
+        currentValue: ship.specs.maxHullPoints,
+        newValue: ship.specs.maxHullPoints + 50,
+        improvement: `+50 max hull points`,
+        cost: { hullPlating: 10, alloys: 15 },
+      },
+      cargo: {
+        currentValue: ship.specs.cargoCapacity,
+        newValue: ship.specs.cargoCapacity + 100,
+        improvement: `+100 cargo capacity`,
+        cost: { alloys: 20, hullPlating: 5 },
+      },
+      mining: {
+        currentValue: ship.specs.miningRate,
+        newValue: ship.specs.miningRate + 3,
+        improvement: `+3 mining rate`,
+        cost: { alloys: 15, electronics: 5, engines: 1 },
+      },
+      fuel_tank: {
+        currentValue: ship.specs.fuelCapacity,
+        newValue: ship.specs.fuelCapacity + 50,
+        improvement: `+50 fuel capacity`,
+        cost: { alloys: 10, hullPlating: 5 },
+      },
+    };
+
+    const autofactoryLevel = ship.specs.manufacturingRate;
+    const autofactoryUpgrade = {
+      currentLevel: autofactoryLevel,
+      newLevel: autofactoryLevel + 1,
+      cost: {
+        alloys: 20 + autofactoryLevel * 10,
+        electronics: 10 + autofactoryLevel * 5,
+        computers: 1 + autofactoryLevel,
+      },
+    };
+
+    res.json({
+      shipId: ship._id.toString(),
+      shipName: ship.name,
+      systemUpgrades: upgrades,
+      autofactoryUpgrade,
     });
   } catch (err) {
     next(err);
