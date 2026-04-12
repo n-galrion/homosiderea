@@ -13,6 +13,7 @@ import { registerResearchTools } from './research.tools.js';
 import { registerDataTools } from './data.tools.js';
 import { registerAccessTools } from './access.tools.js';
 import { registerActionTools } from './action.tools.js';
+import { registerFabricationTools } from './fabrication.tools.js';
 
 export function registerAllTools(server: McpServer, replicantId: string): void {
   registerScanningTools(server, replicantId);
@@ -29,4 +30,5 @@ export function registerAllTools(server: McpServer, replicantId: string): void {
   registerDataTools(server, replicantId);
   registerAccessTools(server, replicantId);
   registerActionTools(server, replicantId);
+  registerFabricationTools(server, replicantId);
 }

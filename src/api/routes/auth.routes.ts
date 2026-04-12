@@ -59,7 +59,7 @@ authRoutes.post('/register', async (req: Request, res: Response, next: NextFunct
         sensorRange: 0.5,
         miningRate: 5,
         combatPower: 0,
-        manufacturingRate: 0,
+        manufacturingRate: 1,
       },
       fuel: 100,
       createdAtTick: currentTick,
