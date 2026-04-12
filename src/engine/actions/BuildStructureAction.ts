@@ -54,6 +54,11 @@ const STRUCTURE_DEFAULTS: Record<string, {
     materials: { alloys: 5, electronics: 10, computers: 2 },
     specs: { storageCapacity: 50 },
   },
+  cargo_depot: {
+    requiredTicks: 6,
+    materials: { alloys: 30, hullPlating: 15, electronics: 5 },
+    specs: { storageCapacity: 2000, dockingSlots: 2 },
+  },
 };
 
 /**

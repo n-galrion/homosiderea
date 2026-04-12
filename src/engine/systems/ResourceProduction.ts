@@ -155,16 +155,28 @@ export async function executeMining(tick: number): Promise<void> {
       store = await ResourceStore.create({ ownerRef: storeRef });
     }
 
+    // Enforce structure/colony storage capacity
+    const storageCapacity = mine.colonyId
+      ? 10000 // colony shared pool — large default
+      : mine.specs.storageCapacity || 200;
+
     for (const res of body.resources) {
       if (!res.accessible || res.remaining <= 0) continue;
 
-      const requestedAmount = mine.specs.miningRate * res.abundance * powerRatio;
+      const storeAny = store as unknown as Record<string, number>;
+      const totalStored = getCargoUsed(storeAny);
+      if (totalStored >= storageCapacity) break; // storage full
+
+      let requestedAmount = mine.specs.miningRate * res.abundance * powerRatio;
       if (requestedAmount <= 0) continue;
+
+      // Clamp to available storage
+      const space = storageCapacity - totalStored;
+      requestedAmount = Math.min(requestedAmount, space);
 
       const extracted = await extractFromBody(body, res.resourceType, requestedAmount);
       if (extracted <= 0) continue;
 
-      const storeAny = store as unknown as Record<string, number>;
       if (res.resourceType in store && typeof storeAny[res.resourceType] === 'number') {
         storeAny[res.resourceType] += extracted;
       }

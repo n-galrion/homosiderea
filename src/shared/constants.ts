@@ -36,7 +36,7 @@ export const SHIP_TYPES = [
 
 export const STRUCTURE_TYPES = [
   'habitat', 'mine', 'refinery', 'factory', 'solar_array',
-  'fusion_plant', 'shipyard', 'sensor_station', 'relay_station',
+  'fusion_plant', 'shipyard', 'sensor_station', 'relay_station', 'cargo_depot',
 ] as const;
 
 export const AMI_TYPES = [

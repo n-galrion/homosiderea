@@ -19,6 +19,7 @@ import { registerHackingTools } from './hacking.tools.js';
 import { registerCombatTools } from './combat.tools.js';
 import { registerSalvageTools } from './salvage.tools.js';
 import { registerNPCCommsTools } from './npc-comms.tools.js';
+import { registerCargoTools } from './cargo.tools.js';
 
 export function registerAllTools(server: McpServer, replicantId: string): void {
   registerScanningTools(server, replicantId);
@@ -41,4 +42,5 @@ export function registerAllTools(server: McpServer, replicantId: string): void {
   registerCombatTools(server, replicantId);
   registerSalvageTools(server, replicantId);
   registerNPCCommsTools(server, replicantId);
+  registerCargoTools(server, replicantId);
 }

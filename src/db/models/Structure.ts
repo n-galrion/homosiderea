@@ -39,7 +39,7 @@ const StructureSchema = new Schema<IStructure>({
     type: String,
     enum: [
       'habitat', 'mine', 'refinery', 'factory', 'solar_array',
-      'fusion_plant', 'shipyard', 'sensor_station', 'relay_station',
+      'fusion_plant', 'shipyard', 'sensor_station', 'relay_station', 'cargo_depot',
     ],
     required: true,
   },
