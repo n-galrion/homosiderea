@@ -136,6 +136,32 @@ adminRoutes.get('/messages', async (req: Request, res: Response, next: NextFunct
   }
 });
 
+// Edit replicant identity/profile
+adminRoutes.put('/replicants/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const replicant = await Replicant.findById(req.params.id);
+    if (!replicant) {
+      res.status(404).json({ error: 'NOT_FOUND', message: 'Replicant not found' });
+      return;
+    }
+
+    const { chosenName, background, personality, directive, name } = req.body;
+
+    if (chosenName !== undefined) replicant.identity.chosenName = chosenName;
+    if (background !== undefined) replicant.identity.background = background;
+    if (personality !== undefined) replicant.identity.personality = personality;
+    if (directive !== undefined) replicant.directive = directive;
+    if (name !== undefined) replicant.name = name;
+
+    replicant.markModified('identity');
+    await replicant.save();
+
+    res.json({ message: 'Replicant updated', id: replicant._id, name: replicant.name });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // Send a suggestion/prompt to a replicant (appears as a system message)
 adminRoutes.post('/suggest', async (req: Request, res: Response, next: NextFunction) => {
   try {

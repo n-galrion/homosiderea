@@ -991,6 +991,20 @@ function notify(msg, type = 'success') {
   notifTimer = setTimeout(() => { $notification.className = 'notification'; }, 3000);
 }
 
+// --------------- Save replicant identity ---------------
+async function saveRepIdentity(repId) {
+  const bg = document.getElementById('rep-bg-input')?.value || '';
+  const pers = document.getElementById('rep-pers-input')?.value || '';
+  const el = document.getElementById('rep-identity-result');
+  try {
+    const res = await apiPost(`/api/admin/replicants/${repId}`, { background: bg, personality: pers });
+    if (el) { el.textContent = 'Identity saved.'; el.style.color = 'var(--green)'; }
+    setTimeout(() => { if (el) el.textContent = ''; }, 3000);
+  } catch (err) {
+    if (el) { el.textContent = 'Error: ' + err.message; el.style.color = 'var(--red)'; }
+  }
+}
+
 // --------------- GM result feedback ---------------
 function showGmResult(elId, msg, ok) {
   const el = document.getElementById(elId);
@@ -1817,13 +1831,19 @@ function openReplicantDetail(rep) {
     </div>
     <div class="id-row">
       <span class="id-label">Background</span>
-      <span class="id-value">${esc(identity.background || '(not set)')}</span>
+      <span class="id-value" id="rep-bg-val">${esc(identity.background || '(not set)')}</span>
     </div>
     <div class="id-row">
       <span class="id-label">Personality</span>
-      <span class="id-value">${esc(identity.personality || '(not set)')}</span>
+      <span class="id-value" id="rep-pers-val">${esc(identity.personality || '(not set)')}</span>
     </div>
-  </div>`;
+    <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
+      <input id="rep-bg-input" class="input" style="flex:1;min-width:200px" placeholder="Background..." value="${esc(identity.background || '')}">
+      <input id="rep-pers-input" class="input" style="flex:1;min-width:200px" placeholder="Personality..." value="${esc(identity.personality || '')}">
+      <button class="btn btn-accent" onclick="saveRepIdentity('${rep._id}')">Save Identity</button>
+    </div>
+    <div id="rep-identity-result" style="margin-top:4px;font-size:11px;color:var(--green)"></div>
+  </div>`;`;
 
   // Profile
   html += `<div class="detail-section">
