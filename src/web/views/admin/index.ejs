@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('../partials/_head') %>
+</head>
+<body>
+  <div class="app">
+    <%- include('../partials/nav', { user, currentPath }) %>
+    <div style="flex:1; margin-left:var(--sidebar-width);">
+      <%- include('../partials/header', { user }) %>
+      <main class="main">
+        <%- include('../partials/flash', { flash }) %>
+
+        <h1 class="page-title">Control Panel</h1>
+
+        <!-- Stats -->
+        <div class="grid-4 mb-3">
+          <div class="stat-box">
+            <div class="stat-label">Current Tick</div>
+            <div class="stat-value"><%= currentTick %></div>
+          </div>
+          <div class="stat-box stat-info">
+            <div class="stat-label">Replicants</div>
+            <div class="stat-value"><%= replicants.length %></div>
+          </div>
+          <div class="stat-box stat-success">
+            <div class="stat-label">Ships</div>
+            <div class="stat-value"><%= shipCount %></div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">Unread Alerts</div>
+            <div class="stat-value"><%= notifications.length %></div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <!-- All Replicants -->
+          <div class="card">
+            <div class="card-title">All Replicants</div>
+            <% if (replicants.length === 0) { %>
+              <p class="text-dim">No replicants in the system.</p>
+            <% } else { %>
+              <div class="table-wrap">
+                <table>
+                  <thead><tr><th>Name</th><th>Status</th><th>Last Active</th><th>Credits</th></tr></thead>
+                  <tbody>
+                    <% for (const r of replicants) { %>
+                      <tr>
+                        <td><a href="/replicant/<%= r._id %>"><%= r.identity?.chosenName || r.name %></a></td>
+                        <td><span class="status-dot <%= r.status === 'active' ? 'active' : 'inactive' %>"></span><%= r.status %></td>
+                        <td class="mono">Tick <%= r.lastActiveTick %></td>
+                        <td class="mono"><%= r.credits %></td>
+                      </tr>
+                    <% } %>
+                  </tbody>
+                </table>
+              </div>
+            <% } %>
+          </div>
+
+          <!-- Notifications -->
+          <div class="card">
+            <div class="card-title">Recent Notifications</div>
+            <% if (notifications.length === 0) { %>
+              <p class="text-dim">No unread notifications.</p>
+            <% } else { %>
+              <% for (const n of notifications) { %>
+                <div style="border-left:2px solid var(--accent-dim);padding:8px 12px;margin-bottom:8px;">
+                  <div class="flex justify-between items-center">
+                    <span class="badge badge-operator"><%= n.type.replace(/_/g, ' ') %></span>
+                    <span class="mono text-muted" style="font-size:11px;">Tick <%= n.tick %></span>
+                  </div>
+                  <div style="font-size:13px;font-weight:600;margin-top:4px;"><%= n.title %></div>
+                  <div class="text-dim" style="font-size:12px;margin-top:2px;"><%= n.body %></div>
+                </div>
+              <% } %>
+            <% } %>
+          </div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+</body>
+</html>

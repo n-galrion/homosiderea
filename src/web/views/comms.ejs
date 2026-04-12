@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/_head') %>
+  <style>
+    .comms-container { display:flex; flex-direction:column; height:calc(100vh - var(--topbar-height) - 120px); }
+    .comms-messages { flex:1; overflow-y:auto; padding:12px 0; }
+    .msg { padding:10px 14px; margin-bottom:8px; border-radius:var(--radius); max-width:80%; }
+    .msg-in { background:var(--surface); border-left:3px solid var(--info); margin-right:auto; }
+    .msg-out { background:var(--surface-raised); border-left:3px solid var(--accent); margin-right:auto; }
+    .msg-system { background:rgba(245,158,11,0.08); border-left:3px solid var(--accent-dim); margin-right:auto; width:100%; max-width:100%; }
+    .msg-log { background:rgba(34,197,94,0.08); border-left:3px solid var(--success); margin-right:auto; width:100%; max-width:100%; }
+    .msg-meta { font-size:10px; color:var(--text-muted); margin-bottom:4px; display:flex; justify-content:space-between; }
+    .msg-body { font-size:13px; color:var(--text-dim); white-space:pre-wrap; }
+    .msg-subject { font-size:12px; font-weight:700; color:var(--text); margin-bottom:2px; }
+    .comms-input { border-top:1px solid var(--surface-border); padding:12px 0; }
+    .tab-bar { display:flex; gap:8px; margin-bottom:16px; }
+    .tab { padding:6px 14px; font-size:12px; font-weight:600; border-radius:var(--radius); cursor:pointer; background:var(--surface); color:var(--text-dim); border:1px solid var(--surface-border); }
+    .tab.active { background:var(--accent-glow); color:var(--accent); border-color:var(--accent-dim); }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <%- include('partials/nav', { user, currentPath }) %>
+    <div style="flex:1; margin-left:var(--sidebar-width);">
+      <%- include('partials/header', { user }) %>
+      <main class="main">
+        <%- include('partials/flash', { flash }) %>
+
+        <div class="flex justify-between items-center mb-2">
+          <h1 class="page-title" style="margin-bottom:0;">Comms &mdash; <%= replicant.identity?.chosenName || replicant.name %></h1>
+          <a href="/replicant/<%= replicant._id %>" class="btn btn-outline btn-sm">Back to Details</a>
+        </div>
+
+        <div class="tab-bar">
+          <div class="tab active" onclick="showTab('messages')">Messages</div>
+          <div class="tab" onclick="showTab('logs')">Captain's Log</div>
+        </div>
+
+        <div class="comms-container">
+          <!-- Messages Tab -->
+          <div id="tab-messages" class="comms-messages">
+            <% if (messages.length === 0) { %>
+              <p class="text-dim text-center mt-3">No messages yet.</p>
+            <% } else { %>
+              <% for (const msg of [...messages].reverse()) { %>
+                <%
+                  const isSelf = msg.senderId?._id?.toString() === msg.recipientId?._id?.toString();
+                  const isSystem = msg.metadata?.type === 'system_suggestion' || msg.metadata?.type === 'injected_event' || msg.metadata?.type === 'world_event';
+                  const cssClass = isSystem ? 'msg-system' : isSelf ? 'msg-out' : 'msg-in';
+                %>
+                <div class="msg <%= cssClass %>">
+                  <div class="msg-meta">
+                    <span>
+                      <% if (isSystem) { %>
+                        [SYSTEM]
+                      <% } else { %>
+                        <%= msg.senderId?.name || 'Unknown' %> &rarr; <%= msg.recipientId?.name || 'Unknown' %>
+                      <% } %>
+                    </span>
+                    <span>Tick <%= msg.sentAtTick %></span>
+                  </div>
+                  <% if (msg.subject) { %><div class="msg-subject"><%= msg.subject %></div><% } %>
+                  <div class="msg-body"><%= msg.body %></div>
+                </div>
+              <% } %>
+            <% } %>
+          </div>
+
+          <!-- Captain's Log Tab -->
+          <div id="tab-logs" class="comms-messages" style="display:none;">
+            <% if (captainsLogs.length === 0) { %>
+              <p class="text-dim text-center mt-3">No captain's log entries yet.</p>
+            <% } else { %>
+              <% for (const log of captainsLogs) { %>
+                <div class="msg msg-log">
+                  <div class="msg-meta">
+                    <span>Captain's Log</span>
+                    <span>Tick <%= log.tick %></span>
+                  </div>
+                  <% if (log.title) { %><div class="msg-subject"><%= log.title %></div><% } %>
+                  <div class="msg-body"><%= log.content %></div>
+                </div>
+              <% } %>
+            <% } %>
+          </div>
+
+          <!-- Send Message -->
+          <div class="comms-input">
+            <form method="POST" action="/replicant/<%= replicant._id %>/comms/send">
+              <div class="flex gap-1" style="align-items:flex-end;">
+                <div style="flex:1;">
+                  <input type="text" name="subject" class="form-input mb-1" placeholder="Subject (optional)" style="font-size:12px;padding:6px 10px;">
+                  <textarea name="body" class="form-input" required placeholder="Send a message to this replicant..." style="min-height:50px;font-size:13px;"></textarea>
+                </div>
+                <button type="submit" class="btn btn-accent" style="height:50px;">Send</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <script>
+  function showTab(tab) {
+    document.getElementById('tab-messages').style.display = tab === 'messages' ? '' : 'none';
+    document.getElementById('tab-logs').style.display = tab === 'logs' ? '' : 'none';
+    document.querySelectorAll('.tab').forEach(function(el, i) {
+      el.classList.toggle('active', (i === 0 && tab === 'messages') || (i === 1 && tab === 'logs'));
+    });
+  }
+  </script>
+</body>
+</html>

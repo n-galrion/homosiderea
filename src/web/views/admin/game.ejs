@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('../partials/_head') %>
+</head>
+<body>
+  <div class="app">
+    <%- include('../partials/nav', { user, currentPath }) %>
+    <div style="flex:1; margin-left:var(--sidebar-width);">
+      <%- include('../partials/header', { user }) %>
+      <main class="main">
+        <%- include('../partials/flash', { flash }) %>
+
+        <h1 class="page-title">Game Control</h1>
+
+        <div class="grid-4 mb-3">
+          <div class="stat-box">
+            <div class="stat-label">Current Tick</div>
+            <div class="stat-value" id="g-tick"><%= currentTick %></div>
+          </div>
+          <div class="stat-box stat-info">
+            <div class="stat-label">Game Time</div>
+            <div class="stat-value" style="font-size:16px;" id="g-time">---</div>
+          </div>
+          <div class="stat-box stat-success">
+            <div class="stat-label">Tick Interval</div>
+            <div class="stat-value" style="font-size:16px;" id="g-interval">---</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">Running</div>
+            <div class="stat-value" style="font-size:16px;" id="g-running">---</div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <!-- Force Tick -->
+          <div class="card">
+            <div class="card-title">Force Tick</div>
+            <p class="text-dim mb-2" style="font-size:13px;">Manually advance the simulation by one tick. This runs all 19 phases immediately.</p>
+            <form method="POST" action="/admin/game/force-tick">
+              <button type="submit" class="btn btn-accent">Force Tick Now</button>
+            </form>
+          </div>
+
+          <!-- MC Settings -->
+          <div class="card">
+            <div class="card-title">MC Configuration</div>
+            <table>
+              <tr><td class="label" style="width:150px;">LLM Base URL</td><td class="mono" style="font-size:11px;" id="mc-url">---</td></tr>
+              <tr><td class="label">LLM Model</td><td class="mono" style="font-size:11px;" id="mc-model">---</td></tr>
+              <tr><td class="label">LLM Key Set</td><td id="mc-key">---</td></tr>
+              <tr><td class="label">Time Dilation</td><td class="mono" id="mc-dilation">---</td></tr>
+            </table>
+          </div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <script>
+  (function() {
+    async function loadStatus() {
+      try {
+        var res = await fetch('/api/game/status');
+        if (res.ok) {
+          var d = await res.json();
+          document.getElementById('g-tick').textContent = d.currentTick ?? '---';
+          document.getElementById('g-time').textContent = d.gameTime ?? '---';
+          document.getElementById('g-interval').textContent = (d.tickIntervalMs ?? '---') + ' ms';
+          document.getElementById('g-running').innerHTML = d.isRunning
+            ? '<span class="status-dot active"></span>Yes'
+            : '<span class="status-dot inactive"></span>No';
+          if (d.tickIntervalMs) document.getElementById('mc-dilation').textContent = d.gameTimeDilation || '600x';
+          if (d.llm) {
+            document.getElementById('mc-url').textContent = d.llm.baseUrl || '---';
+            document.getElementById('mc-model').textContent = d.llm.model || '---';
+            document.getElementById('mc-key').innerHTML = d.llm.keySet
+              ? '<span class="status-dot active"></span>Yes'
+              : '<span class="status-dot inactive"></span>No';
+          }
+        }
+      } catch (_) {}
+    }
+    loadStatus();
+    setInterval(loadStatus, 5000);
+  })();
+  </script>
+</body>
+</html>

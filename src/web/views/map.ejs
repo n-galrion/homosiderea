@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/_head') %>
+  <style>
+    #map-canvas {
+      width: 100%;
+      height: calc(100vh - var(--topbar-height) - 120px);
+      min-height: 500px;
+      background: #050508;
+      border: 1px solid var(--surface-border);
+      border-radius: var(--radius);
+      cursor: grab;
+    }
+    #map-canvas:active { cursor: grabbing; }
+    .map-controls { display:flex; gap:8px; margin-bottom:12px; align-items:center; }
+    .map-controls button { padding:6px 12px; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <%- include('partials/nav', { user, currentPath }) %>
+    <div style="flex:1; margin-left:var(--sidebar-width);">
+      <%- include('partials/header', { user }) %>
+      <main class="main">
+        <%- include('partials/flash', { flash }) %>
+
+        <h1 class="page-title">Sol System Map</h1>
+
+        <div class="map-controls">
+          <button class="btn btn-outline btn-sm" id="zoom-in">+ Zoom In</button>
+          <button class="btn btn-outline btn-sm" id="zoom-out">- Zoom Out</button>
+          <button class="btn btn-outline btn-sm" id="zoom-reset">Reset</button>
+          <span class="text-muted mono" style="font-size:11px;margin-left:auto;" id="map-info">Loading...</span>
+        </div>
+
+        <canvas id="map-canvas"></canvas>
+
+      </main>
+    </div>
+  </div>
+
+  <script src="/web/js/map.js" type="module"></script>
+</body>
+</html>

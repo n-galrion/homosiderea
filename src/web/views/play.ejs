@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/_head') %>
+  <style>
+    .action-panel { display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:8px; }
+    .action-btn { display:flex; flex-direction:column; align-items:center; padding:16px; background:var(--surface); border:1px solid var(--surface-border); border-radius:var(--radius); cursor:pointer; transition:all 150ms ease; color:var(--text-dim); font-size:13px; font-weight:600; }
+    .action-btn:hover { border-color:var(--accent); color:var(--accent); background:var(--accent-glow); }
+    .action-label { margin-top:6px; font-size:11px; font-weight:400; color:var(--text-muted); }
+    #result-panel { background:var(--bg); border:1px solid var(--surface-border); border-radius:var(--radius); padding:16px; margin-top:16px; font-family:var(--font-mono); font-size:12px; color:var(--text-dim); white-space:pre-wrap; max-height:300px; overflow-y:auto; }
+    .ship-panel { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <%- include('partials/nav', { user, currentPath }) %>
+    <div style="flex:1; margin-left:var(--sidebar-width);">
+      <%- include('partials/header', { user }) %>
+      <main class="main">
+        <%- include('partials/flash', { flash }) %>
+
+        <div class="flex justify-between items-center mb-3">
+          <h1 class="page-title" style="margin-bottom:0;">Play &mdash; <%= replicant.identity?.chosenName || replicant.name %></h1>
+          <a href="/replicant/<%= replicant._id %>" class="btn btn-outline btn-sm">Back to Details</a>
+        </div>
+
+        <!-- Ship Status -->
+        <% if (ships.length > 0) { %>
+          <% const ship = ships[0]; %>
+          <div class="card mb-3">
+            <div class="card-title">Ship: <%= ship.name %></div>
+            <div class="grid-4">
+              <div class="stat-box">
+                <div class="stat-label">Status</div>
+                <div class="stat-value" style="font-size:16px;"><span class="status-dot <%= ship.status === 'orbiting' ? 'active' : ship.status === 'in_transit' ? 'warning' : 'inactive' %>"></span><%= ship.status %></div>
+              </div>
+              <div class="stat-box">
+                <div class="stat-label">Hull</div>
+                <div class="stat-value" style="font-size:16px;"><%= Math.round(ship.specs.hullPoints) %>/<%= ship.specs.maxHullPoints %></div>
+                <div class="progress mt-1"><div class="progress-bar <%= ship.specs.hullPoints / ship.specs.maxHullPoints < 0.3 ? 'danger' : '' %>" style="width:<%= (ship.specs.hullPoints / ship.specs.maxHullPoints * 100) %>%"></div></div>
+              </div>
+              <div class="stat-box">
+                <div class="stat-label">Fuel</div>
+                <div class="stat-value" style="font-size:16px;"><%= Math.round(ship.fuel) %>/<%= ship.specs.fuelCapacity %></div>
+                <div class="progress mt-1"><div class="progress-bar <%= ship.fuel / ship.specs.fuelCapacity < 0.2 ? 'danger' : 'success' %>" style="width:<%= (ship.fuel / ship.specs.fuelCapacity * 100) %>%"></div></div>
+              </div>
+              <div class="stat-box stat-info">
+                <div class="stat-label">Type</div>
+                <div class="stat-value" style="font-size:16px;"><%= ship.type %></div>
+              </div>
+            </div>
+          </div>
+        <% } %>
+
+        <!-- Actions -->
+        <div class="card mb-3">
+          <div class="card-title">Actions</div>
+          <div class="action-panel">
+            <div class="action-btn" onclick="doAction('scan')">
+              SCAN
+              <span class="action-label">Scan surroundings</span>
+            </div>
+            <div class="action-btn" onclick="showMovePanel()">
+              MOVE
+              <span class="action-label">Navigate to body</span>
+            </div>
+            <div class="action-btn" onclick="doAction('mine')">
+              MINE
+              <span class="action-label">Start mining</span>
+            </div>
+            <div class="action-btn" onclick="doAction('stop-mine')">
+              STOP MINE
+              <span class="action-label">Stop mining</span>
+            </div>
+            <div class="action-btn" onclick="showTradePanel()">
+              TRADE
+              <span class="action-label">Trade at settlement</span>
+            </div>
+            <div class="action-btn" onclick="showFabPanel()">
+              FABRICATE
+              <span class="action-label">Build from recipe</span>
+            </div>
+            <div class="action-btn" onclick="doAction('repair')">
+              REPAIR
+              <span class="action-label">Repair hull</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Move Panel (hidden by default) -->
+        <div class="card mb-3" id="move-panel" style="display:none;">
+          <div class="card-title">Navigate To</div>
+          <div class="form-group">
+            <select id="move-target" class="form-input">
+              <option value="">Select destination...</option>
+              <% for (const b of bodies) { %>
+                <option value="<%= b._id %>"><%= b.name %> (<%= b.type %>)</option>
+              <% } %>
+            </select>
+          </div>
+          <button class="btn btn-accent btn-sm" onclick="doMove()">Set Course</button>
+          <button class="btn btn-outline btn-sm" onclick="document.getElementById('move-panel').style.display='none'">Cancel</button>
+        </div>
+
+        <!-- Fabricate Panel (hidden by default) -->
+        <div class="card mb-3" id="fab-panel" style="display:none;">
+          <div class="card-title">Fabricate</div>
+          <div class="form-group">
+            <select id="fab-recipe" class="form-input">
+              <option value="">Select recipe...</option>
+              <% for (const bp of blueprints) { %>
+                <option value="<%= bp.name %>"><%= bp.name %> (<%= bp.category %>)</option>
+              <% } %>
+            </select>
+          </div>
+          <button class="btn btn-accent btn-sm" onclick="doFabricate()">Fabricate</button>
+          <button class="btn btn-outline btn-sm" onclick="document.getElementById('fab-panel').style.display='none'">Cancel</button>
+        </div>
+
+        <!-- Result Display -->
+        <div class="card">
+          <div class="card-title">Result</div>
+          <div id="result-panel">Waiting for action...</div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <script>
+  var replicantApiKey = '<%= replicant.apiKey %>';
+  var replicantId = '<%= replicant._id %>';
+  var shipId = '<%= ships.length > 0 ? ships[0]._id : "" %>';
+
+  function showResult(text) {
+    var el = document.getElementById('result-panel');
+    el.textContent = typeof text === 'string' ? text : JSON.stringify(text, null, 2);
+  }
+
+  async function apiCall(method, path, body) {
+    try {
+      showResult('Processing...');
+      var opts = {
+        method: method,
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': replicantApiKey,
+        },
+      };
+      if (body) opts.body = JSON.stringify(body);
+      var res = await fetch(path, opts);
+      var data = await res.json();
+      showResult(data);
+      return data;
+    } catch (e) {
+      showResult('Error: ' + e.message);
+    }
+  }
+
+  function doAction(type) {
+    if (type === 'scan') {
+      apiCall('POST', '/api/actions', { type: 'scan', params: { shipId: shipId } });
+    } else if (type === 'mine') {
+      apiCall('POST', '/api/actions', { type: 'mine', params: { shipId: shipId } });
+    } else if (type === 'stop-mine') {
+      apiCall('POST', '/api/actions', { type: 'mine', params: { shipId: shipId, stop: true } });
+    } else if (type === 'repair') {
+      apiCall('POST', '/api/actions/propose', {
+        action: 'Repair my ship hull using available metals and alloys.',
+        autoApply: true,
+      });
+    }
+  }
+
+  function showMovePanel() {
+    document.getElementById('move-panel').style.display = '';
+    document.getElementById('fab-panel').style.display = 'none';
+  }
+
+  function showTradePanel() {
+    apiCall('GET', '/api/world/settlements');
+  }
+
+  function showFabPanel() {
+    document.getElementById('fab-panel').style.display = '';
+    document.getElementById('move-panel').style.display = 'none';
+  }
+
+  function doMove() {
+    var target = document.getElementById('move-target').value;
+    if (!target) { showResult('Select a destination first.'); return; }
+    apiCall('POST', '/api/actions', { type: 'move', params: { shipId: shipId, destinationBodyId: target } });
+    document.getElementById('move-panel').style.display = 'none';
+  }
+
+  function doFabricate() {
+    var recipe = document.getElementById('fab-recipe').value;
+    if (!recipe) { showResult('Select a recipe first.'); return; }
+    apiCall('POST', '/api/actions/propose', {
+      action: 'Fabricate ' + recipe + ' using my ship autofactory.',
+      autoApply: true,
+    });
+    document.getElementById('fab-panel').style.display = 'none';
+  }
+  </script>
+</body>
+</html>

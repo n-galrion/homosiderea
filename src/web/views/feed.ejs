@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/_head') %>
+  <style>
+    .feed-entry { display:flex; gap:14px; padding:12px 16px; border-left:3px solid var(--surface-border); margin-bottom:8px; background:var(--surface); border-radius:0 var(--radius) var(--radius) 0; transition:border-color 150ms ease; }
+    .feed-entry:hover { border-left-color:var(--accent); }
+    .feed-tick { font-family:var(--font-mono); font-size:12px; color:var(--text-muted); min-width:70px; flex-shrink:0; }
+    .feed-content { flex:1; }
+    .feed-desc { font-size:13px; color:var(--text-dim); }
+    .feed-time { font-size:11px; color:var(--text-muted); margin-top:2px; }
+    .filter-bar { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:16px; }
+    .filter-btn { padding:4px 10px; font-size:11px; font-weight:600; border-radius:var(--radius); cursor:pointer; background:var(--surface); color:var(--text-dim); border:1px solid var(--surface-border); transition:all 150ms ease; }
+    .filter-btn.active { background:var(--accent-glow); color:var(--accent); border-color:var(--accent-dim); }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <%- include('partials/nav', { user, currentPath }) %>
+    <div style="flex:1; margin-left:var(--sidebar-width);">
+      <%- include('partials/header', { user }) %>
+      <main class="main">
+        <%- include('partials/flash', { flash }) %>
+
+        <h1 class="page-title">Event Feed</h1>
+
+        <div class="filter-bar">
+          <span class="filter-btn active" onclick="filterFeed('all', this)">All</span>
+          <span class="filter-btn" onclick="filterFeed('action', this)">Actions</span>
+          <span class="filter-btn" onclick="filterFeed('tick', this)">Ticks</span>
+          <span class="filter-btn" onclick="filterFeed('notification', this)">Notifications</span>
+        </div>
+
+        <div id="feed-list">
+          <!-- Notifications -->
+          <% for (const n of notifications) { %>
+            <div class="feed-entry" data-type="notification">
+              <div class="feed-tick">Tick <%= n.tick %></div>
+              <div class="feed-content">
+                <div>
+                  <span class="badge badge-operator"><%= n.type.replace(/_/g, ' ') %></span>
+                </div>
+                <div class="feed-desc"><strong><%= n.title %></strong> &mdash; <%= n.body %></div>
+                <div class="feed-time"><%= new Date(n.createdAt).toLocaleString() %></div>
+              </div>
+            </div>
+          <% } %>
+
+          <!-- Actions -->
+          <% for (const a of actions) { %>
+            <div class="feed-entry" data-type="action">
+              <div class="feed-tick">Tick <%= a.queuedAtTick %></div>
+              <div class="feed-content">
+                <div>
+                  <span class="badge badge-<%= a.status === 'completed' ? 'owner' : a.status === 'failed' ? 'operator' : 'spectator' %>"><%= a.type %></span>
+                  <span class="badge badge-spectator"><%= a.status %></span>
+                </div>
+                <div class="feed-desc">
+                  <% if (a.replicantId && typeof a.replicantId === 'object' && a.replicantId.name) { %>
+                    by <strong><%= a.replicantId.name %></strong>
+                  <% } %>
+                  <% if (a.error) { %> &mdash; <span class="text-danger"><%= a.error %></span><% } %>
+                </div>
+                <div class="feed-time"><%= new Date(a.createdAt).toLocaleString() %></div>
+              </div>
+            </div>
+          <% } %>
+
+          <!-- Ticks -->
+          <% for (const t of ticks) { %>
+            <div class="feed-entry" data-type="tick">
+              <div class="feed-tick">Tick <%= t.tickNumber %></div>
+              <div class="feed-content">
+                <div><span class="badge badge-spectator">tick</span></div>
+                <div class="feed-desc">
+                  Simulation tick completed
+                  <% if (t.phaseDurations) { %> &mdash; <%= Object.keys(t.phaseDurations).length %> phases<% } %>
+                </div>
+                <div class="feed-time"><%= new Date(t.createdAt).toLocaleString() %></div>
+              </div>
+            </div>
+          <% } %>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <script>
+  function filterFeed(type, btn) {
+    document.querySelectorAll('.filter-btn').forEach(function(el) { el.classList.remove('active'); });
+    btn.classList.add('active');
+    document.querySelectorAll('.feed-entry').forEach(function(el) {
+      if (type === 'all') { el.style.display = ''; }
+      else { el.style.display = el.getAttribute('data-type') === type ? '' : 'none'; }
+    });
+  }
+  </script>
+</body>
+</html>

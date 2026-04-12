@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('../partials/_head') %>
+</head>
+<body>
+  <div class="app">
+    <%- include('../partials/nav', { user, currentPath }) %>
+    <div style="flex:1; margin-left:var(--sidebar-width);">
+      <%- include('../partials/header', { user }) %>
+      <main class="main">
+        <%- include('../partials/flash', { flash }) %>
+
+        <h1 class="page-title">Users</h1>
+
+        <div class="card">
+          <div class="card-title">All Users</div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Username</th><th>Email</th><th>Role</th><th>Replicants</th><th>API Keys</th><th>Last Login</th><th>Action</th></tr>
+              </thead>
+              <tbody>
+                <% for (const u of users) { %>
+                  <tr>
+                    <td><%= u.username %></td>
+                    <td class="text-dim"><%= u.email %></td>
+                    <td><span class="badge badge-<%= u.role %>"><%= u.role %></span></td>
+                    <td class="mono"><%= (u.replicantIds || []).length %></td>
+                    <td class="mono"><%= (u.apiKeys || []).filter(function(k) { return k.active; }).length %></td>
+                    <td class="mono"><%= u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleDateString() : 'Never' %></td>
+                    <td>
+                      <% if (u._id.toString() !== user._id.toString()) { %>
+                        <form method="POST" action="/admin/users/<%= u._id %>/role" class="inline-form flex gap-1">
+                          <select name="role" class="form-input" style="padding:4px 8px;font-size:11px;width:auto;">
+                            <% for (const role of ['operator', 'owner', 'spectator']) { %>
+                              <option value="<%= role %>" <%= u.role === role ? 'selected' : '' %>><%= role %></option>
+                            <% } %>
+                          </select>
+                          <button type="submit" class="btn btn-outline btn-sm">Set</button>
+                        </form>
+                      <% } else { %>
+                        <span class="text-muted" style="font-size:11px;">(you)</span>
+                      <% } %>
+                    </td>
+                  </tr>
+                <% } %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+</body>
+</html>

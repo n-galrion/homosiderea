@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('../partials/_head') %>
+</head>
+<body>
+  <div class="app">
+    <%- include('../partials/nav', { user, currentPath }) %>
+    <div style="flex:1; margin-left:var(--sidebar-width);">
+      <%- include('../partials/header', { user }) %>
+      <main class="main">
+        <%- include('../partials/flash', { flash }) %>
+
+        <h1 class="page-title">Settlements</h1>
+
+        <div class="grid-2">
+          <% for (const s of settlements) { %>
+            <div class="card">
+              <div class="flex justify-between items-center mb-2">
+                <div class="card-title" style="margin-bottom:0;"><%= s.name %></div>
+                <span class="badge badge-<%= s.status === 'thriving' ? 'owner' : s.status === 'stable' ? 'spectator' : 'operator' %>"><%= s.status %></span>
+              </div>
+
+              <table>
+                <tr><td class="label" style="width:120px;">Body</td><td><%= s.bodyId?.name || '---' %></td></tr>
+                <tr><td class="label">Nation</td><td><%= s.nation %></td></tr>
+                <tr><td class="label">Type</td><td><%= s.type %></td></tr>
+                <tr><td class="label">Population</td><td class="mono"><%= s.population?.toLocaleString() %></td></tr>
+                <tr><td class="label">Leader</td><td><%= s.leadership?.leaderTitle %> <%= s.leadership?.leaderName %></td></tr>
+                <tr><td class="label">Temperament</td><td><%= s.culture?.temperament %></td></tr>
+                <tr>
+                  <td class="label">Attitude</td>
+                  <td>
+                    <div class="flex items-center gap-1">
+                      <div class="progress" style="flex:1;height:6px;">
+                        <div class="progress-bar <%= s.attitude?.general < 0 ? 'danger' : 'success' %>" style="width:<%= ((s.attitude?.general + 1) / 2 * 100) %>%"></div>
+                      </div>
+                      <span class="mono" style="font-size:11px;"><%= s.attitude?.general?.toFixed(2) %></span>
+                    </div>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Edit Form -->
+              <form method="POST" action="/admin/settlements/<%= s._id %>" class="mt-2">
+                <div class="grid-2 gap-1">
+                  <div class="form-group" style="margin-bottom:8px;">
+                    <label class="form-label">Attitude (-1 to 1)</label>
+                    <input type="number" name="attitude" class="form-input" step="0.1" min="-1" max="1" value="<%= s.attitude?.general?.toFixed(1) %>" style="padding:6px 10px;font-size:12px;">
+                  </div>
+                  <div class="form-group" style="margin-bottom:8px;">
+                    <label class="form-label">Status</label>
+                    <select name="status" class="form-input" style="padding:6px 10px;font-size:12px;">
+                      <% for (const st of ['thriving', 'stable', 'struggling', 'damaged', 'destroyed']) { %>
+                        <option value="<%= st %>" <%= s.status === st ? 'selected' : '' %>><%= st %></option>
+                      <% } %>
+                    </select>
+                  </div>
+                </div>
+                <button type="submit" class="btn btn-outline btn-sm">Update</button>
+              </form>
+            </div>
+          <% } %>
+        </div>
+
+      </main>
+    </div>
+  </div>
+</body>
+</html>

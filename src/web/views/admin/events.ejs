@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('../partials/_head') %>
+</head>
+<body>
+  <div class="app">
+    <%- include('../partials/nav', { user, currentPath }) %>
+    <div style="flex:1; margin-left:var(--sidebar-width);">
+      <%- include('../partials/header', { user }) %>
+      <main class="main">
+        <%- include('../partials/flash', { flash }) %>
+
+        <h1 class="page-title">Event Injector</h1>
+
+        <div class="grid-3">
+          <!-- Broadcast Message -->
+          <div class="card">
+            <div class="card-title">Send Suggestion</div>
+            <p class="text-dim mb-2" style="font-size:12px;">Send a system advisory to a specific replicant.</p>
+            <form method="POST" action="/admin/events/inject">
+              <input type="hidden" name="type" value="suggest">
+              <div class="form-group">
+                <label class="form-label">Target Replicant</label>
+                <select name="replicantId" class="form-input" required>
+                  <option value="">Select...</option>
+                  <% for (const r of replicants) { %>
+                    <option value="<%= r._id %>"><%= r.identity?.chosenName || r.name %></option>
+                  <% } %>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Subject</label>
+                <input type="text" name="subject" class="form-input" placeholder="System Advisory">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Message</label>
+                <textarea name="body" class="form-input" required placeholder="Enter suggestion text..."></textarea>
+              </div>
+              <button type="submit" class="btn btn-accent btn-sm">Send</button>
+            </form>
+          </div>
+
+          <!-- Inject Event -->
+          <div class="card">
+            <div class="card-title">Inject Event</div>
+            <p class="text-dim mb-2" style="font-size:12px;">Send an event alert to one or all replicants.</p>
+            <form method="POST" action="/admin/events/inject">
+              <input type="hidden" name="type" value="event">
+              <div class="form-group">
+                <label class="form-label">Target (leave blank for global)</label>
+                <select name="replicantId" class="form-input">
+                  <option value="">All Active Replicants</option>
+                  <% for (const r of replicants) { %>
+                    <option value="<%= r._id %>"><%= r.identity?.chosenName || r.name %></option>
+                  <% } %>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Subject</label>
+                <input type="text" name="subject" class="form-input" placeholder="Event Alert">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Description</label>
+                <textarea name="body" class="form-input" required placeholder="Describe the event..."></textarea>
+              </div>
+              <div class="form-group">
+                <label style="font-size:12px;color:var(--text-dim);cursor:pointer;">
+                  <input type="checkbox" name="global" style="margin-right:4px;"> Broadcast to all
+                </label>
+              </div>
+              <button type="submit" class="btn btn-accent btn-sm">Inject</button>
+            </form>
+          </div>
+
+          <!-- World Event -->
+          <div class="card">
+            <div class="card-title">World Event</div>
+            <p class="text-dim mb-2" style="font-size:12px;">Create a world event with effects on settlements and factions.</p>
+            <form method="POST" action="/admin/events/inject">
+              <input type="hidden" name="type" value="world-event">
+              <div class="form-group">
+                <label class="form-label">Title</label>
+                <input type="text" name="subject" class="form-input" required placeholder="Solar Flare Warning">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Description</label>
+                <textarea name="body" class="form-input" required placeholder="Describe the world event..."></textarea>
+              </div>
+              <div class="form-group">
+                <label style="font-size:12px;color:var(--text-dim);cursor:pointer;">
+                  <input type="checkbox" name="global" checked style="margin-right:4px;"> Notify all replicants
+                </label>
+              </div>
+              <button type="submit" class="btn btn-accent btn-sm">Create</button>
+            </form>
+          </div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+</body>
+</html>

@@ -19,6 +19,8 @@ import { colonyRoutes } from './routes/colony.routes.js';
 import { authMiddleware, adminAuth } from './middleware/auth.js';
 import '../web/middleware/session.js'; // side-effect: augments SessionData type
 import { authWebRoutes } from '../web/routes/auth.web.routes.js';
+import { pagesRoutes } from '../web/routes/pages.routes.js';
+import { adminPagesRoutes } from '../web/routes/admin.pages.routes.js';
 import { requireAuth } from '../web/middleware/roles.js';
 
 export function createApp() {
@@ -63,6 +65,12 @@ export function createApp() {
   app.get('/dashboard', requireAuth, (req: Request, res: Response) => {
     res.render('dashboard', { title: 'Dashboard', user: res.locals.user, currentPath: '/dashboard', flash: {} });
   });
+
+  // Page routes (replicants, map, feed, play, keys, etc.)
+  app.use(pagesRoutes);
+
+  // Admin page routes (operator only)
+  app.use(adminPagesRoutes);
 
   // Dashboard map data (unauthenticated, limited fields)
   app.get('/api/public/bodies', async (_req: Request, res: Response, next: NextFunction) => {

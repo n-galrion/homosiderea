@@ -8,7 +8,8 @@ import { seedSolSystem } from './db/seeds/solSystem.js';
 import { seedBlueprints } from './db/seeds/blueprints.js';
 import { seedLandingSites } from './db/seeds/landingSites.js';
 import { seedSettlements } from './db/seeds/settlements.js';
-import { CelestialBody, Blueprint, Settlement } from './db/models/index.js';
+import { CelestialBody, Blueprint, Settlement, User } from './db/models/index.js';
+import bcrypt from 'bcrypt';
 
 async function main() {
   console.log('=== Homosideria: To the Stars ===');
@@ -40,6 +41,21 @@ async function main() {
     console.log('Seeding human civilization...');
     await seedSettlements();
     console.log('Settlements and markets seeded.');
+  }
+
+  // 2b. Create first operator user if none exist
+  const userCount = await User.countDocuments();
+  if (userCount === 0) {
+    const adminUser = process.env.ADMIN_USERNAME || 'admin';
+    const adminPass = process.env.ADMIN_PASSWORD || 'admin';
+    const hash = await bcrypt.hash(adminPass, 12);
+    await User.create({
+      username: adminUser,
+      email: `${adminUser}@homosideria.local`,
+      passwordHash: hash,
+      role: 'operator',
+    });
+    console.log(`Operator account created: ${adminUser} / ${adminPass}`);
   }
 
   // 3. Create Express app

@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/_head') %>
+</head>
+<body>
+  <div class="app">
+    <%- include('partials/nav', { user, currentPath }) %>
+    <div style="flex:1; margin-left:var(--sidebar-width);">
+      <%- include('partials/header', { user }) %>
+      <main class="main">
+        <%- include('partials/flash', { flash }) %>
+
+        <div class="flex justify-between items-center mb-3">
+          <h1 class="page-title" style="margin-bottom:0;">Replicants</h1>
+          <button class="btn btn-accent" onclick="document.getElementById('create-modal').style.display='flex'">Create Replicant</button>
+        </div>
+
+        <% if (replicants.length === 0) { %>
+          <div class="card">
+            <p class="text-dim">No replicants yet. Create one to get started.</p>
+          </div>
+        <% } else { %>
+          <div class="grid-3">
+            <% for (const r of replicants) { %>
+              <div class="card" style="cursor:pointer;" onclick="location.href='/replicant/<%= r._id %>'">
+                <div class="flex justify-between items-center mb-2">
+                  <div class="card-title" style="margin-bottom:0;"><%= r.identity?.chosenName || r.name %></div>
+                  <span class="badge badge-<%= r.status === 'active' ? 'owner' : r.status === 'dormant' ? 'spectator' : 'operator' %>"><%= r.status %></span>
+                </div>
+
+                <div style="margin-bottom:12px;">
+                  <div class="label mb-1">Compute</div>
+                  <div class="progress"><div class="progress-bar" style="width:<%= Math.min(100, r.computeCycles / 10) %>%"></div></div>
+                  <div class="label mt-1" style="font-family:var(--font-mono);font-size:11px;"><%= r.computeCycles %> cycles</div>
+                </div>
+
+                <div style="margin-bottom:12px;">
+                  <div class="label mb-1">Energy</div>
+                  <div class="progress"><div class="progress-bar success" style="width:<%= Math.min(100, r.energyBudget) %>%"></div></div>
+                  <div class="label mt-1" style="font-family:var(--font-mono);font-size:11px;"><%= r.energyBudget %> units</div>
+                </div>
+
+                <table>
+                  <tr><td class="label" style="width:100px;">Ships</td><td class="mono"><%= shipCounts[r._id.toString()] || 0 %></td></tr>
+                  <tr><td class="label">Last Active</td><td class="mono">Tick <%= r.lastActiveTick %></td></tr>
+                  <tr><td class="label">Credits</td><td class="mono"><%= r.credits %></td></tr>
+                </table>
+
+                <div class="mt-2 flex gap-1">
+                  <a href="/replicant/<%= r._id %>" class="btn btn-outline btn-sm" onclick="event.stopPropagation()">Details</a>
+                  <a href="/replicant/<%= r._id %>/comms" class="btn btn-outline btn-sm" onclick="event.stopPropagation()">Comms</a>
+                  <a href="/play/<%= r._id %>" class="btn btn-accent btn-sm" onclick="event.stopPropagation()">Play</a>
+                </div>
+              </div>
+            <% } %>
+          </div>
+        <% } %>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- Create Modal -->
+  <div id="create-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:200;align-items:center;justify-content:center;">
+    <div class="card" style="max-width:440px;width:100%;">
+      <div class="card-title">Create Replicant</div>
+      <form method="POST" action="/replicants/create">
+        <div class="form-group">
+          <label class="form-label">Name (optional)</label>
+          <input type="text" name="name" class="form-input" placeholder="Leave blank for auto-generated">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Directive (optional)</label>
+          <textarea name="directive" class="form-input" placeholder="Initial directive for the replicant..."></textarea>
+        </div>
+        <div class="flex gap-1">
+          <button type="submit" class="btn btn-accent">Create</button>
+          <button type="button" class="btn btn-outline" onclick="document.getElementById('create-modal').style.display='none'">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/_head') %>
+</head>
+<body>
+  <div class="app">
+    <%- include('partials/nav', { user, currentPath }) %>
+    <div style="flex:1; margin-left:var(--sidebar-width);">
+      <%- include('partials/header', { user }) %>
+      <main class="main">
+        <%- include('partials/flash', { flash }) %>
+
+        <div class="flex justify-between items-center mb-3">
+          <h1 class="page-title" style="margin-bottom:0;"><%= replicant.identity?.chosenName || replicant.name %></h1>
+          <div class="flex gap-1">
+            <a href="/replicant/<%= replicant._id %>/comms" class="btn btn-outline btn-sm">Comms</a>
+            <a href="/play/<%= replicant._id %>" class="btn btn-accent btn-sm">Play</a>
+          </div>
+        </div>
+
+        <!-- Identity -->
+        <div class="grid-2 mb-3">
+          <div class="card">
+            <div class="card-title">Identity</div>
+            <table>
+              <tr><td class="label" style="width:120px;">System Name</td><td><%= replicant.name %></td></tr>
+              <tr><td class="label">Chosen Name</td><td><%= replicant.identity?.chosenName || 'Not yet chosen' %></td></tr>
+              <tr><td class="label">Status</td><td><span class="status-dot <%= replicant.status === 'active' ? 'active' : 'inactive' %>"></span><%= replicant.status %></td></tr>
+              <tr><td class="label">Background</td><td><%= replicant.identity?.background || '---' %></td></tr>
+              <tr><td class="label">Personality</td><td><%= replicant.identity?.personality || '---' %></td></tr>
+              <tr><td class="label">Credits</td><td class="mono"><%= replicant.credits %></td></tr>
+              <tr><td class="label">Created</td><td class="mono">Tick <%= replicant.createdAtTick %></td></tr>
+            </table>
+          </div>
+
+          <div class="card">
+            <div class="card-title">Compute & Energy</div>
+            <div style="margin-bottom:16px;">
+              <div class="label mb-1">Compute Cycles</div>
+              <div class="progress" style="height:8px;"><div class="progress-bar" style="width:<%= Math.min(100, replicant.computeCycles / 10) %>%"></div></div>
+              <div class="mono" style="font-size:12px;margin-top:4px;"><%= replicant.computeCycles %></div>
+            </div>
+            <div style="margin-bottom:16px;">
+              <div class="label mb-1">Energy Budget</div>
+              <div class="progress" style="height:8px;"><div class="progress-bar success" style="width:<%= Math.min(100, replicant.energyBudget) %>%"></div></div>
+              <div class="mono" style="font-size:12px;margin-top:4px;"><%= replicant.energyBudget %></div>
+            </div>
+            <div class="label mb-1">Directive</div>
+            <div class="text-dim" style="font-size:13px;white-space:pre-wrap;"><%= replicant.directive || 'None set' %></div>
+          </div>
+        </div>
+
+        <!-- Ships -->
+        <div class="card mb-3">
+          <div class="card-title">Ships (<%= ships.length %>)</div>
+          <% if (ships.length === 0) { %>
+            <p class="text-dim">No ships.</p>
+          <% } else { %>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr><th>Name</th><th>Type</th><th>Status</th><th>Hull</th><th>Fuel</th><th>Speed</th></tr>
+                </thead>
+                <tbody>
+                  <% for (const ship of ships) { %>
+                    <tr>
+                      <td><%= ship.name %></td>
+                      <td><span class="badge badge-spectator"><%= ship.type %></span></td>
+                      <td><span class="status-dot <%= ship.status === 'orbiting' ? 'active' : ship.status === 'in_transit' ? 'warning' : 'inactive' %>"></span><%= ship.status %></td>
+                      <td class="mono"><%= ship.specs.hullPoints %>/<%= ship.specs.maxHullPoints %></td>
+                      <td class="mono"><%= Math.round(ship.fuel) %>/<%= ship.specs.fuelCapacity %></td>
+                      <td class="mono"><%= ship.specs.maxSpeed %> AU/tick</td>
+                    </tr>
+                  <% } %>
+                </tbody>
+              </table>
+            </div>
+          <% } %>
+        </div>
+
+        <!-- Inventory -->
+        <% if (inventory) { %>
+        <div class="card mb-3">
+          <div class="card-title">Inventory (Primary Ship)</div>
+          <div class="grid-4">
+            <% const resourceFields = ['metals', 'alloys', 'electronics', 'fuel', 'silicates', 'ice', 'organics', 'rareEarths', 'water', 'engines', 'computers', 'sensors', 'hullPlating', 'solarPanels', 'weaponry']; %>
+            <% for (const field of resourceFields) { %>
+              <% const val = inventory[field] || 0; %>
+              <% if (val > 0) { %>
+                <div class="stat-box">
+                  <div class="stat-label"><%= field %></div>
+                  <div class="stat-value" style="font-size:18px;"><%= val %></div>
+                </div>
+              <% } %>
+            <% } %>
+          </div>
+        </div>
+        <% } %>
+
+        <!-- Technologies -->
+        <div class="card mb-3">
+          <div class="card-title">Technologies (<%= technologies.length %>)</div>
+          <% if (technologies.length === 0) { %>
+            <p class="text-dim">No technologies discovered yet.</p>
+          <% } else { %>
+            <div class="grid-3">
+              <% for (const tech of technologies) { %>
+                <div class="stat-box stat-info">
+                  <div class="stat-label"><%= tech.category || 'General' %></div>
+                  <div style="font-size:13px;font-weight:600;"><%= tech.name %></div>
+                  <div class="stat-sub">Level <%= tech.level || 1 %></div>
+                </div>
+              <% } %>
+            </div>
+          <% } %>
+        </div>
+
+        <div class="grid-2">
+          <!-- Recent Actions -->
+          <div class="card">
+            <div class="card-title">Recent Actions</div>
+            <% if (actions.length === 0) { %>
+              <p class="text-dim">No actions yet.</p>
+            <% } else { %>
+              <div class="table-wrap">
+                <table>
+                  <thead><tr><th>Type</th><th>Status</th><th>Tick</th></tr></thead>
+                  <tbody>
+                    <% for (const a of actions) { %>
+                      <tr>
+                        <td><span class="badge badge-spectator"><%= a.type %></span></td>
+                        <td><span class="badge badge-<%= a.status === 'completed' ? 'owner' : a.status === 'failed' ? 'operator' : 'spectator' %>"><%= a.status %></span></td>
+                        <td class="mono"><%= a.queuedAtTick %></td>
+                      </tr>
+                    <% } %>
+                  </tbody>
+                </table>
+              </div>
+            <% } %>
+          </div>
+
+          <!-- Memories -->
+          <div class="card">
+            <div class="card-title">Recent Memories</div>
+            <% if (memories.length === 0) { %>
+              <p class="text-dim">No memories recorded yet.</p>
+            <% } else { %>
+              <% for (const m of memories) { %>
+                <div style="border-left:2px solid var(--surface-border);padding:8px 12px;margin-bottom:8px;">
+                  <div class="flex justify-between items-center">
+                    <span class="badge badge-spectator"><%= m.category %></span>
+                    <span class="mono text-muted" style="font-size:11px;">Tick <%= m.tick %></span>
+                  </div>
+                  <div style="font-size:13px;font-weight:600;margin-top:4px;"><%= m.title || '(untitled)' %></div>
+                  <div class="text-dim" style="font-size:12px;margin-top:2px;white-space:pre-wrap;max-height:60px;overflow:hidden;"><%= m.content %></div>
+                </div>
+              <% } %>
+            <% } %>
+          </div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <script>
+  (function() {
+    // Live-update ship data every 10s
+    async function refreshShipData() {
+      try {
+        const res = await fetch('/api/game/status');
+        if (res.ok) {
+          // Just keep the tick counter fresh — full refresh for now
+        }
+      } catch (_) {}
+    }
+    setInterval(refreshShipData, 10000);
+  })();
+  </script>
+</body>
+</html>
