@@ -49,9 +49,17 @@ export async function handleMine(action: IActionQueue, tick: number): Promise<Re
       throw new InvalidActionError('No accessible resources at this location');
     }
 
-    // Set mining flag on the ship — the ResourceProduction system will pick this up
-    // by checking for active miner AMIs. For ship-direct mining, we mark via params.
-    // The actual mining is done in ResourceProduction.executeMining.
+    // Set continuous mining state — ResourceProduction will extract each tick
+    const resourceType = (action.params as Record<string, unknown>).resourceType as string | undefined;
+    ship.miningState = {
+      active: true,
+      targetBodyId: ship.orbitingBodyId,
+      targetAsteroidId: ship.orbitingAsteroidId || null,
+      resourceType: resourceType || null,
+      startedAtTick: tick,
+    };
+    await ship.save();
+
     return {
       shipId: ship._id.toString(),
       bodyId: body._id.toString(),

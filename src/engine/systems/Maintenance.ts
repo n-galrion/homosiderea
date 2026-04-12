@@ -1,5 +1,6 @@
-import { Ship, MemoryLog } from '../../db/models/index.js';
+import { Ship, MemoryLog, Notification } from '../../db/models/index.js';
 import { distance } from '../../shared/physics.js';
+import { generateSalvageFromShip } from './SalvageGenerator.js';
 
 const SUN_POSITION = { x: 0, y: 0, z: 0 };
 const RADIATION_THRESHOLD_AU = 0.5;
@@ -85,10 +86,25 @@ export async function processMaintenance(tick: number): Promise<void> {
       ship.specs.hullPoints = 0;
       ship.status = 'destroyed';
       ship.miningState = null;
+
+      // Generate salvage from wreckage
+      const isNPC = ship.ownerId.toString() === '000000000000000000000000';
+      const isPirate = ship.ownerId.toString() === '000000000000000000000001';
+      await generateSalvageFromShip(ship, tick, isPirate ? 'pirate' : isNPC ? 'npc' : 'player');
+
       logEntries.push({
         replicantId: ship.ownerId.toString(),
         title: 'Ship destroyed',
-        content: `${ship.name} has been destroyed. Hull integrity reached 0%.`,
+        content: `${ship.name} has been destroyed. Hull integrity reached 0%. Wreckage and salvage may be recoverable at the last known position.`,
+      });
+
+      // Dashboard notification
+      await Notification.create({
+        type: 'ship_destroyed',
+        title: `Ship Destroyed: ${ship.name}`,
+        body: `${ship.name} was destroyed at position (${ship.position.x.toFixed(2)}, ${ship.position.y.toFixed(2)}) AU. Salvage generated.`,
+        data: { shipName: ship.name, ownerId: ship.ownerId.toString(), position: ship.position },
+        tick,
       });
     }
 

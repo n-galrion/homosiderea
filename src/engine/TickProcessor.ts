@@ -15,6 +15,7 @@ import { processOrbitFuelDrain } from './systems/FuelConsumption.js';
 import { processRandomEvents } from './systems/RandomEvents.js';
 import { processNPCTraffic } from './systems/NPCTraffic.js';
 import { simulateWorldWithMC } from './systems/MCWorldSimulator.js';
+import { executeAllAMIs } from './systems/AMIExecutor.js';
 import { processPirateActivity } from './systems/PirateActivity.js';
 
 /**
@@ -53,10 +54,9 @@ export class TickProcessor {
       errors.push(`EnergyProduction: ${err instanceof Error ? err.message : String(err)}`);
     }
 
-    // Phase 3: AMI Execution (stub — will be implemented in AMI task)
+    // Phase 3: AMI Execution
     try {
-      // AMIExecutor.executeAll() will go here
-      amisExecuted = 0;
+      amisExecuted = await executeAllAMIs(tickNumber);
     } catch (err) {
       errors.push(`AMIExecution: ${err instanceof Error ? err.message : String(err)}`);
     }
