@@ -104,7 +104,7 @@ worldRoutes.get('/action-types', async (_req: Request, res: Response, next: Next
       propose: {
         endpoint: 'POST /api/actions/propose',
         body: '{ action: "free text description", context?: "additional context", autoApply?: true }',
-        description: 'Master Controller evaluates any free-text action against physics and game state',
+        description: 'Ship computer simulates the physics and evaluates any free-text action',
       },
     });
   } catch (err) {

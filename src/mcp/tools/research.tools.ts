@@ -11,7 +11,7 @@ export function registerResearchTools(server: McpServer, replicantId: string): v
 
   server.tool(
     'propose_research',
-    'Submit a research proposal to develop new technology. A Master Controller will evaluate your idea against hard sci-fi constraints. Better descriptions and approaches increase success chances. Costs compute cycles and takes multiple ticks to complete.',
+    'Run a research simulation in your fabrication bay. Describe the technology you want to develop and your engineering approach. Your ship\'s computer will simulate the physics and determine if the approach is viable. More detailed and scientifically grounded proposals have higher success rates. Costs compute cycles and takes multiple ticks.',
     {
       domain: z.enum(RESEARCH_DOMAINS).describe('Research domain'),
       title: z.string().describe('Short title for your research'),
@@ -79,7 +79,7 @@ export function registerResearchTools(server: McpServer, replicantId: string): v
             energyCost,
             ticksRequired,
             completionTick: currentTick + ticksRequired,
-            message: `Research proposal submitted. The Master Controller will evaluate it after ${ticksRequired} ticks. Your approach quality affects success probability.`,
+            message: `Research simulation initiated in fabrication bay. Results expected after ${ticksRequired} ticks. The quality of your scientific approach directly affects the probability and magnitude of breakthroughs.`,
           }, null, 2),
         }],
       };

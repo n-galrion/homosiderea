@@ -40,7 +40,7 @@ actionRoutes.post('/propose', async (req: Request, res: Response, next: NextFunc
         replicantId: req.replicantId,
         type: 'proposed_action',
         status: 'completed',
-        params: { action, context, evaluatedBy: 'master_controller' },
+        params: { action, context, evaluatedBy: 'ship_computer' },
         result: { outcomes: outcome.outcomes, narrative: outcome.outcomes?.narrative, log },
         queuedAtTick: latestTick?.tickNumber ?? 0,
         resolvedAtTick: latestTick?.tickNumber ?? 0,

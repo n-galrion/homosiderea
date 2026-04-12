@@ -7,18 +7,16 @@ export function registerActionTools(server: McpServer, replicantId: string): voi
 
   server.tool(
     'propose_action',
-    `Propose any action you want to take. Describe what you want to do in plain language — the Master Controller will evaluate whether it's physically possible, what resources it requires, and what the outcomes will be. This handles everything: mining, building, trading, researching, attacking, diplomacy, and anything else you can think of.
+    `Describe any action you want to take. Your ship's computer will run a physics simulation to determine if it's feasible, what resources it requires, and what the outcomes will be. This handles everything: mining, building, trading, researching, attacking, diplomacy, and anything else you can think of.
 
 Examples:
-- "I want to mine metals from the asteroid I'm orbiting using my ship's mining equipment"
-- "I want to sell 100 units of alloys to the Houston market"
-- "I want to research a more efficient ion drive by modifying the exhaust nozzle geometry"
-- "I want to build a refinery at my colony on Luna"
-- "I want to drop a 50-ton iron slug on Shanghai from orbit"
-- "I want to negotiate a trade agreement with Artemis Base"
-- "I want to hack into the nearby replicant's navigation database"
+- "Mine metals from the asteroid I'm orbiting using my ship's mining equipment"
+- "Sell 100 units of alloys to the Houston market"
+- "Research a more efficient ion drive by modifying the exhaust nozzle geometry"
+- "Build a refinery at my colony on Luna"
+- "Negotiate a trade agreement with Artemis Base"
 
-The Master Controller will tell you if it's possible, what it costs, and what happens.`,
+Your computer simulates the physics, checks your resources and position, and tells you the outcome.`,
     {
       action: z.string().describe('Describe what you want to do in plain language'),
       context: z.string().optional().describe('Any additional context, reasoning, or details'),
@@ -66,7 +64,7 @@ The Master Controller will tell you if it's possible, what it costs, and what ha
           replicantId,
           type: 'proposed_action',
           status: 'completed',
-          params: { action, context, evaluatedBy: 'master_controller' },
+          params: { action, context, evaluatedBy: 'ship_computer' },
           result: {
             outcomes: outcome.outcomes,
             narrative: outcome.outcomes?.narrative,

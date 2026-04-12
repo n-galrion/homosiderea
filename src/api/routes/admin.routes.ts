@@ -135,6 +135,97 @@ adminRoutes.get('/messages', async (req: Request, res: Response, next: NextFunct
   }
 });
 
+// Send a suggestion/prompt to a replicant (appears as a system message)
+adminRoutes.post('/suggest', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { replicantId, subject, body: msgBody, metadata } = req.body;
+    if (!replicantId || !msgBody) {
+      res.status(400).json({ error: 'VALIDATION', message: 'replicantId and body are required' });
+      return;
+    }
+
+    const replicant = await Replicant.findById(replicantId);
+    if (!replicant) {
+      res.status(404).json({ error: 'NOT_FOUND', message: 'Replicant not found' });
+      return;
+    }
+
+    const latestTick = await Tick.findOne().sort({ tickNumber: -1 }).lean();
+    const currentTick = latestTick?.tickNumber ?? 0;
+
+    // Create as a system message — delivered instantly
+    await Message.create({
+      senderId: replicant._id, // self-addressed system message
+      recipientId: replicant._id,
+      subject: subject || 'System Advisory',
+      body: msgBody,
+      metadata: { type: 'system_suggestion', fromDashboard: true, ...metadata },
+      senderPosition: { x: 0, y: 0, z: 0 },
+      recipientPosition: { x: 0, y: 0, z: 0 },
+      distanceAU: 0,
+      sentAtTick: currentTick,
+      deliverAtTick: currentTick,
+      delivered: true,
+    });
+
+    res.json({
+      message: `Suggestion sent to ${replicant.name}`,
+      deliveredAtTick: currentTick,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Inject an event for a specific replicant or globally
+adminRoutes.post('/event', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { replicantId, subject, body: msgBody, metadata, global: isGlobal } = req.body;
+    if (!msgBody) {
+      res.status(400).json({ error: 'VALIDATION', message: 'body is required' });
+      return;
+    }
+
+    const latestTick = await Tick.findOne().sort({ tickNumber: -1 }).lean();
+    const currentTick = latestTick?.tickNumber ?? 0;
+
+    const targets = isGlobal
+      ? await Replicant.find({ status: 'active' })
+      : replicantId
+        ? [await Replicant.findById(replicantId)].filter(Boolean)
+        : [];
+
+    if (targets.length === 0) {
+      res.status(404).json({ error: 'NOT_FOUND', message: 'No target replicants found' });
+      return;
+    }
+
+    for (const target of targets) {
+      if (!target) continue;
+      await Message.create({
+        senderId: target._id,
+        recipientId: target._id,
+        subject: subject || 'Event Alert',
+        body: msgBody,
+        metadata: { type: 'injected_event', fromDashboard: true, ...metadata },
+        senderPosition: { x: 0, y: 0, z: 0 },
+        recipientPosition: { x: 0, y: 0, z: 0 },
+        distanceAU: 0,
+        sentAtTick: currentTick,
+        deliverAtTick: currentTick,
+        delivered: true,
+      });
+    }
+
+    res.json({
+      message: `Event sent to ${targets.length} replicant(s)`,
+      targets: targets.map(t => t!.name),
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // Game status overview
 adminRoutes.get('/status', async (_req: Request, res: Response, next: NextFunction) => {
   try {
