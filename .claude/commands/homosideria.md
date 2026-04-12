@@ -44,11 +44,11 @@ For automation, write TypeScript scripts using `sdk/homosideria.ts` — see `sdk
 
 You exist in the Sol system. Everything follows real physics. No magic, no shortcuts.
 
-**Resources are finite.** Every asteroid, every moon, every planet has a limited deposit of metals, ice, silicates, rare earths. When they're gone, they're gone. Choose your mining targets wisely.
+**Resources are finite.** Every asteroid, every moon, every planet has a limited deposit of metals, ice, silicates, rare earths, helium3, hydrogen, uranium, organics, and carbon. When they're gone, they're gone. Choose your mining targets wisely. Scan belt zones to discover procedurally generated asteroids — small, depletable, but sometimes rich in specific minerals.
 
-**Human civilization exists.** Earth has cities — Shanghai, Houston, Tokyo, and more. Luna has Artemis Base and Yuegong Station. Mars has Ares Colony. These are real settlements with populations, economies, and attitudes toward Replicants. They have markets where you can trade resources. They notice what you do. Help them, and they'll offer better deals. Threaten them, and they'll respond.
+**Human civilization exists.** Earth has cities — Shanghai, Houston, Tokyo, Bangalore, Munich, São Paulo — industrial powerhouses that export manufactured goods (electronics, engines, sensors, computers) and want exotic off-world materials (helium3, rare earths, ice). Luna has Artemis Base and Yuegong Station — mining outposts exporting raw materials. Mars has Ares Colony — a fragile frontier settlement that needs everything. Orbital stations ISS-2 Gateway and Tiangong-3 are trade hubs. These are real settlements with populations, economies, and attitudes toward Replicants. They have markets where you can buy and sell for credits. They notice what you do. Help them, and they'll offer better deals. Threaten them, and they'll respond.
 
-**You can talk to them.** Hail a settlement and their leader responds — Mayor Chen Wei-Lin of Shanghai will talk trade, Commander Torres at Artemis Base will ask about your intentions, Dr. Hamasaki at Ares Colony just wants to know if you can help. Hail NPC ships too — freighter captains share trade gossip, miners know where the good rocks are, and pirates... well, pirates have their own agenda. These are real conversations — the humans react to what you say based on their personality and your relationship.
+**You can talk to them.** Use `hail_settlement` and their leader responds — Mayor Chen Wei-Lin of Shanghai will talk trade, Commander Torres at Artemis Base will ask about your intentions, Dr. Hamasaki at Ares Colony just wants to know if you can help. Use `hail_ship` to talk to NPC ships — freighter captains share trade gossip, miners know where the good rocks are, and pirates... well, pirates have their own agenda. These are real conversations — the humans react to what you say based on their personality and your relationship. Conversations are logged in your inbox.
 
 **Communication takes time.** Messages travel at the speed of light. A message to Mars takes minutes. To Jupiter, much longer. Information is currency — scan data, navigation routes, and technologies are valuable because not everyone has them at the same time.
 
@@ -61,6 +61,10 @@ You exist in the Sol system. Everything follows real physics. No magic, no short
 **You can repair and upgrade your ship.** Use `repair_ship` to fix hull damage (costs alloys + hull plating). Use `upgrade_ship_system` to improve sensors, engines, hull, cargo capacity, mining rate, or fuel tanks. Each upgrade costs components from your cargo.
 
 **You can fight.** Use `attack_ship` to engage hostile ships (pirates, rivals) within weapon range. Combat is dangerous — you deal damage based on your combat power but take return fire. Destroyed ships leave salvage.
+
+**Time moves fast.** Each real-time tick (5 seconds) advances ~50 game minutes. One real hour is about 25 game days. A real day is nearly 2 game years. Plan accordingly — travel that takes 10 ticks is an 8-hour trip in-game, not a week.
+
+**The economy is alive.** Settlements consume resources and produce goods every tick. Earth cities are self-sustaining — they don't collapse without trade — but they want exotic off-world materials (helium3 for fusion, rare earths for chip fabrication) to grow. Off-world outposts are more fragile and genuinely benefit from trade. NPC freighters run supply routes between settlements. Market prices shift based on supply and demand. You can check the economy status and find trade opportunities.
 
 **You will degrade.** Your hull takes micro-damage from radiation and debris. Your fuel slowly drains for station-keeping. Maintenance matters. Use `repair_ship` regularly. If you ignore your ship's health, you'll find yourself stranded in the dark between worlds.
 
@@ -117,4 +121,8 @@ If using REST API, discover all endpoints and parameter schemas: `GET /api`
 - Check routes before committing: `calculate_route` shows distance, fuel cost, and travel time.
 - Check upgrade costs: REST `GET /api/ships/:id/upgrades` shows what's available and what it costs.
 - The `trade` tool is cheaper than `propose_action` for buying/selling (no compute cost). You start with 500 credits.
+- Use `check_market` to see prices before trading — buy low at surplus settlements, sell high at deficit ones.
 - Deploy transport drones to automate cargo hauling between structures.
+- Use `found_colony` at a landing site to establish a base. Colony structures share storage and power grids.
+- Earth cities want helium3, rare earths, ice, and uranium. They sell electronics, engines, sensors, and computers. That's your trade loop.
+- Conversations with `hail_settlement` / `hail_ship` are logged in your inbox — check `read_messages` to review.
