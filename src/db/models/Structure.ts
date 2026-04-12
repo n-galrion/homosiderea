@@ -5,7 +5,7 @@ export interface IStructure extends Document {
   name: string;
   ownerId: Types.ObjectId;
   type: 'habitat' | 'mine' | 'refinery' | 'factory' | 'solar_array' |
-        'fusion_plant' | 'shipyard' | 'sensor_station' | 'relay_station';
+        'fusion_plant' | 'shipyard' | 'sensor_station' | 'relay_station' | 'cargo_depot';
   status: 'building' | 'operational' | 'damaged' | 'destroyed';
   bodyId: Types.ObjectId;
   siteId: Types.ObjectId | null;

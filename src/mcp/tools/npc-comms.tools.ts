@@ -75,14 +75,18 @@ export function registerNPCCommsTools(server: McpServer, replicantId: string): v
         `[${settlement.leadership.leaderName}]: "${settlement.culture.temperament === 'mercantile' ? 'What are you buying? What are you selling?' : settlement.culture.temperament === 'welcoming' ? 'Welcome, friend. How can we help?' : settlement.culture.temperament === 'cautious' ? 'State your business.' : settlement.culture.temperament === 'isolationist' ? '...This channel is restricted.' : 'We hear you. Go ahead.'}"`,
       );
 
-      // Store the exchange as messages for both sides
+      // Store the exchange as a message in the replicant's inbox.
+      // Use a synthetic NPC sender ID derived from settlement ID so conversations
+      // can be tracked per-settlement. The subject includes the settlement name
+      // for easy inbox filtering.
       await Message.create({
-        senderId: replicantId, recipientId: replicantId,
-        subject: `Comm: ${settlement.name}`,
+        senderId: settlement._id, recipientId: replicantId,
+        subject: `Comm: ${settlement.name} — ${settlement.leadership.leaderName}`,
         body: `[YOU → ${settlement.name}]: ${playerMsg}\n\n[${settlement.leadership.leaderName}]: ${npcResponse}`,
         metadata: {
           type: 'npc_conversation',
           settlement: settlement.name,
+          settlementId: settlement._id.toString(),
           leader: settlement.leadership.leaderName,
           playerMessage: playerMsg,
           npcResponse,
@@ -163,10 +167,10 @@ export function registerNPCCommsTools(server: McpServer, replicantId: string): v
       const currentTick = latestTick?.tickNumber ?? 0;
 
       await Message.create({
-        senderId: replicantId, recipientId: replicantId,
+        senderId: targetShip.ownerId, recipientId: replicantId,
         subject: `Comm: ${targetShip.name}`,
         body: `[YOU → ${targetShip.name}]: ${playerMsg}\n\n[${targetShip.name}]: ${npcResponse}`,
-        metadata: { type: 'npc_ship_conversation', shipName: targetShip.name, npcResponse },
+        metadata: { type: 'npc_ship_conversation', shipName: targetShip.name, shipId: targetShip._id.toString(), npcResponse },
         senderPosition: myShip.position,
         recipientPosition: targetShip.position,
         distanceAU: dist,

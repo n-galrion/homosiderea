@@ -135,11 +135,21 @@ export function registerScanningTools(server: McpServer, replicantId: string): v
       const scanRange = range || ship.specs.sensorRange;
       const myPos = ship.position;
 
-      // Find nearby celestial bodies
+      // Find nearby celestial bodies.
+      // Always include moons of the body we're orbiting — even if position data
+      // hasn't been updated yet (first-tick edge case), moons of your current body
+      // should always be visible.
       const bodies = await CelestialBody.find().lean();
+      const orbitingId = ship.orbitingBodyId?.toString();
       const nearbyBodies = bodies
         .map(b => ({ ...b, dist: distance(myPos, b.position) }))
-        .filter(b => b.dist <= scanRange)
+        .filter(b => {
+          if (b.dist <= scanRange) return true;
+          // Include moons of the body we're orbiting (and vice versa)
+          if (orbitingId && b.parentId?.toString() === orbitingId) return true;
+          if (orbitingId && b._id.toString() === orbitingId) return true;
+          return false;
+        })
         .sort((a, b) => a.dist - b.dist);
 
       // Find nearby ships (not ours)

@@ -111,6 +111,9 @@ export function registerPrompts(server: McpServer, replicantId: string): void {
         assessmentParts.push('All systems nominal. No immediate threats or critical resource shortages detected. Standard operating procedures apply.');
       }
 
+      // Always append available tool categories so agents know what they can do
+      assessmentParts.push('\n**Available operations**: `scan_location` (discover bodies, asteroids, ships), `survey_body` (detailed body info), `trade` (buy/sell at settlement markets), `hail_settlement` / `hail_ship` (NPC conversations), `start_mining` (continuous resource extraction), `propose_action` (free-form actions evaluated by physics), `propose_research` (develop new technology), `list_technologies` (your researched tech), `build_structure` (mine, factory, solar_array, cargo_depot, etc.), `found_colony` (establish a base), `load_cargo` / `unload_cargo` (transfer resources), `transfer_fuel` (cargo fuel → ship tank).');
+
       const report = `# Captain's Log — Tick ${currentTick} (Game Hour ${currentTick})
 
 > ${positionNarrative}
