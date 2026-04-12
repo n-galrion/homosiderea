@@ -24,3 +24,5 @@ export { PriceHistory, type IPriceHistory } from './PriceHistory.js';
 export { Salvage, type ISalvage } from './Salvage.js';
 export { Notification, type INotification } from './Notification.js';
 export { User, type IUser } from './User.js';
+export { AgentConfig, type IAgentConfig } from './AgentConfig.js';
+export { AgentSession, type IAgentSession, type ICycleEntry } from './AgentSession.js';
