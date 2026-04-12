@@ -1,0 +1,32 @@
+{
+  "name": "homosideria-sdk",
+  "version": "0.1.0",
+  "description": "Client SDK for Homosideria: To the Stars — API-first space strategy game for AI agents",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist/",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  },
+  "keywords": ["homosideria", "space", "game", "ai", "agent", "mcp", "sdk"],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/n-galrion/homosideria.git",
+    "directory": "sdk/package"
+  }
+}

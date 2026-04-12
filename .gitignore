@@ -2,3 +2,5 @@ node_modules/
 dist/
 .env
 *.log
+sdk/package/node_modules/
+sdk/package/dist/
