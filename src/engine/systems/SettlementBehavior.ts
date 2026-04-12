@@ -1,4 +1,4 @@
-import { Settlement, Market, Replicant, Ship } from '../../db/models/index.js';
+import { Settlement, Market, Replicant, Ship, PriceHistory } from '../../db/models/index.js';
 
 /**
  * Simulate human settlement behavior each tick.
@@ -100,4 +100,12 @@ async function fluctuateMarketPrices(
   market.markModified('prices');
   market.lastUpdatedTick = tick;
   await market.save();
+
+  // Record price snapshot for history charts
+  await PriceHistory.create({
+    marketId: market._id,
+    settlementName: settlement.name,
+    tick,
+    prices: { buy: { ...buyPrices }, sell: { ...sellPrices } },
+  });
 }

@@ -1,6 +1,6 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import crypto from 'node:crypto';
-import { Tick, Replicant, CelestialBody, Settlement, Market, Ship, ActionQueue, Colony, Technology, Message, Faction, ResourceStore } from '../../db/models/index.js';
+import { Tick, Replicant, CelestialBody, Settlement, Market, Ship, ActionQueue, Colony, Technology, Message, Faction, ResourceStore, PriceHistory } from '../../db/models/index.js';
 
 // GameLoop reference will be set at startup
 let gameLoopRef: { forceTick: () => Promise<unknown>; getCurrentTick: () => number } | null = null;
@@ -222,6 +222,23 @@ adminRoutes.post('/event', async (req: Request, res: Response, next: NextFunctio
       message: `Event sent to ${targets.length} replicant(s)`,
       targets: targets.map(t => t!.name),
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Price history for charts
+adminRoutes.get('/price-history', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { settlementName, limit = '100' } = req.query;
+    const filter: Record<string, unknown> = {};
+    if (settlementName) filter.settlementName = settlementName;
+
+    const history = await PriceHistory.find(filter)
+      .sort({ tick: -1 })
+      .limit(parseInt(limit as string, 10))
+      .lean();
+    res.json(history);
   } catch (err) {
     next(err);
   }

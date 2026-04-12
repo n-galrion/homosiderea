@@ -14,6 +14,7 @@ import { processMaintenance } from './systems/Maintenance.js';
 import { processOrbitFuelDrain } from './systems/FuelConsumption.js';
 import { processRandomEvents } from './systems/RandomEvents.js';
 import { processNPCTraffic } from './systems/NPCTraffic.js';
+import { processPirateActivity } from './systems/PirateActivity.js';
 
 /**
  * Orchestrates the processing of a single game tick.
@@ -144,7 +145,17 @@ export class TickProcessor {
       errors.push(`NPCTraffic: ${err instanceof Error ? err.message : String(err)}`);
     }
 
-    // Phase 16: Random Events
+    // Phase 16: Pirate Activity
+    try {
+      const pirateLogs = await processPirateActivity(tickNumber);
+      if (pirateLogs.length > 0) {
+        errors.push(...pirateLogs.map(l => `[PIRATE] ${l}`));
+      }
+    } catch (err) {
+      errors.push(`PirateActivity: ${err instanceof Error ? err.message : String(err)}`);
+    }
+
+    // Phase 17: Random Events
     try {
       const eventLogs = await processRandomEvents(tickNumber);
       if (eventLogs.length > 0) {
