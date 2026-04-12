@@ -43,11 +43,11 @@ async function main() {
     console.log('Settlements and markets seeded.');
   }
 
-  // 2b. Create first operator user if none exist
+  // 2b. Create first operator user if explicitly configured via env
   const userCount = await User.countDocuments();
-  if (userCount === 0) {
-    const adminUser = process.env.ADMIN_USERNAME || 'admin';
-    const adminPass = process.env.ADMIN_PASSWORD || 'admin';
+  if (userCount === 0 && process.env.ADMIN_USERNAME && process.env.ADMIN_PASSWORD) {
+    const adminUser = process.env.ADMIN_USERNAME;
+    const adminPass = process.env.ADMIN_PASSWORD;
     const hash = await bcrypt.hash(adminPass, 12);
     await User.create({
       username: adminUser,
@@ -56,6 +56,8 @@ async function main() {
       role: 'operator',
     });
     console.log(`Operator account created: ${adminUser} / ${adminPass}`);
+  } else if (userCount === 0) {
+    console.log(`No users exist. Register the first user at http://localhost:${config.server.port}/register — they will become the operator.`);
   }
 
   // 3. Create Express app

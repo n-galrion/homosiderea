@@ -4,14 +4,18 @@
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
   const info = document.getElementById('map-info');
+  const detailPanel = document.getElementById('map-detail');
 
   let bodies = [];
+  let settlements = [];
+  let bodiesDetailed = []; // full body data with resources/physical
   let scale = 80; // pixels per AU
   let offsetX = 0;
   let offsetY = 0;
   let dragging = false;
   let dragStart = { x: 0, y: 0 };
   let dragOffset = { x: 0, y: 0 };
+  let dragMoved = false;
 
   const colors = {
     star: '#fbbf24',
@@ -127,9 +131,156 @@
     }
   }
 
+  async function loadSettlements() {
+    try {
+      var res = await fetch('/api/public/settlements');
+      if (res.ok) {
+        settlements = await res.json();
+      }
+    } catch (e) {
+      // settlements unavailable — non-critical
+    }
+  }
+
+  // ── Click-to-show-info panel ──────────────────────────────────────
+  function findBodyAtPoint(clientX, clientY) {
+    const rect = canvas.getBoundingClientRect();
+    const mx = clientX - rect.left;
+    const my = clientY - rect.top;
+    var closest = null;
+    var closestDist = Infinity;
+
+    for (var i = 0; i < bodies.length; i++) {
+      var b = bodies[i];
+      var pos = worldToScreen(b.position.x, b.position.y);
+      var size = sizes[b.type] || 3;
+      var hitRadius = size + 10;
+      var dx = mx - pos.sx;
+      var dy = my - pos.sy;
+      var dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < hitRadius && dist < closestDist) {
+        closest = b;
+        closestDist = dist;
+      }
+    }
+    return closest;
+  }
+
+  function formatNumber(n) {
+    if (n >= 1e9) return (n / 1e9).toFixed(1) + 'B';
+    if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
+    if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
+    return String(n);
+  }
+
+  function showDetailPanel(body) {
+    if (!detailPanel) return;
+
+    // Name & type
+    document.getElementById('detail-name').textContent = body.name;
+    document.getElementById('detail-type').textContent = (body.type || '').replace('_', ' ');
+
+    // Position (distance from Sol)
+    var distFromSol = Math.sqrt(
+      body.position.x * body.position.x +
+      body.position.y * body.position.y +
+      (body.position.z || 0) * (body.position.z || 0)
+    );
+    var posDiv = document.getElementById('detail-position');
+    posDiv.innerHTML =
+      '<div class="detail-row"><span class="label">Distance from Sol</span><span class="value">' + distFromSol.toFixed(3) + ' AU</span></div>' +
+      '<div class="detail-row"><span class="label">X</span><span class="value">' + body.position.x.toFixed(4) + ' AU</span></div>' +
+      '<div class="detail-row"><span class="label">Y</span><span class="value">' + body.position.y.toFixed(4) + ' AU</span></div>';
+    document.getElementById('detail-position-section').style.display = '';
+
+    // Physical properties (if available)
+    var physSection = document.getElementById('detail-physical-section');
+    var physDiv = document.getElementById('detail-physical');
+    if (body.physical) {
+      var p = body.physical;
+      var html = '';
+      if (p.mass != null) html += '<div class="detail-row"><span class="label">Mass</span><span class="value">' + p.mass.toExponential(2) + ' kg</span></div>';
+      if (p.radius != null) html += '<div class="detail-row"><span class="label">Radius</span><span class="value">' + formatNumber(p.radius) + ' km</span></div>';
+      if (p.gravity != null) html += '<div class="detail-row"><span class="label">Gravity</span><span class="value">' + p.gravity.toFixed(2) + ' m/s2</span></div>';
+      if (p.hasAtmosphere != null) html += '<div class="detail-row"><span class="label">Atmosphere</span><span class="value">' + (p.hasAtmosphere ? 'Yes' : 'No') + '</span></div>';
+      physDiv.innerHTML = html;
+      physSection.style.display = html ? '' : 'none';
+    } else {
+      physSection.style.display = 'none';
+    }
+
+    // Resources (if available)
+    var resSection = document.getElementById('detail-resources-section');
+    var resDiv = document.getElementById('detail-resources');
+    if (body.resources && body.resources.length > 0) {
+      var rhtml = '';
+      for (var i = 0; i < body.resources.length; i++) {
+        var r = body.resources[i];
+        var pct = r.totalDeposit > 0 ? Math.round((r.remaining / r.totalDeposit) * 100) : 0;
+        rhtml += '<div class="resource-bar-wrap">' +
+          '<div class="resource-bar-label"><span>' + r.resourceType + '</span><span>' + pct + '% remaining</span></div>' +
+          '<div class="resource-bar"><div class="resource-bar-fill" style="width:' + pct + '%"></div></div>' +
+          '</div>';
+      }
+      resDiv.innerHTML = rhtml;
+      resSection.style.display = '';
+    } else {
+      resSection.style.display = 'none';
+    }
+
+    // Settlements on this body
+    var settSection = document.getElementById('detail-settlements-section');
+    var settDiv = document.getElementById('detail-settlements');
+    var bodySettlements = settlements.filter(function (s) {
+      return s.bodyId === body._id;
+    });
+    if (bodySettlements.length > 0) {
+      var shtml = '';
+      for (var j = 0; j < bodySettlements.length; j++) {
+        var s = bodySettlements[j];
+        var spaceport = (s.economy && s.economy.spaceportLevel) ? ' | Spaceport Lv.' + s.economy.spaceportLevel : '';
+        shtml += '<div class="settlement-item">' +
+          '<div class="sett-name">' + s.name + '</div>' +
+          '<div class="sett-meta">' + s.type.replace('_', ' ') + ' | ' + s.nation + ' | Pop: ' + formatNumber(s.population) + spaceport + '</div>' +
+          '<div class="sett-meta">' + s.status + '</div>' +
+          '</div>';
+      }
+      settDiv.innerHTML = shtml;
+      settSection.style.display = '';
+    } else {
+      settDiv.innerHTML = '<div class="no-data">No known settlements</div>';
+      settSection.style.display = '';
+    }
+
+    detailPanel.classList.add('open');
+  }
+
+  function closeDetailPanel() {
+    if (detailPanel) detailPanel.classList.remove('open');
+  }
+
+  // Close button
+  var closeBtn = document.getElementById('panel-close');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', closeDetailPanel);
+  }
+
+  // Click handler on canvas
+  canvas.addEventListener('click', function (e) {
+    // Ignore if the user was dragging
+    if (dragMoved) return;
+    var body = findBodyAtPoint(e.clientX, e.clientY);
+    if (body) {
+      showDetailPanel(body);
+    } else {
+      closeDetailPanel();
+    }
+  });
+
   // Pan
   canvas.addEventListener('mousedown', function (e) {
     dragging = true;
+    dragMoved = false;
     dragStart.x = e.clientX;
     dragStart.y = e.clientY;
     dragOffset.x = 0;
@@ -139,6 +290,9 @@
     if (!dragging) return;
     dragOffset.x = e.clientX - dragStart.x;
     dragOffset.y = e.clientY - dragStart.y;
+    if (Math.abs(dragOffset.x) > 3 || Math.abs(dragOffset.y) > 3) {
+      dragMoved = true;
+    }
     draw();
   });
   canvas.addEventListener('mouseup', function () {
@@ -191,7 +345,9 @@
   window.addEventListener('resize', resize);
   resize();
   loadBodies();
+  loadSettlements();
 
   // Refresh every 5s
   setInterval(loadBodies, 5000);
+  setInterval(loadSettlements, 30000);
 })();

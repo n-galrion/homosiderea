@@ -97,9 +97,9 @@ authWebRoutes.post('/auth/register', async (req: Request, res: Response) => {
       return;
     }
 
-    // First user becomes operator, rest are spectators
-    const userCount = await User.countDocuments();
-    const role = userCount === 0 ? 'operator' : 'spectator';
+    // First operator becomes operator, rest are spectators
+    const operatorExists = await User.countDocuments({ role: 'operator' });
+    const role = operatorExists === 0 ? 'operator' : 'spectator';
 
     const passwordHash = await bcrypt.hash(password, 10);
 

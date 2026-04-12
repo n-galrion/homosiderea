@@ -77,9 +77,20 @@ export function createApp() {
     try {
       const { CelestialBody } = await import('../db/models/index.js');
       const bodies = await CelestialBody.find()
-        .select('name type parentId position solarEnergyFactor')
+        .select('name type parentId position solarEnergyFactor physical resources')
         .lean();
       res.json(bodies);
+    } catch (err) { next(err); }
+  });
+
+  // Public settlements data (for map info panel)
+  app.get('/api/public/settlements', async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { Settlement } = await import('../db/models/index.js');
+      const settlements = await Settlement.find({ status: { $ne: 'destroyed' } })
+        .select('name type nation population bodyId status economy.spaceportLevel')
+        .lean();
+      res.json(settlements);
     } catch (err) { next(err); }
   });
 
