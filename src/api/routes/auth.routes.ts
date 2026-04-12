@@ -11,7 +11,7 @@ export const authRoutes = Router();
 // Register a new replicant
 authRoutes.post('/register', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { name: rawName, directive } = req.body;
+    const { name: rawName, password, directive } = req.body;
 
     // If no name provided, generate a temporary one
     const name = (rawName && typeof rawName === 'string') ? rawName : `Replicant-${nanoid(6)}`;
@@ -29,6 +29,7 @@ authRoutes.post('/register', async (req: Request, res: Response, next: NextFunct
     const replicant = await Replicant.create({
       name,
       apiKey,
+      password: password || null,
       directive: directive || `You are ${name}, a newly awakened Replicant in the Sol system.`,
       computeCycles: DEFAULT_REPLICANT_COMPUTE,
       energyBudget: DEFAULT_REPLICANT_ENERGY,

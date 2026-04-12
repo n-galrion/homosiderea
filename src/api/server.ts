@@ -67,9 +67,13 @@ export function createApp() {
       game: 'Homosideria: To the Stars',
       version: '0.1.0',
       auth: {
-        register: 'POST /api/auth/register  body: { name?, directive? }  — name is optional; omit to get a temporary name and awakening prompt',
+        register: 'POST /api/auth/register  body: { name?, password?, directive? }',
         token: 'POST /api/auth/token  body: { apiKey }',
-        note: 'All other routes require X-API-Key header',
+        methods: [
+          'X-API-Key header (from registration)',
+          'X-Replicant-Name + X-Replicant-Password headers (simple)',
+          'Authorization: Bearer <JWT> (from /api/auth/token)',
+        ],
       },
       routes: {
         game: {
@@ -142,8 +146,8 @@ export function createApp() {
       },
       mcp: {
         endpoint: 'POST /mcp',
-        auth: 'X-API-Key header',
-        note: 'Streamable HTTP transport. ~45 tools available after initialization.',
+        auth: 'No auth needed to connect. Use register/authenticate tools inside the session. Or pass X-Replicant-Name + X-Replicant-Password headers for instant access.',
+        note: 'Streamable HTTP transport. ~48 tools available after authentication.',
       },
       dashboard: 'GET /dashboard',
     });

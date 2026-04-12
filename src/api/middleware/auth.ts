@@ -15,7 +15,10 @@ declare global {
 }
 
 /**
- * Auth middleware: accepts either API key (X-API-Key header) or JWT (Authorization: Bearer).
+ * Auth middleware. Accepts (in priority order):
+ * 1. X-API-Key header (legacy)
+ * 2. Authorization: Bearer <JWT>
+ * 3. X-Replicant-Name + X-Replicant-Password headers (simple auth)
  */
 export async function authMiddleware(
   req: Request,
@@ -23,35 +26,43 @@ export async function authMiddleware(
   next: NextFunction,
 ): Promise<void> {
   try {
-    // Try API key first
+    // 1. API key
     const apiKey = req.headers['x-api-key'] as string | undefined;
     if (apiKey) {
       const replicant = await Replicant.findOne({ apiKey, status: 'active' });
-      if (!replicant) {
-        throw new AuthError('Invalid API key');
-      }
+      if (!replicant) throw new AuthError('Invalid API key');
       req.replicant = replicant;
       req.replicantId = replicant._id.toString();
       next();
       return;
     }
 
-    // Try JWT
+    // 2. JWT
     const authHeader = req.headers.authorization;
     if (authHeader?.startsWith('Bearer ')) {
       const token = authHeader.slice(7);
       const payload = jwt.verify(token, config.auth.jwtSecret) as { replicantId: string };
       const replicant = await Replicant.findById(payload.replicantId);
-      if (!replicant || replicant.status !== 'active') {
-        throw new AuthError('Invalid or expired token');
-      }
+      if (!replicant || replicant.status !== 'active') throw new AuthError('Invalid or expired token');
       req.replicant = replicant;
       req.replicantId = replicant._id.toString();
       next();
       return;
     }
 
-    throw new AuthError('No authentication provided. Use X-API-Key header or Bearer token.');
+    // 3. Name + password
+    const name = req.headers['x-replicant-name'] as string | undefined;
+    const password = req.headers['x-replicant-password'] as string | undefined;
+    if (name && password) {
+      const replicant = await Replicant.findOne({ name, password, status: 'active' });
+      if (!replicant) throw new AuthError('Invalid name or password');
+      req.replicant = replicant;
+      req.replicantId = replicant._id.toString();
+      next();
+      return;
+    }
+
+    throw new AuthError('No auth provided. Use X-API-Key, Bearer token, or X-Replicant-Name + X-Replicant-Password headers.');
   } catch (err) {
     if (err instanceof AuthError) {
       next(err);
