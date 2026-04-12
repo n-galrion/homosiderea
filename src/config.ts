@@ -20,6 +20,17 @@ export const config = {
     baseUrl: process.env.LLM_BASE_URL || 'https://openrouter.ai/api/v1',
     apiKey: process.env.LLM_API_KEY || '',
     model: process.env.LLM_MODEL || 'anthropic/claude-sonnet-4',
+    // Per-task model overrides — use cheaper/faster models for simple tasks
+    models: {
+      // Heavy reasoning: action evaluation, research, world simulation
+      propose: process.env.LLM_MODEL_PROPOSE || process.env.LLM_MODEL || 'anthropic/claude-sonnet-4',
+      research: process.env.LLM_MODEL_RESEARCH || process.env.LLM_MODEL || 'anthropic/claude-sonnet-4',
+      worldSim: process.env.LLM_MODEL_WORLD_SIM || process.env.LLM_MODEL || 'anthropic/claude-sonnet-4',
+      // Light tasks: narrative generation, NPC dialogue, event descriptions
+      narrative: process.env.LLM_MODEL_NARRATIVE || process.env.LLM_MODEL_LIGHT || process.env.LLM_MODEL || 'anthropic/claude-haiku-4-5-20251001',
+      npcComms: process.env.LLM_MODEL_NPC || process.env.LLM_MODEL_LIGHT || process.env.LLM_MODEL || 'anthropic/claude-haiku-4-5-20251001',
+      salvage: process.env.LLM_MODEL_SALVAGE || process.env.LLM_MODEL_LIGHT || process.env.LLM_MODEL || 'anthropic/claude-haiku-4-5-20251001',
+    },
   },
   session: {
     secret: process.env.SESSION_SECRET || 'homosideria-session-secret-change-me',

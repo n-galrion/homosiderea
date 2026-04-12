@@ -233,7 +233,7 @@ async function callMasterLLM(client: OpenAI, prompt: string): Promise<Evaluation
   ];
 
   const response = await client.chat.completions.create({
-    model: config.llm.model,
+    model: config.llm.models.research,
     max_tokens: 1024,
     temperature: 0.7,
     messages,

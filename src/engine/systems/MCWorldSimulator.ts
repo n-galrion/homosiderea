@@ -281,7 +281,7 @@ export async function simulateWorldWithMC(tick: number): Promise<string[]> {
     // Allow up to 5 rounds of tool calls
     for (let round = 0; round < 5; round++) {
       const response = await client.chat.completions.create({
-        model: config.llm.model,
+        model: config.llm.models.worldSim,
         max_tokens: 1024,
         temperature: 0.8,
         messages,

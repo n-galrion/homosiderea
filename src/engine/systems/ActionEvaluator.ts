@@ -284,7 +284,7 @@ Evaluate this action. Call approve_action or reject_action first, then use modif
 
     for (let round = 0; round < 5; round++) {
       const response = await client.chat.completions.create({
-        model: config.llm.model,
+        model: config.llm.models.propose,
         max_tokens: 1024,
         temperature: 0.7,
         messages,

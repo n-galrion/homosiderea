@@ -19,7 +19,7 @@ export async function generateContent(
     });
 
     const response = await client.chat.completions.create({
-      model: config.llm.model,
+      model: config.llm.models.narrative,
       max_tokens: 512,
       temperature: 0.9,
       messages: [
@@ -53,7 +53,7 @@ export async function generateJSON<T>(
     });
 
     const response = await client.chat.completions.create({
-      model: config.llm.model,
+      model: config.llm.models.narrative,
       max_tokens: 1024,
       temperature: 0.8,
       messages: [
