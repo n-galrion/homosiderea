@@ -96,9 +96,7 @@ export function createApp() {
 
   // Public routes
   app.use('/api/auth', authRoutes);
-
-  // Authenticated routes
-  app.use('/api/game', authMiddleware, gameRoutes);
+  app.use('/api/game', gameRoutes); // Public — just metadata, no secrets
   app.use('/api/replicant', authMiddleware, replicantRoutes);
   app.use('/api/world', authMiddleware, worldRoutes);
   app.use('/api/actions', authMiddleware, actionRoutes);

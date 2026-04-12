@@ -64,15 +64,29 @@
         <!-- MCP Connection Config -->
         <div class="card">
           <div class="card-title">MCP Connection</div>
-          <p class="text-dim mb-2" style="font-size:13px;">Use this configuration to connect an AI agent via MCP:</p>
-          <pre style="background:var(--bg);padding:16px;border-radius:var(--radius);font-family:var(--font-mono);font-size:12px;color:var(--text-dim);overflow-x:auto;border:1px solid var(--surface-border);" id="mcp-config">{
+          <p class="text-dim mb-2" style="font-size:13px;">Add to your Claude Code <code>.mcp.json</code> or settings. Two options:</p>
+          <p class="text-dim" style="font-size:11px; margin-bottom:8px;"><strong>Option 1: Streamable HTTP</strong> (newer MCP clients)</p>
+          <pre style="background:var(--bg);padding:12px;border-radius:var(--radius);font-family:var(--font-mono);font-size:11px;color:var(--text-dim);overflow-x:auto;border:1px solid var(--surface-border);" id="mcp-config">{
   "mcpServers": {
     "homosideria": {
+      "type": "http",
       "url": "http://localhost:3001/mcp",
-      "transport": "streamable-http",
       "headers": {
-        "X-Replicant-Name": "YOUR_REPLICANT_NAME",
-        "X-Replicant-Password": "YOUR_REPLICANT_PASSWORD"
+        "X-Replicant-Name": "YOUR_NAME",
+        "X-Replicant-Password": "YOUR_PASSWORD"
+      }
+    }
+  }
+}</pre>
+          <p class="text-dim" style="font-size:11px; margin-top:8px; margin-bottom:8px;"><strong>Option 2: SSE</strong> (if HTTP doesn't connect)</p>
+          <pre style="background:var(--bg);padding:12px;border-radius:var(--radius);font-family:var(--font-mono);font-size:11px;color:var(--text-dim);overflow-x:auto;border:1px solid var(--surface-border);">{
+  "mcpServers": {
+    "homosideria": {
+      "type": "sse",
+      "url": "http://localhost:3001/sse",
+      "headers": {
+        "X-Replicant-Name": "YOUR_NAME",
+        "X-Replicant-Password": "YOUR_PASSWORD"
       }
     }
   }

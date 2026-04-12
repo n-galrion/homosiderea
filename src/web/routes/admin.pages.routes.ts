@@ -1,6 +1,7 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import { requireAuth, requireRole } from '../middleware/roles.js';
 import { Replicant, Ship, Tick, Settlement, Notification, User, Faction } from '../../db/models/index.js';
+import { config } from '../../config.js';
 
 export const adminPagesRoutes = Router();
 
@@ -92,7 +93,7 @@ adminPagesRoutes.post('/admin/events/inject', requireAuth, requireRole('operator
     const { type, replicantId, subject, body: msgBody, global: isGlobal } = req.body;
 
     const port = req.socket.localPort || 3001;
-    const adminKey = process.env.ADMIN_KEY || 'dev-admin-key';
+    const adminKey = config.auth.adminKey;
 
     let endpoint = '/api/admin/suggest';
     let payload: Record<string, unknown> = { replicantId, subject, body: msgBody };
@@ -135,7 +136,7 @@ adminPagesRoutes.get('/admin/game', requireAuth, requireRole('operator'), async 
 adminPagesRoutes.post('/admin/game/force-tick', requireAuth, requireRole('operator'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const port = req.socket.localPort || 3001;
-    const adminKey = process.env.ADMIN_KEY || 'dev-admin-key';
+    const adminKey = config.auth.adminKey;
 
     await fetch(`http://localhost:${port}/api/admin/tick/force`, {
       method: 'POST',

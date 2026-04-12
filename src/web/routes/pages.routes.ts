@@ -61,7 +61,7 @@ pagesRoutes.post('/replicants/create', requireAuth, requireRole('owner', 'operat
     const { name, directive } = req.body;
 
     // Call the internal registration API via fetch to localhost
-    const port = req.socket.localPort || 3001;
+    const port = config.server.port;
     const apiRes = await fetch(`http://localhost:${port}/api/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

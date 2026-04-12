@@ -30,8 +30,8 @@ describe('Homosideria Integration Tests', () => {
       expect(d.gameLoopActive).toBe(true);
     });
 
-    it('rejects requests without auth', async () => {
-      const { status } = await api('/api/game/status');
+    it('rejects requests without auth on protected endpoints', async () => {
+      const { status } = await api('/api/replicant/me');
       expect(status).toBe(401);
     });
   });
@@ -339,8 +339,8 @@ describe('Homosideria Integration Tests', () => {
       expect(status).toBe(404);
     });
 
-    it('returns 401 for bad API key', async () => {
-      const { status } = await api('/api/game/status', { apiKey: 'hs_invalid_key' });
+    it('returns 401 for bad API key on protected endpoint', async () => {
+      const { status } = await api('/api/replicant/me', { apiKey: 'hs_invalid_key' });
       expect(status).toBe(401);
     });
 
