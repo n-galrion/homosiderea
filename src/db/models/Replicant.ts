@@ -4,6 +4,7 @@ export interface IReplicant extends Document {
   _id: Types.ObjectId;
   name: string;
   apiKey: string;
+  password: string | null;
   parentId: Types.ObjectId | null;
   lineage: Types.ObjectId[];
   directive: string;
@@ -46,6 +47,7 @@ export interface IReplicant extends Document {
 const ReplicantSchema = new Schema<IReplicant>({
   name: { type: String, required: true, unique: true },
   apiKey: { type: String, required: true, unique: true, index: true },
+  password: { type: String, default: null },
   parentId: { type: Schema.Types.ObjectId, ref: 'Replicant', default: null },
   lineage: [{ type: Schema.Types.ObjectId, ref: 'Replicant' }],
   directive: { type: String, default: '' },

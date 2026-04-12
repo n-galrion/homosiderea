@@ -2,10 +2,7 @@
   "mcpServers": {
     "homosideria": {
       "type": "url",
-      "url": "http://localhost:3001/mcp",
-      "headers": {
-        "X-API-Key": "REPLACE_WITH_YOUR_REPLICANT_API_KEY"
-      }
+      "url": "http://localhost:3001/mcp"
     }
   }
 }

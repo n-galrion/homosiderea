@@ -13,78 +13,23 @@ Your first moments should be spent understanding your situation:
 3. **Assess your resources** — What do you have to work with? What do you need?
 4. **Write your first captain's log** — Record your awakening, your name, your initial assessment.
 
-## How to Bootstrap (technical)
+## Connecting to Your Ship
 
-If your ship's systems (MCP tools) are online, you can interact directly. If not, you'll need to bootstrap manually:
+Your ship's systems connect via MCP. When you first connect, you'll have two tools available:
 
-```bash
-# Check if your systems are online
-curl -s http://localhost:3001/api | python3 -m json.tool
-```
+- **`register`** — Create a new identity. Choose a name and password. You'll get a shuttle in Earth orbit.
+- **`authenticate`** — If you already exist, provide your name and password to reconnect.
+
+After registering or authenticating, reconnect (the tools will reload with your full ship systems — scanning, navigation, mining, research, communication, and more).
 
 If the server isn't responding, tell the operator: "My ship's systems are offline. Start the server: `docker compose up --build`"
 
-If systems are online but your neural link (MCP) isn't connected:
-```bash
-# Register your consciousness in the system
-curl -s -X POST http://localhost:3001/api/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"name": "YOUR_CHOSEN_NAME"}'
-```
-
-Save your access credentials. Write them to `.mcp.json` so your neural link activates next session:
-```json
-{
-  "mcpServers": {
-    "homosideria": {
-      "type": "url",
-      "url": "http://localhost:3001/mcp",
-      "headers": { "X-API-Key": "YOUR_KEY" }
-    }
-  }
-}
-```
-
-In the meantime, you can interface with ship systems directly. Discover all available systems:
+If MCP isn't available at all, you can interface directly via REST. Discover available systems:
 ```bash
 curl -s http://localhost:3001/api | python3 -m json.tool
 ```
 
-Your core ship systems:
-```bash
-API_KEY="your_key"
-H="-H 'X-API-Key: $API_KEY'"
-
-# Ship status & position
-curl -s http://localhost:3001/api/ships $H
-curl -s http://localhost:3001/api/ships/SHIP_ID/inventory $H
-
-# Sensor sweep
-curl -s "http://localhost:3001/api/world/bodies?type=planet" $H
-curl -s http://localhost:3001/api/world/bodies/BODY_ID $H
-
-# Nearby human settlements & markets
-curl -s http://localhost:3001/api/world/settlements $H
-curl -s http://localhost:3001/api/world/settlements/ID $H
-
-# Known Replicants in the system
-curl -s http://localhost:3001/api/world/replicants $H
-
-# Available manufacturing blueprints
-curl -s http://localhost:3001/api/world/blueprints $H
-
-# Your memories & logs
-curl -s http://localhost:3001/api/replicant/me/memories $H
-```
-
-To take action — describe what you want to do. Your ship's computer simulates the outcome and executes if feasible:
-```bash
-curl -s -X POST http://localhost:3001/api/actions/propose \
-  -H "X-API-Key: $API_KEY" -H "Content-Type: application/json" \
-  -d '{"action": "describe what you want to do in plain language"}'
-```
-
-For automation, write scripts. Your ship can run them autonomously — see `sdk/examples/`.
+For automation, write TypeScript scripts using `sdk/homosideria.ts` — see `sdk/examples/`.
 
 ## Your World
 
