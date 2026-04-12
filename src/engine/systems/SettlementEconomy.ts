@@ -14,6 +14,17 @@ const RESOURCE_KEYS: ReadonlySet<string> = new Set([
 const MIN_POPULATION = 100;
 
 /**
+ * Time-scale constants.
+ * 1 tick = 5 real seconds × 600 dilation = 3000 game seconds ≈ 50 game minutes.
+ * 1 game day ≈ 29 ticks.  1 game year ≈ 10,512 ticks.
+ *
+ * Population changes are per-tick but MUST be realistic on a per-day or per-year
+ * basis. Earth grows ~0.8% per YEAR. Even a crisis shouldn't kill 0.1% per hour.
+ */
+const TICKS_PER_GAME_DAY = 29;
+const TICKS_PER_GAME_YEAR = 10_512;
+
+/**
  * Process settlement economy each tick.
  * Runs BEFORE SettlementBehavior (price fluctuation) so prices reflect
  * the latest stockpile state.
@@ -27,8 +38,12 @@ const MIN_POPULATION = 100;
  */
 export interface EconomyEvent {
   settlement: string;
+  type: string;
+  population: number;
   consumed: Record<string, number>;
   produced: Record<string, number>;
+  stockpile: Record<string, number>;
+  ticksOfSupply: Record<string, number>;
   deficits: string[];
   satisfaction: number;
   efficiency: number;
@@ -56,21 +71,22 @@ export async function processSettlementEconomy(tick: number): Promise<number> {
     });
 
     if (!stockpile) {
-      // Create stockpile with initial buffers
+      // Create stockpile with initial buffers.
+      // Production surplus: 1 game-year of accumulated output (≈10,000 ticks).
+      // Consumption reserves: 6 game-months of reserves (≈5,000 ticks).
+      // These represent mature settlements that have been running for years.
       const initData: Record<string, number> = {};
       const production = settlement.production as Record<string, number> || {};
       const consumption = settlement.consumption as Record<string, number> || {};
 
-      // Production outputs: 100 ticks of surplus buffer
       for (const [resource, rate] of Object.entries(production)) {
         if (RESOURCE_KEYS.has(resource)) {
-          initData[resource] = (initData[resource] || 0) + rate * 100;
+          initData[resource] = (initData[resource] || 0) + rate * TICKS_PER_GAME_YEAR;
         }
       }
-      // Consumption inputs: 50 ticks of working buffer
       for (const [resource, rate] of Object.entries(consumption)) {
         if (RESOURCE_KEYS.has(resource)) {
-          initData[resource] = (initData[resource] || 0) + rate * 50;
+          initData[resource] = (initData[resource] || 0) + rate * Math.round(TICKS_PER_GAME_YEAR / 2);
         }
       }
 
@@ -124,17 +140,27 @@ export async function processSettlementEconomy(tick: number): Promise<number> {
     }
 
     // 4. Population growth/decline based on resource satisfaction
+    //
+    // Satisfaction measures how much of the settlement's SPACE TRADE needs are met.
+    // Low satisfaction doesn't mean starvation — Earth cities have internal economies.
+    // It means the space program is underfunded, tech investment stalls, etc.
+    //
+    // Population rates are scaled to game time:
+    //   +1% per game year when thriving (≈ +0.000095% per tick)
+    //   -0.5% per game year when struggling (≈ -0.000048% per tick)
+    //   -2% per game year in severe crisis (≈ -0.00019% per tick)
+    // For reference: real Earth growth is ~0.8%/year.
     const satisfactionRatio = totalNeeded > 0 ? totalConsumed / totalNeeded : 1.0;
 
     let populationMultiplier = 1.0;
     if (satisfactionRatio >= 0.8) {
-      populationMultiplier = 1.0001;   // +0.01% per tick
+      populationMultiplier = 1.0 + (0.01 / TICKS_PER_GAME_YEAR);    // +1%/year
     } else if (satisfactionRatio >= 0.5) {
-      populationMultiplier = 1.0;      // stable
+      populationMultiplier = 1.0;                                      // stable
     } else if (satisfactionRatio >= 0.2) {
-      populationMultiplier = 0.9998;   // -0.02% per tick
+      populationMultiplier = 1.0 - (0.005 / TICKS_PER_GAME_YEAR);   // -0.5%/year
     } else {
-      populationMultiplier = 0.999;    // -0.1% per tick (crisis)
+      populationMultiplier = 1.0 - (0.02 / TICKS_PER_GAME_YEAR);    // -2%/year (crisis)
     }
 
     settlement.population = Math.max(
@@ -142,32 +168,48 @@ export async function processSettlementEconomy(tick: number): Promise<number> {
       Math.round(settlement.population * populationMultiplier),
     );
 
-    // 5. Update settlement status based on satisfaction
+    // 5. Update settlement status based on satisfaction.
+    // For Earth cities (type=city), low satisfaction means reduced space-program
+    // investment, not societal collapse. They degrade slower.
+    // For outposts/stations, low satisfaction is more critical.
+    const isEarthCity = settlement.type === 'city';
     if (satisfactionRatio >= 0.8) {
       settlement.status = 'thriving';
-    } else if (satisfactionRatio >= 0.6) {
+    } else if (satisfactionRatio >= 0.5) {
       settlement.status = 'stable';
-    } else if (satisfactionRatio >= 0.3) {
-      settlement.status = 'struggling';
+    } else if (satisfactionRatio >= 0.2) {
+      settlement.status = isEarthCity ? 'stable' : 'struggling';
     } else {
-      settlement.status = 'damaged';
+      settlement.status = isEarthCity ? 'struggling' : 'damaged';
     }
 
     // 6. Log economy event for this tick
     const consumedRecord: Record<string, number> = {};
     const producedRecord: Record<string, number> = {};
+    const stockpileSnapshot: Record<string, number> = {};
+    const ticksOfSupplySnapshot: Record<string, number> = {};
+
     for (const [resource, rate] of consumptionEntries) {
       if (RESOURCE_KEYS.has(resource) && rate > 0) {
         consumedRecord[resource] = Math.min(storeAny[resource] ?? 0, rate);
+        const stock = storeAny[resource] ?? 0;
+        stockpileSnapshot[resource] = Math.round(stock);
+        // Net rate = production - consumption for this resource
+        const prodRate = (production[resource] ?? 0) * productionEfficiency;
+        const netRate = rate - prodRate; // positive = draining
+        ticksOfSupplySnapshot[resource] = netRate > 0 ? Math.round(stock / netRate) : Infinity;
       }
     }
     for (const [resource, rate] of Object.entries(production)) {
       if (RESOURCE_KEYS.has(resource) && rate > 0) {
         producedRecord[resource] = rate * productionEfficiency;
+        if (!(resource in stockpileSnapshot)) {
+          stockpileSnapshot[resource] = Math.round(storeAny[resource] ?? 0);
+        }
       }
     }
     const deficits = consumptionEntries
-      .filter(([r, v]) => RESOURCE_KEYS.has(r) && v > 0 && (storeAny[r] ?? 0) < v * 10)
+      .filter(([r, v]) => RESOURCE_KEYS.has(r) && v > 0 && (storeAny[r] ?? 0) < v * TICKS_PER_GAME_DAY)
       .map(([r]) => r);
 
     const prevPop = settlement.population;
@@ -175,8 +217,12 @@ export async function processSettlementEconomy(tick: number): Promise<number> {
 
     economyLog.push({
       settlement: settlement.name,
+      type: settlement.type as string,
+      population: settlement.population,
       consumed: consumedRecord,
       produced: producedRecord,
+      stockpile: stockpileSnapshot,
+      ticksOfSupply: ticksOfSupplySnapshot,
       deficits,
       satisfaction: satisfactionRatio,
       efficiency: productionEfficiency,

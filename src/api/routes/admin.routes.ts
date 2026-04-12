@@ -1,6 +1,7 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import crypto from 'node:crypto';
 import { Tick, Replicant, CelestialBody, Settlement, Market, Ship, ActionQueue, Colony, Technology, Message, Faction, ResourceStore, PriceHistory, Notification, User } from '../../db/models/index.js';
+import { getLastEconomyLog } from '../../engine/systems/SettlementEconomy.js';
 
 // GameLoop reference will be set at startup
 let gameLoopRef: { forceTick: () => Promise<unknown>; getCurrentTick: () => number } | null = null;
@@ -340,6 +341,89 @@ adminRoutes.get('/status', async (_req: Request, res: Response, next: NextFuncti
       activeReplicants: replicants,
       celestialBodies: bodies,
       gameLoopActive: !!gameLoopRef,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ── Economy Diagnostics ───────────────────────────────────────────────
+
+// GET /api/admin/economy — Full economy diagnostic snapshot
+adminRoutes.get('/economy', async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const settlements = await Settlement.find({ status: { $ne: 'destroyed' } }).lean();
+    const economyLog = getLastEconomyLog();
+
+    // Build per-settlement detail with live stockpile data
+    const details = await Promise.all(settlements.map(async (s) => {
+      const stockpile = await ResourceStore.findOne({
+        'ownerRef.kind': 'Settlement',
+        'ownerRef.item': s._id,
+      }).lean();
+
+      const consumption = s.consumption as Record<string, number> || {};
+      const production = s.production as Record<string, number> || {};
+      const storeAny = (stockpile ?? {}) as Record<string, number>;
+
+      // Calculate ticks-of-supply for each consumed resource
+      const resourceDetail: Record<string, {
+        stockpile: number; consumption: number; production: number;
+        netRate: number; ticksOfSupply: number; gameDaysOfSupply: number;
+      }> = {};
+
+      const allResources = new Set([...Object.keys(consumption), ...Object.keys(production)]);
+      for (const resource of allResources) {
+        const stock = storeAny[resource] ?? 0;
+        const cons = consumption[resource] ?? 0;
+        const prod = production[resource] ?? 0;
+        const netRate = cons - prod; // positive = draining
+        const ticksSupply = netRate > 0 ? stock / netRate : (stock > 0 ? Infinity : 0);
+
+        resourceDetail[resource] = {
+          stockpile: Math.round(stock),
+          consumption: cons,
+          production: prod,
+          netRate: -netRate, // positive = accumulating, negative = draining
+          ticksOfSupply: netRate > 0 ? Math.round(ticksSupply) : -1,
+          gameDaysOfSupply: netRate > 0 ? Math.round(ticksSupply / 29) : -1,
+        };
+      }
+
+      // Find matching log entry
+      const logEntry = economyLog.find(e => e.settlement === s.name);
+
+      return {
+        name: s.name,
+        type: s.type,
+        nation: s.nation,
+        status: s.status,
+        population: s.population,
+        satisfaction: logEntry?.satisfaction ?? null,
+        efficiency: logEntry?.efficiency ?? null,
+        populationDelta: logEntry?.populationDelta ?? 0,
+        deficits: logEntry?.deficits ?? [],
+        resources: resourceDetail,
+      };
+    }));
+
+    // Summary stats
+    const totalPop = details.reduce((sum, d) => sum + d.population, 0);
+    const avgSatisfaction = details.filter(d => d.satisfaction !== null).reduce((sum, d) => sum + (d.satisfaction ?? 0), 0) / (details.filter(d => d.satisfaction !== null).length || 1);
+    const statusCounts = { thriving: 0, stable: 0, struggling: 0, damaged: 0 };
+    for (const d of details) {
+      if (d.status in statusCounts) statusCounts[d.status as keyof typeof statusCounts]++;
+    }
+
+    res.json({
+      summary: {
+        totalPopulation: totalPop,
+        averageSatisfaction: Math.round(avgSatisfaction * 100) / 100,
+        statusCounts,
+        settlements: details.length,
+      },
+      settlements: details,
+      lastTickLog: economyLog,
     });
   } catch (err) {
     next(err);

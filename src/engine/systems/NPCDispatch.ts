@@ -14,8 +14,12 @@ const RESOURCE_KEYS: ReadonlySet<string> = new Set([
   'lifeSupportUnits', 'solarPanels', 'fusionCores', 'energy',
 ]);
 
-/** Minimum ticks of supply before a resource is considered deficit. */
-const DEFICIT_THRESHOLD = 20;
+/**
+ * Minimum ticks of supply before a resource is considered deficit.
+ * ~200 ticks ≈ 1 game week. Dispatches freighters while there's still
+ * buffer, not after the crisis hits.
+ */
+const DEFICIT_THRESHOLD = 200;
 
 /** Max cargo a dispatch freighter carries per trip. */
 const DISPATCH_CARGO = 200;

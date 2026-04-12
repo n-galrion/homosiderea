@@ -21,8 +21,28 @@ interface SettlementSeed {
   };
 }
 
+// ── Economy Design Notes ──────────────────────────────────────────────────
+// Each tick = ~50 game minutes (5 real seconds × 600 dilation).
+// 1 game day ≈ 29 ticks. 1 game year ≈ 10,512 ticks.
+//
+// Production/consumption rates represent the SPACE-FACING economy per tick:
+// - What settlements export to (and need from) the space trade network
+// - Earth cities are internally self-sustaining (power grids, agriculture, mines)
+// - They DON'T need space trade to survive — they want exotic off-world resources
+//   for growth (helium3 for fusion, rare earths from asteroids, ice for orbital ops)
+// - Off-world outposts are more dependent on imports but still have local production
+//
+// Rates are tuned so:
+// - Net balance (production - consumption) is slightly positive or near-zero
+// - Settlements can survive indefinitely without trade (slow growth stalls, not collapse)
+// - Trade provides GROWTH resources that boost production efficiency and population
+// - Off-world outposts have tighter margins — trade matters more to them
+// ─────────────────────────────────────────────────────────────────────────
+
 const settlements: SettlementSeed[] = [
   // ── Earth Cities ──────────────────────────────────────────
+  // Earth cities are self-sustaining powerhouses. They produce manufactured goods
+  // for the space economy and WANT exotic off-world materials for growth.
   {
     name: 'Shanghai', bodyName: 'Earth', type: 'city', nation: 'China',
     population: 28_000_000,
@@ -33,14 +53,15 @@ const settlements: SettlementSeed[] = [
       priorities: ['trade', 'expansion'],
     },
     economy: { gdp: 8000, techLevel: 7, industrialCapacity: 900, spaceportLevel: 2 },
-    production: { electronics: 200, alloys: 150 },
-    consumption: { metals: 300, rareEarths: 50, energy: 500 },
+    // Exports electronics + alloys to space. Wants helium3 + rareEarths for advanced manufacturing.
+    production: { electronics: 30, alloys: 20, computers: 5 },
+    consumption: { helium3: 2, rareEarths: 5 },
     defenses: { militaryStrength: 8, orbitalDefenses: 2, shieldLevel: 0 },
     position: { lat: 31.2, lon: 121.5 }, status: 'thriving',
     market: {
-      buy: { metals: 10, rareEarths: 80, ice: 5, helium3: 200, uranium: 500 },
+      buy: { helium3: 200, rareEarths: 80, ice: 5, uranium: 500 },
       sell: { electronics: 50, alloys: 25, computers: 120, engines: 200 },
-      resources: ['metals', 'rareEarths', 'ice', 'helium3', 'uranium', 'electronics', 'alloys', 'computers', 'engines'],
+      resources: ['helium3', 'rareEarths', 'ice', 'uranium', 'electronics', 'alloys', 'computers', 'engines'],
     },
   },
   {
@@ -53,14 +74,15 @@ const settlements: SettlementSeed[] = [
       priorities: ['research', 'defense'],
     },
     economy: { gdp: 5000, techLevel: 8, industrialCapacity: 600, spaceportLevel: 4 },
-    production: { fuel: 100, engines: 50 },
-    consumption: { metals: 200, hydrogen: 100, energy: 300 },
+    // NASA hub — exports fuel, engines, sensors. Wants helium3 for fusion research.
+    production: { fuel: 15, engines: 8, sensors: 5, solarPanels: 3 },
+    consumption: { helium3: 3, hydrogen: 5 },
     defenses: { militaryStrength: 9, orbitalDefenses: 3, shieldLevel: 0 },
     position: { lat: 29.8, lon: -95.4 }, status: 'thriving',
     market: {
-      buy: { metals: 12, hydrogen: 8, helium3: 180, rareEarths: 75 },
+      buy: { helium3: 180, hydrogen: 8, rareEarths: 75 },
       sell: { fuel: 15, engines: 250, sensors: 180, solarPanels: 80 },
-      resources: ['metals', 'hydrogen', 'helium3', 'rareEarths', 'fuel', 'engines', 'sensors', 'solarPanels'],
+      resources: ['helium3', 'hydrogen', 'rareEarths', 'fuel', 'engines', 'sensors', 'solarPanels'],
     },
   },
   {
@@ -73,14 +95,15 @@ const settlements: SettlementSeed[] = [
       priorities: ['research', 'trade'],
     },
     economy: { gdp: 7000, techLevel: 9, industrialCapacity: 700, spaceportLevel: 2 },
-    production: { sensors: 80, computers: 100, electronics: 180 },
-    consumption: { metals: 150, rareEarths: 80, silicates: 50, energy: 400 },
+    // Tech powerhouse — exports sensors, computers, electronics. Wants rareEarths for chip fab.
+    production: { sensors: 12, computers: 15, electronics: 25 },
+    consumption: { rareEarths: 8, silicates: 3 },
     defenses: { militaryStrength: 6, orbitalDefenses: 2, shieldLevel: 0 },
     position: { lat: 35.7, lon: 139.7 }, status: 'thriving',
     market: {
-      buy: { metals: 11, rareEarths: 90, silicates: 15, ice: 6 },
+      buy: { rareEarths: 90, silicates: 15, ice: 6 },
       sell: { sensors: 200, computers: 150, electronics: 60 },
-      resources: ['metals', 'rareEarths', 'silicates', 'ice', 'sensors', 'computers', 'electronics'],
+      resources: ['rareEarths', 'silicates', 'ice', 'sensors', 'computers', 'electronics'],
     },
   },
   {
@@ -93,14 +116,15 @@ const settlements: SettlementSeed[] = [
       priorities: ['research', 'trade'],
     },
     economy: { gdp: 3000, techLevel: 7, industrialCapacity: 400, spaceportLevel: 3 },
-    production: { computers: 80, electronics: 120 },
-    consumption: { metals: 100, rareEarths: 40, energy: 250 },
+    // Software + electronics hub. Wants rareEarths + helium3.
+    production: { computers: 12, electronics: 18, lifeSupportUnits: 3 },
+    consumption: { rareEarths: 4, helium3: 1 },
     defenses: { militaryStrength: 5, orbitalDefenses: 1, shieldLevel: 0 },
     position: { lat: 12.97, lon: 77.59 }, status: 'thriving',
     market: {
-      buy: { metals: 9, rareEarths: 70, helium3: 150 },
-      sell: { computers: 130, electronics: 45 },
-      resources: ['metals', 'rareEarths', 'helium3', 'computers', 'electronics'],
+      buy: { rareEarths: 70, helium3: 150 },
+      sell: { computers: 130, electronics: 45, lifeSupportUnits: 250 },
+      resources: ['rareEarths', 'helium3', 'computers', 'electronics', 'lifeSupportUnits'],
     },
   },
   {
@@ -113,14 +137,15 @@ const settlements: SettlementSeed[] = [
       priorities: ['trade', 'defense'],
     },
     economy: { gdp: 4000, techLevel: 8, industrialCapacity: 500, spaceportLevel: 1 },
-    production: { engines: 60, alloys: 80 },
-    consumption: { metals: 120, carbon: 50, energy: 200 },
+    // Precision engineering — exports engines, alloys, hull plating. Wants carbon + rareEarths.
+    production: { engines: 10, alloys: 12, hullPlating: 6 },
+    consumption: { carbon: 3, rareEarths: 2 },
     defenses: { militaryStrength: 6, orbitalDefenses: 1, shieldLevel: 0 },
     position: { lat: 48.1, lon: 11.6 }, status: 'stable',
     market: {
-      buy: { metals: 11, carbon: 20, rareEarths: 85 },
+      buy: { carbon: 20, rareEarths: 85, helium3: 190 },
       sell: { engines: 220, alloys: 30, hullPlating: 45 },
-      resources: ['metals', 'carbon', 'rareEarths', 'engines', 'alloys', 'hullPlating'],
+      resources: ['carbon', 'rareEarths', 'helium3', 'engines', 'alloys', 'hullPlating'],
     },
   },
   {
@@ -133,17 +158,20 @@ const settlements: SettlementSeed[] = [
       priorities: ['trade', 'expansion'],
     },
     economy: { gdp: 3500, techLevel: 6, industrialCapacity: 350, spaceportLevel: 1 },
-    production: { organics: 200, fuel: 80 },
-    consumption: { metals: 80, electronics: 60, energy: 300 },
+    // Biofuel + organics producer. Wants electronics for modernization.
+    production: { organics: 25, fuel: 12, carbon: 8 },
+    consumption: { electronics: 3 },
     defenses: { militaryStrength: 4, orbitalDefenses: 0, shieldLevel: 0 },
     position: { lat: -23.5, lon: -46.6 }, status: 'stable',
     market: {
-      buy: { metals: 8, electronics: 55, computers: 140 },
+      buy: { electronics: 55, computers: 140, rareEarths: 60 },
       sell: { organics: 12, fuel: 14, carbon: 18 },
-      resources: ['metals', 'electronics', 'computers', 'organics', 'fuel', 'carbon'],
+      resources: ['electronics', 'computers', 'rareEarths', 'organics', 'fuel', 'carbon'],
     },
   },
   // ── Orbital Stations ──────────────────────────────────────
+  // Stations are small, fragile, and dependent on resupply. But they have solar power
+  // and strategic position. Their economy is MUCH smaller scale.
   {
     name: 'ISS-2 Gateway', bodyName: 'Earth', type: 'orbital_station', nation: 'International',
     population: 500,
@@ -154,8 +182,9 @@ const settlements: SettlementSeed[] = [
       priorities: ['defense', 'research'],
     },
     economy: { gdp: 200, techLevel: 9, industrialCapacity: 50, spaceportLevel: 5 },
-    production: {},
-    consumption: { fuel: 20, ice: 10, energy: 50 },
+    // Trade hub — tiny production (docking fees, service charges), needs resupply.
+    production: { fuel: 1 },
+    consumption: { fuel: 2, ice: 1 },
     defenses: { militaryStrength: 1, orbitalDefenses: 0, shieldLevel: 0 },
     position: { lat: 0, lon: 0 }, status: 'stable',
     market: {
@@ -174,8 +203,9 @@ const settlements: SettlementSeed[] = [
       priorities: ['defense', 'research'],
     },
     economy: { gdp: 150, techLevel: 8, industrialCapacity: 30, spaceportLevel: 4 },
-    production: {},
-    consumption: { fuel: 10, ice: 5, energy: 30 },
+    // Surveillance station. Minimal economy. Resupplied from Earth.
+    production: { electronics: 1 },
+    consumption: { fuel: 1, ice: 1 },
     defenses: { militaryStrength: 2, orbitalDefenses: 1, shieldLevel: 0 },
     position: { lat: 0, lon: 0 }, status: 'stable',
     market: {
@@ -185,6 +215,8 @@ const settlements: SettlementSeed[] = [
     },
   },
   // ── Luna Outposts ──────────────────────────────────────
+  // Lunar settlements have local mining + solar power. They export raw materials
+  // and need manufactured goods from Earth.
   {
     name: 'Artemis Base', bodyName: 'Luna', type: 'outpost', nation: 'United States',
     population: 2000,
@@ -195,14 +227,15 @@ const settlements: SettlementSeed[] = [
       priorities: ['research', 'defense'],
     },
     economy: { gdp: 500, techLevel: 8, industrialCapacity: 100, spaceportLevel: 3 },
-    production: { helium3: 10, ice: 20 },
-    consumption: { metals: 30, electronics: 20, fuel: 15, energy: 80 },
+    // Lunar mining + research. Exports helium3, ice. Needs manufactured goods.
+    production: { helium3: 5, ice: 8, metals: 3 },
+    consumption: { electronics: 2, fuel: 2 },
     defenses: { militaryStrength: 3, orbitalDefenses: 0, shieldLevel: 0 },
     position: { lat: -89.5, lon: 0 }, status: 'stable',
     market: {
-      buy: { metals: 14, electronics: 60, fuel: 22, alloys: 40 },
-      sell: { helium3: 160, ice: 8 },
-      resources: ['metals', 'electronics', 'fuel', 'alloys', 'helium3', 'ice'],
+      buy: { electronics: 60, fuel: 22, alloys: 40, engines: 280 },
+      sell: { helium3: 160, ice: 8, metals: 14 },
+      resources: ['electronics', 'fuel', 'alloys', 'engines', 'helium3', 'ice', 'metals'],
     },
   },
   {
@@ -215,17 +248,20 @@ const settlements: SettlementSeed[] = [
       priorities: ['trade', 'expansion'],
     },
     economy: { gdp: 300, techLevel: 7, industrialCapacity: 60, spaceportLevel: 2 },
-    production: { silicates: 15, metals: 10 },
-    consumption: { fuel: 10, electronics: 10, ice: 8, energy: 40 },
+    // Lunar mining — exports silicates, metals. Needs electronics, fuel.
+    production: { silicates: 6, metals: 4, ice: 2 },
+    consumption: { electronics: 1, fuel: 1 },
     defenses: { militaryStrength: 2, orbitalDefenses: 0, shieldLevel: 0 },
     position: { lat: 20, lon: 30 }, status: 'stable',
     market: {
-      buy: { fuel: 20, electronics: 58, ice: 10 },
+      buy: { fuel: 20, electronics: 58, ice: 10, alloys: 35 },
       sell: { silicates: 18, metals: 13 },
-      resources: ['fuel', 'electronics', 'ice', 'silicates', 'metals'],
+      resources: ['fuel', 'electronics', 'ice', 'alloys', 'silicates', 'metals'],
     },
   },
   // ── Mars Outpost ──────────────────────────────────────
+  // Mars is the most remote and fragile. Local production barely covers needs.
+  // Trade is genuinely important here.
   {
     name: 'Ares Colony', bodyName: 'Mars', type: 'colony', nation: 'International',
     population: 500,
@@ -236,8 +272,10 @@ const settlements: SettlementSeed[] = [
       priorities: ['expansion', 'trade'],
     },
     economy: { gdp: 200, techLevel: 7, industrialCapacity: 40, spaceportLevel: 2 },
-    production: { ice: 5, metals: 5 },
-    consumption: { fuel: 20, electronics: 15, alloys: 10, energy: 60 },
+    // Frontier colony — mines ice + metals locally. Needs everything manufactured.
+    // Tightest margins in the system. Trade keeps them growing.
+    production: { ice: 3, metals: 2 },
+    consumption: { fuel: 2, electronics: 1, alloys: 1 },
     defenses: { militaryStrength: 1, orbitalDefenses: 0, shieldLevel: 0 },
     position: { lat: 18.4, lon: -226 }, status: 'struggling',
     market: {
@@ -283,13 +321,16 @@ export async function seedSettlements(): Promise<void> {
       position: seed.position,
     });
 
-    // Initialize settlement stockpile with production/consumption buffers
+    // Initialize settlement stockpile with production/consumption buffers.
+    // 1 game year ≈ 10,512 ticks. Seed with ~1 year of production surplus
+    // and ~6 months of consumption reserves.
+    const TICKS_PER_GAME_YEAR = 10_512;
     const stockpileInit: Record<string, number> = {};
     for (const [resource, rate] of Object.entries(seed.production)) {
-      stockpileInit[resource] = (stockpileInit[resource] || 0) + rate * 100;
+      stockpileInit[resource] = (stockpileInit[resource] || 0) + rate * TICKS_PER_GAME_YEAR;
     }
     for (const [resource, rate] of Object.entries(seed.consumption)) {
-      stockpileInit[resource] = (stockpileInit[resource] || 0) + rate * 50;
+      stockpileInit[resource] = (stockpileInit[resource] || 0) + rate * Math.round(TICKS_PER_GAME_YEAR / 2);
     }
     await ResourceStore.create({
       ownerRef: { kind: 'Settlement', item: settlement._id },
