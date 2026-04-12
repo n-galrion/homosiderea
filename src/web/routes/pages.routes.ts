@@ -1,8 +1,25 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import { requireAuth, requireRole } from '../middleware/roles.js';
 import { Replicant, Ship, ResourceStore, Technology, ActionQueue, MemoryLog, Message, User, CelestialBody, Tick, Notification, Blueprint } from '../../db/models/index.js';
+import { config } from '../../config.js';
 
 export const pagesRoutes = Router();
+
+// ── Elevate to operator with admin key ──────────────────────────────
+pagesRoutes.post('/elevate', requireAuth, async (req: Request, res: Response) => {
+  const { adminKey } = req.body;
+  if (adminKey === config.auth.adminKey) {
+    const user = await User.findById(res.locals.user._id);
+    if (user) {
+      user.role = 'operator';
+      await user.save();
+      req.session.role = 'operator';
+    }
+    res.redirect('/dashboard');
+  } else {
+    res.redirect('/dashboard?error=Invalid+admin+key');
+  }
+});
 
 // ── Replicants List ──────────────────────────────────────────────────
 pagesRoutes.get('/replicants', requireAuth, requireRole('owner', 'operator'), async (req: Request, res: Response, next: NextFunction) => {

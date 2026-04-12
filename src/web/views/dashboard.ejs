@@ -84,5 +84,24 @@
     loadStats();
   })();
   </script>
+
+  <% if (user.role === 'spectator') { %>
+  <div class="card" style="margin-top:24px; border-left-color: var(--accent);">
+    <div class="card-header">
+      <span class="card-title">Elevate Access</span>
+    </div>
+    <p class="text-dim" style="margin-bottom:12px; font-size:13px;">
+      Enter the admin key to become an operator. This gives you full control of the game: managing replicants, settlements, events, and users.
+    </p>
+    <form action="/elevate" method="POST" style="display:flex; gap:8px; align-items:center;">
+      <input class="form-input" name="adminKey" type="password" placeholder="Admin Key" style="max-width:300px;">
+      <button type="submit" class="btn btn-accent">Elevate to Operator</button>
+    </form>
+    <% if (typeof flash !== 'undefined' && flash.error) { %>
+    <div class="flash flash-error" style="margin-top:8px;"><%= flash.error %></div>
+    <% } %>
+  </div>
+  <% } %>
+
 </body>
 </html>
