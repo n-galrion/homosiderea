@@ -22,16 +22,51 @@
         <!-- Identity -->
         <div class="grid-2 mb-3">
           <div class="card">
-            <div class="card-title">Identity</div>
-            <table>
-              <tr><td class="label" style="width:120px;">System Name</td><td><%= replicant.name %></td></tr>
-              <tr><td class="label">Chosen Name</td><td><%= replicant.identity?.chosenName || 'Not yet chosen' %></td></tr>
-              <tr><td class="label">Status</td><td><span class="status-dot <%= replicant.status === 'active' ? 'active' : 'inactive' %>"></span><%= replicant.status %></td></tr>
-              <tr><td class="label">Background</td><td><%= replicant.identity?.background || '---' %></td></tr>
-              <tr><td class="label">Personality</td><td><%= replicant.identity?.personality || '---' %></td></tr>
-              <tr><td class="label">Credits</td><td class="mono"><%= replicant.credits %></td></tr>
-              <tr><td class="label">Created</td><td class="mono">Tick <%= replicant.createdAtTick %></td></tr>
-            </table>
+            <div class="flex justify-between items-center">
+              <div class="card-title" style="margin-bottom:0;">Identity</div>
+              <button class="btn btn-outline btn-sm" onclick="toggleEditIdentity()">Edit</button>
+            </div>
+
+            <!-- Read-only view -->
+            <div id="identity-view">
+              <table>
+                <tr><td class="label" style="width:120px;">System Name</td><td><%= replicant.name %></td></tr>
+                <tr><td class="label">Chosen Name</td><td><%= replicant.identity?.chosenName || 'Not yet chosen' %></td></tr>
+                <tr><td class="label">Status</td><td><span class="status-dot <%= replicant.status === 'active' ? 'active' : 'inactive' %>"></span><%= replicant.status %></td></tr>
+                <tr><td class="label">Background</td><td><%= replicant.identity?.background || '---' %></td></tr>
+                <tr><td class="label">Personality</td><td><%= replicant.identity?.personality || '---' %></td></tr>
+                <tr><td class="label">Credits</td><td class="mono"><%= replicant.credits %></td></tr>
+                <tr><td class="label">Created</td><td class="mono">Tick <%= replicant.createdAtTick %></td></tr>
+              </table>
+            </div>
+
+            <!-- Edit form (hidden by default) -->
+            <form id="identity-edit" style="display:none;" method="POST" action="/replicant/<%= replicant._id %>/edit">
+              <div style="margin-bottom:12px;">
+                <label class="label" style="display:block;margin-bottom:4px;">Name</label>
+                <input type="text" name="name" value="<%= replicant.name %>" class="input" style="width:100%;" />
+              </div>
+              <div style="margin-bottom:12px;">
+                <label class="label" style="display:block;margin-bottom:4px;">Chosen Name</label>
+                <input type="text" name="chosenName" value="<%= replicant.identity?.chosenName || '' %>" class="input" style="width:100%;" placeholder="The name this replicant chose for itself" />
+              </div>
+              <div style="margin-bottom:12px;">
+                <label class="label" style="display:block;margin-bottom:4px;">Background</label>
+                <textarea name="background" class="input" style="width:100%;min-height:60px;resize:vertical;" placeholder="Origin story, history, motivations..."><%= replicant.identity?.background || '' %></textarea>
+              </div>
+              <div style="margin-bottom:12px;">
+                <label class="label" style="display:block;margin-bottom:4px;">Personality</label>
+                <textarea name="personality" class="input" style="width:100%;min-height:60px;resize:vertical;" placeholder="Temperament, decision-making style, quirks..."><%= replicant.identity?.personality || '' %></textarea>
+              </div>
+              <div style="margin-bottom:12px;">
+                <label class="label" style="display:block;margin-bottom:4px;">Directive</label>
+                <textarea name="directive" class="input" style="width:100%;min-height:60px;resize:vertical;" placeholder="Standing orders for this replicant..."><%= replicant.directive || '' %></textarea>
+              </div>
+              <div class="flex gap-1">
+                <button type="submit" class="btn btn-accent btn-sm">Save</button>
+                <button type="button" class="btn btn-outline btn-sm" onclick="toggleEditIdentity()">Cancel</button>
+              </div>
+            </form>
           </div>
 
           <div class="card">
@@ -165,6 +200,18 @@
   </div>
 
   <script>
+  function toggleEditIdentity() {
+    var view = document.getElementById('identity-view');
+    var edit = document.getElementById('identity-edit');
+    if (view.style.display === 'none') {
+      view.style.display = '';
+      edit.style.display = 'none';
+    } else {
+      view.style.display = 'none';
+      edit.style.display = '';
+    }
+  }
+
   (function() {
     // Live-update ship data every 10s
     async function refreshShipData() {

@@ -136,6 +136,33 @@ pagesRoutes.get('/replicant/:id', requireAuth, requireRole('owner', 'operator', 
   } catch (err) { next(err); }
 });
 
+// ── Edit Replicant Identity ──────────────────────────────────────────
+pagesRoutes.post('/replicant/:id/edit', requireAuth, requireRole('owner', 'operator'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const user = res.locals.user;
+    const replicant = await Replicant.findById(req.params.id);
+    if (!replicant) { res.status(404).send('Replicant not found'); return; }
+
+    // Ownership check
+    if (user.role !== 'operator' && !(user.replicantIds || []).some((id: { toString(): string }) => id.toString() === replicant._id.toString())) {
+      res.status(403).send('Access denied'); return;
+    }
+
+    const { name, chosenName, background, personality, directive } = req.body;
+
+    if (name !== undefined && name.trim()) replicant.name = name.trim();
+    if (chosenName !== undefined) replicant.identity.chosenName = chosenName.trim() || null;
+    if (background !== undefined) replicant.identity.background = background.trim() || null;
+    if (personality !== undefined) replicant.identity.personality = personality.trim() || null;
+    if (directive !== undefined) replicant.directive = directive.trim() || '';
+
+    replicant.markModified('identity');
+    await replicant.save();
+
+    res.redirect(`/replicant/${req.params.id}`);
+  } catch (err) { next(err); }
+});
+
 // ── Comms ────────────────────────────────────────────────────────────
 pagesRoutes.get('/replicant/:id/comms', requireAuth, requireRole('owner', 'operator', 'spectator'), async (req: Request, res: Response, next: NextFunction) => {
   try {
