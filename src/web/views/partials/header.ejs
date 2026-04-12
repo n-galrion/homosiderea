@@ -20,8 +20,8 @@
         const el = document.getElementById('game-time');
         if (el && data.currentTick != null) {
           el.textContent = 'TICK ' + data.currentTick;
-          if (data.gameTime) {
-            el.textContent += ' | ' + data.gameTime;
+          if (data.gameTime && data.gameTime.display) {
+            el.textContent += ' | ' + data.gameTime.display;
           }
         }
       }

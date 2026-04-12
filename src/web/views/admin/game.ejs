@@ -66,12 +66,12 @@
         if (res.ok) {
           var d = await res.json();
           document.getElementById('g-tick').textContent = d.currentTick ?? '---';
-          document.getElementById('g-time').textContent = d.gameTime ?? '---';
+          document.getElementById('g-time').textContent = (d.gameTime && d.gameTime.display) ? d.gameTime.display : '---';
           document.getElementById('g-interval').textContent = (d.tickIntervalMs ?? '---') + ' ms';
           document.getElementById('g-running').innerHTML = d.isRunning
             ? '<span class="status-dot active"></span>Yes'
             : '<span class="status-dot inactive"></span>No';
-          if (d.tickIntervalMs) document.getElementById('mc-dilation').textContent = d.gameTimeDilation || '600x';
+          if (d.timeDilation) document.getElementById('mc-dilation').textContent = d.timeDilation.factor + 'x — ' + d.timeDilation.description;
           if (d.llm) {
             document.getElementById('mc-url').textContent = d.llm.baseUrl || '---';
             document.getElementById('mc-model').textContent = d.llm.model || '---';

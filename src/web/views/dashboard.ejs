@@ -77,7 +77,7 @@
         if (res.ok) {
           const d = await res.json();
           document.getElementById('stat-tick').textContent = d.currentTick ?? '---';
-          document.getElementById('detail-gametime').textContent = d.gameTime ?? '---';
+          document.getElementById('detail-gametime').textContent = (d.gameTime && d.gameTime.display) ? d.gameTime.display : '---';
           document.getElementById('detail-interval').textContent = (d.tickIntervalMs ?? '---') + ' ms';
           document.getElementById('detail-running').innerHTML = d.isRunning
             ? '<span class="status-dot active"></span>Yes'
