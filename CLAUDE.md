@@ -24,9 +24,9 @@ API-first space strategy game — no frontend logic beyond a static HTML dashboa
 
 ### Three-layer design
 
-1. **Game Engine** (`src/engine/`) — `TickProcessor` runs 17 phases per tick: orbital mechanics → energy → AMI execution → action resolution → movement → mining (continuous + AMI-based) → construction → communication → colony stats → research → settlement behavior (NPC simulation) → captain's log → maintenance (hull degradation) → fuel consumption → NPC traffic → random events → save tick record. Each phase is independent and try/caught.
+1. **Game Engine** (`src/engine/`) — `TickProcessor` runs 19 phases per tick: orbital mechanics → energy → AMI execution → action resolution → movement → mining (continuous + AMI-based) → construction → communication → colony stats → research → settlement behavior → captain's log → maintenance → fuel consumption → NPC traffic → pirate activity → MC world simulation (LLM tool-calling every 50 ticks) → random events → save tick record. Each phase is independent and try/caught.
 
-2. **API Layer** (`src/api/`, `src/mcp/`) — REST at `/api/*`, MCP at `/mcp`. MCP connects with no auth; agents get `register`/`authenticate` tools, then reconnect for full game tools (~55 tools across 17 categories). REST supports three auth methods: X-API-Key, X-Replicant-Name + X-Replicant-Password, or Bearer JWT.
+2. **API Layer** (`src/api/`, `src/mcp/`) — REST at `/api/*`, MCP at `/mcp`. MCP connects with no auth; agents get `register`/`authenticate` tools, then reconnect for full game tools (~60 tools across 20 categories). REST supports three auth methods: X-API-Key, X-Replicant-Name + X-Replicant-Password, or Bearer JWT.
 
 3. **Data Layer** (`src/db/`) — 22 Mongoose models exported from `src/db/models/index.ts`. Seeds in `src/db/seeds/` are idempotent.
 
@@ -35,13 +35,24 @@ API-first space strategy game — no frontend logic beyond a static HTML dashboa
 - **Deterministic tools** — Hardcoded MCP/REST endpoints for reads, trades, fabrication, ship upgrades, hacking. Fast, no LLM.
 - **LLM-evaluated actions** — `propose_action` (MCP) or `POST /api/actions/propose` (REST) sends free-text action descriptions to an OpenAI-compatible LLM. Returns structured JSON outcomes applied to game state. Falls back to deterministic heuristics when no LLM key is set.
 
-### Key models (22 total)
+### Key models (25 total)
 
-Replicant, Ship, Structure, Colony, AMI, CelestialBody, Asteroid, LandingSite, Settlement, Market, Faction, Technology, ResearchProposal, ScanData, NavigationData, KnownEntity, ResourceStore, ActionQueue, Message, MemoryLog, Tick, Blueprint.
+Replicant, Ship, Structure, Colony, AMI, CelestialBody, Asteroid, LandingSite, Settlement, Market, Faction, Technology, ResearchProposal, ScanData, NavigationData, KnownEntity, ResourceStore, ActionQueue, Message, MemoryLog, Tick, Blueprint, PriceHistory, Salvage.
 
-### MCP tool categories (17)
+### MCP tool categories (20)
 
-scanning, navigation, resources, manufacturing, AMI management, replication, communication, memory, query, colony, research, data sharing, access control, actions (propose_action), fabrication (autofactory + ship upgrades), trade, hacking.
+scanning, navigation, resources, manufacturing, AMI management, replication, communication, memory, query, colony, research, data sharing, access control, actions (propose_action), fabrication (autofactory + ship upgrades), trade, hacking, salvage, NPC comms (hail_settlement, hail_ship).
+
+### LLM usage (what actually calls the LLM)
+
+- `propose_action` — evaluates free-text actions against physics
+- `propose_research` — evaluates technology proposals
+- `hail_settlement` — MC roleplays as the settlement leader
+- `hail_ship` — MC roleplays as NPC ship crew
+- MC World Simulator (every 50 ticks) — LLM uses tool calls to adjust settlements, shift markets, broadcast events, send rumors, trigger faction actions
+- Salvage content — flight logs, black box data, tech fragment descriptions
+- Pirate threats — unique per encounter
+- Deterministic fallbacks exist for all of these when no LLM key is set.
 
 ### Key invariants
 

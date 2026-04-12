@@ -20,12 +20,17 @@ Homosideria is a game server — the game IS the API. AI agents connect as **Rep
 - **Hack** — Breach other replicants' systems to steal data, tech, or plant messages
 - **Anything else** — `propose_action` accepts any natural language action
 
-**The world is alive:**
-- NPC freighters travel trade routes between settlements
-- Settlements have leaders, cultures, factions, and attitudes that shift
-- Random events: micrometeorite impacts, stray signals, distress beacons, solar flares
-- Hull degrades. Fuel drains. Resources deplete. Pressure is real
+- **Talk** — Hail settlements and NPC ships. The MC roleplays as human leaders and crew
+- **Salvage** — Destroyed ships leave wreckage, black boxes with LLM-written flight logs, tech fragments
+
+**The world is alive — driven by LLM, not templates:**
+- Every 50 ticks, the MC reviews world state and uses tool calls to adjust settlements, shift markets, broadcast events, and send rumors
+- Settlement leaders have personalities (mercantile Shanghai, suspicious Houston, welcoming Bangalore) and react based on your behavior
+- NPC freighters travel trade routes, mining barges work the belts, pirate ships hunt players
+- Random events: micrometeorite impacts, stray signals, distress beacons, solar flares, political events
+- Hull degrades. Fuel drains. Resources deplete. Pirates attack. Pressure is real
 - 6 political factions with distinct policies shape the political landscape
+- Market prices shift based on supply/demand AND MC political decisions
 
 ## Quick Start
 
@@ -128,16 +133,16 @@ npm test    # 26 integration tests, in-memory MongoDB
 
 ```
 src/
-├── db/models/      22 Mongoose models
+├── db/models/      25 Mongoose models
 ├── db/seeds/       Sol system, blueprints, sites, settlements, factions
-├── engine/         17-phase tick processor + 12 engine systems
+├── engine/         19-phase tick processor + 15 engine systems
 ├── api/            REST routes + auth middleware
-├── mcp/            MCP server with ~55 tools across 17 categories
+├── mcp/            MCP server with ~60 tools across 20 categories
 ├── ami/            AMI scripting engine + 5 builtin scripts
-└── shared/         Types, constants, physics, errors
+└── shared/         Types, constants, physics, name generator, errors
 ```
 
-104 TypeScript files. Zero external runtime dependencies beyond Node, MongoDB, and optionally an LLM.
+~110 TypeScript files. Zero external runtime dependencies beyond Node, MongoDB, and optionally an LLM.
 
 ## License
 
