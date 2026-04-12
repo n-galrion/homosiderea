@@ -61,6 +61,86 @@ export function createApp() {
     res.json({ status: 'ok', game: 'Homosideria: To the Stars', version: '0.1.0' });
   });
 
+  // API discovery — unauthenticated so agents can find routes
+  app.get('/api', (_req: Request, res: Response) => {
+    res.json({
+      game: 'Homosideria: To the Stars',
+      version: '0.1.0',
+      auth: {
+        register: 'POST /api/auth/register  body: { name, directive? }',
+        token: 'POST /api/auth/token  body: { apiKey }',
+        note: 'All other routes require X-API-Key header',
+      },
+      routes: {
+        game: {
+          status: 'GET /api/game/status',
+          tick: 'GET /api/game/tick/:number',
+        },
+        replicant: {
+          profile: 'GET /api/replicant/me',
+          updateDirective: 'PUT /api/replicant/me/directive  body: { directive }',
+          memories: 'GET /api/replicant/me/memories?category=&tag=&limit=',
+          createMemory: 'POST /api/replicant/me/memories  body: { category, title, content, tags }',
+        },
+        ships: {
+          list: 'GET /api/ships',
+          get: 'GET /api/ships/:id',
+          inventory: 'GET /api/ships/:id/inventory',
+        },
+        structures: {
+          list: 'GET /api/structures',
+          get: 'GET /api/structures/:id',
+          inventory: 'GET /api/structures/:id/inventory',
+        },
+        world: {
+          bodies: 'GET /api/world/bodies?type=',
+          body: 'GET /api/world/bodies/:id',
+          resources: 'GET /api/world/bodies/:id/resources',
+          map: 'GET /api/world/map',
+        },
+        actions: {
+          submit: 'POST /api/actions  body: { type, params, priority? }',
+          list: 'GET /api/actions?status=&type=&limit=',
+          get: 'GET /api/actions/:id',
+        },
+        amis: {
+          list: 'GET /api/amis?status=&type=',
+          get: 'GET /api/amis/:id',
+          updateScript: 'PUT /api/amis/:id/script  body: { customRules }',
+        },
+        colonies: {
+          list: 'GET /api/colonies',
+          get: 'GET /api/colonies/:id',
+          landingSites: 'GET /api/colonies/sites/:bodyId',
+        },
+        messages: {
+          send: 'POST /api/messages  body: { recipientId, subject?, body, metadata? }',
+          inbox: 'GET /api/messages/inbox?unreadOnly=&limit=&from=',
+          get: 'GET /api/messages/:id',
+          sent: 'GET /api/messages/sent',
+        },
+        admin: {
+          note: 'Requires X-Admin-Key header',
+          forceTick: 'POST /api/admin/tick/force',
+          ticks: 'GET /api/admin/ticks?limit=',
+          status: 'GET /api/admin/status',
+          replicants: 'GET /api/admin/replicants',
+          settlements: 'GET /api/admin/settlements',
+          markets: 'GET /api/admin/markets',
+          ships: 'GET /api/admin/ships',
+          actions: 'GET /api/admin/actions?limit=',
+          colonies: 'GET /api/admin/colonies',
+        },
+      },
+      mcp: {
+        endpoint: 'POST /mcp',
+        auth: 'X-API-Key header',
+        note: 'Streamable HTTP transport. ~45 tools available after initialization.',
+      },
+      dashboard: 'GET /dashboard',
+    });
+  });
+
   // Error handler
   app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
     if (err instanceof GameError) {

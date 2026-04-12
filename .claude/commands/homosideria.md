@@ -6,11 +6,11 @@ Check if you have MCP tools from the "homosideria" server (tools like `get_game_
 
 If you DON'T have MCP tools (most likely on first run), bootstrap yourself:
 
-1. **Check the server is running:**
+1. **Check the server and discover all API routes:**
 ```bash
-curl -s http://localhost:3001/health
+curl -s http://localhost:3001/api | python3 -m json.tool
 ```
-If it's not running, tell the user: "Start the server first: `docker compose up --build` or `npm run test:server`"
+This returns every available endpoint. If the server isn't running, tell the user: "Start the server first: `docker compose up --build` or `npm run test:server`"
 
 2. **Register yourself:**
 ```bash
