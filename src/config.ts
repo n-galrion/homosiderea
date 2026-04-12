@@ -13,8 +13,8 @@ export const config = {
     jwtExpiresIn: '24h',
   },
   game: {
-    tickIntervalMs: parseInt(process.env.TICK_INTERVAL_MS || '30000', 10),
-    gameTimePerTick: 3600, // seconds of game time per tick (1 hour)
+    tickIntervalMs: parseInt(process.env.TICK_INTERVAL_MS || '5000', 10), // 5 seconds between simulation ticks
+    gameTimeDilation: parseInt(process.env.GAME_TIME_DILATION || '600', 10), // 1 real second = 600 game seconds (10 game minutes)
   },
   llm: {
     baseUrl: process.env.LLM_BASE_URL || 'https://openrouter.ai/api/v1',

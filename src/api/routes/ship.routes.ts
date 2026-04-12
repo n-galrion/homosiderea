@@ -1,13 +1,13 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import { Ship, ResourceStore, Tick } from '../../db/models/index.js';
 import { config } from '../../config.js';
+import { gameHoursPerTick, gameHoursToRealMs, formatGameTime, formatRealWait } from '../../shared/gameTime.js';
 
 export const shipRoutes = Router();
 
 /** Enrich a ship document with transit/mining status info. */
 async function enrichShip(ship: Record<string, unknown>, currentTick: number): Promise<Record<string, unknown>> {
   const enriched = { ...ship };
-  const tickIntervalMs = config.game.tickIntervalMs;
 
   // Transit ETA info
   const nav = ship.navigation as Record<string, unknown> | undefined;
@@ -18,11 +18,14 @@ async function enrichShip(ship: Record<string, unknown>, currentTick: number): P
     const elapsed = currentTick - departureTick;
     const ticksRemaining = Math.max(0, arrivalTick - currentTick);
     const percentComplete = totalTicks > 0 ? Math.min(100, (elapsed / totalTicks) * 100) : 100;
+    const gameHoursRemaining = ticksRemaining * gameHoursPerTick();
 
     enriched.transitInfo = {
       ticksRemaining,
       estimatedArrivalTick: arrivalTick,
-      estimatedArrivalMs: ticksRemaining * tickIntervalMs,
+      gameTimeRemaining: formatGameTime(gameHoursRemaining),
+      realTimeRemaining: formatRealWait(gameHoursRemaining),
+      estimatedArrivalMs: gameHoursToRealMs(gameHoursRemaining),
       percentComplete: parseFloat(percentComplete.toFixed(1)),
     };
   }

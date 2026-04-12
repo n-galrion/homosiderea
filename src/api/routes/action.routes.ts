@@ -3,18 +3,21 @@ import { ActionQueue, Tick } from '../../db/models/index.js';
 import { evaluateAction, applyOutcomes } from '../../engine/systems/ActionEvaluator.js';
 import { ACTION_TYPES } from '../../shared/constants.js';
 import { config } from '../../config.js';
+import { gameHoursPerTick, gameHoursToRealMs, formatGameTime, formatRealWait } from '../../shared/gameTime.js';
 
 export const actionRoutes = Router();
 
 /** Compute timing info for an action or event that resolves at a target tick. */
-function timingInfo(currentTick: number, targetTick: number, tickIntervalMs: number) {
+function timingInfo(currentTick: number, targetTick: number) {
   const ticksRemaining = Math.max(0, targetTick - currentTick);
+  const gameHoursRemaining = ticksRemaining * gameHoursPerTick();
   return {
     currentTick,
     targetTick,
     ticksRemaining,
-    estimatedWaitMs: ticksRemaining * tickIntervalMs,
-    tickIntervalMs,
+    gameTimeRemaining: formatGameTime(gameHoursRemaining),
+    realTimeRemaining: formatRealWait(gameHoursRemaining),
+    estimatedWaitMs: gameHoursToRealMs(gameHoursRemaining),
   };
 }
 
@@ -72,7 +75,7 @@ actionRoutes.post('/propose', async (req: Request, res: Response, next: NextFunc
         costs: { compute: outcome.computeCost, energy: outcome.energyCost, ticks: outcome.ticksToComplete },
         outcomes: outcome.outcomes,
         appliedChanges: log,
-        timing: timingInfo(currentTick, estimatedCompletionTick, config.game.tickIntervalMs),
+        timing: timingInfo(currentTick, estimatedCompletionTick),
       });
       return;
     }
@@ -87,7 +90,7 @@ actionRoutes.post('/propose', async (req: Request, res: Response, next: NextFunc
       reason: outcome.reason,
       costs: { compute: outcome.computeCost, energy: outcome.energyCost, ticks: outcome.ticksToComplete },
       outcomes: outcome.outcomes,
-      timing: timingInfo(currentTick, estimatedCompletionTick, config.game.tickIntervalMs),
+      timing: timingInfo(currentTick, estimatedCompletionTick),
     });
   } catch (err) {
     next(err);
@@ -131,7 +134,7 @@ actionRoutes.post('/', async (req: Request, res: Response, next: NextFunction) =
       status: action.status,
       queuedAtTick: currentTick,
       message: `Action queued. Will be resolved on tick ${estimatedCompletionTick}.`,
-      timing: timingInfo(currentTick, estimatedCompletionTick, config.game.tickIntervalMs),
+      timing: timingInfo(currentTick, estimatedCompletionTick),
     });
   } catch (err) {
     next(err);

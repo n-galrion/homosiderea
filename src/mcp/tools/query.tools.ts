@@ -6,6 +6,7 @@ import {
 } from '../../db/models/index.js';
 import { config } from '../../config.js';
 import { distance } from '../../shared/physics.js';
+import { tickToGameTime, gameHoursPerTick, formatGameTime } from '../../shared/gameTime.js';
 
 export function registerQueryTools(server: McpServer, replicantId: string): void {
 
@@ -44,16 +45,17 @@ export function registerQueryTools(server: McpServer, replicantId: string): void
         ? `${damagedSettlements} settlement(s) report damage — the political landscape is unsettled.`
         : 'No hostile activity detected.';
 
-      // Game hours to real-world time context
-      const gameHours = currentTick;
+      // Game time from tick number using dilation system
+      const gameHours = tickToGameTime(currentTick);
       const gameDays = (gameHours / 24).toFixed(1);
       const gameYears = (gameHours / 8760).toFixed(3);
+      const ghPerTick = gameHoursPerTick();
 
       const statusNarrative = [
-        `The Sol system turns through its ${currentTick}th hour (${gameDays} days / ${gameYears} years of game time).`,
+        `The Sol system has advanced ${formatGameTime(gameHours)} of game time (${gameDays} days / ${gameYears} years) across ${currentTick} ticks.`,
         `${replicantCount} replicant${replicantCount !== 1 ? 's' : ''} ${replicantCount !== 1 ? 'are' : 'is'} active across the system${concentrationDesc ? `, with vessels concentrated: ${concentrationDesc}` : ''}.`,
         hostileActivity,
-        `Each tick represents 1 hour of game time; the simulation advances every ${(config.game.tickIntervalMs / 1000).toFixed(0)} real-world seconds.`,
+        `Time dilation: ${config.game.gameTimeDilation}x (1 real second = ${(config.game.gameTimeDilation / 60).toFixed(0)} game minutes). Each ${(config.game.tickIntervalMs / 1000).toFixed(0)}-second tick advances ~${(ghPerTick * 60).toFixed(0)} game minutes.`,
       ].join(' ');
 
       // Compute next tick time
@@ -69,9 +71,18 @@ export function registerQueryTools(server: McpServer, replicantId: string): void
             status: statusNarrative,
             game: 'Homosideria: To the Stars',
             currentTick,
-            gameTime: { hours: gameHours, days: parseFloat(gameDays), years: parseFloat(gameYears) },
+            gameTime: {
+              hours: parseFloat(gameHours.toFixed(1)),
+              days: parseFloat(gameDays),
+              years: parseFloat(gameYears),
+              display: formatGameTime(gameHours),
+            },
+            timeDilation: {
+              factor: config.game.gameTimeDilation,
+              description: `1 real second = ${config.game.gameTimeDilation} game seconds`,
+              gameHoursPerTick: parseFloat(ghPerTick.toFixed(3)),
+            },
             tickIntervalMs: config.game.tickIntervalMs,
-            gameTimePerTick: '1 hour',
             activeReplicants: replicantCount,
             lastTickCompletedAt: latestTick?.completedAt,
             lastTickDurationMs: latestTick?.durationMs,

@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { ResearchProposal, Technology, Replicant, Tick } from '../../db/models/index.js';
 import { config } from '../../config.js';
+import { gameHoursPerTick, gameHoursToRealMs, formatGameTime, formatRealWait } from '../../shared/gameTime.js';
 
 const RESEARCH_DOMAINS = [
   'scanning', 'mining', 'propulsion', 'weapons', 'hull',

@@ -1,6 +1,7 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import { Tick, Replicant, ActionQueue, Message, Ship, Colony, MemoryLog } from '../../db/models/index.js';
 import { config } from '../../config.js';
+import { tickToGameTime, gameHoursPerTick, formatGameTime, formatRealWait } from '../../shared/gameTime.js';
 
 export const gameRoutes = Router();
 
@@ -20,12 +21,22 @@ gameRoutes.get('/status', async (_req: Request, res: Response, next: NextFunctio
     // Count ticks elapsed (first tick is the total count)
     const ticksElapsed = currentTick;
 
+    const gameTimeHours = tickToGameTime(currentTick);
+
     res.json({
       game: 'Homosideria: To the Stars',
       version: '0.1.0',
       currentTick,
       tickIntervalMs: config.game.tickIntervalMs,
-      gameTimePerTick: `${config.game.gameTimePerTick}s (1 hour)`,
+      timeDilation: {
+        factor: config.game.gameTimeDilation,
+        description: `1 real second = ${config.game.gameTimeDilation} game seconds`,
+        gameHoursPerTick: parseFloat(gameHoursPerTick().toFixed(3)),
+      },
+      gameTime: {
+        hours: parseFloat(gameTimeHours.toFixed(1)),
+        display: formatGameTime(gameTimeHours),
+      },
       activeReplicants: replicantCount,
       lastTickAt: latestTick?.completedAt ?? null,
       lastTickDurationMs: latestTick?.durationMs ?? null,

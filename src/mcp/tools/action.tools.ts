@@ -3,16 +3,19 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { evaluateAction, applyOutcomes } from '../../engine/systems/ActionEvaluator.js';
 import { ActionQueue, Tick, MemoryLog } from '../../db/models/index.js';
 import { config } from '../../config.js';
+import { gameHoursPerTick, gameHoursToRealMs, formatGameTime, formatRealWait } from '../../shared/gameTime.js';
 
 /** Compute timing info for an action or event that resolves at a target tick. */
-function timingInfo(currentTick: number, targetTick: number, tickIntervalMs: number) {
+function timingInfo(currentTick: number, targetTick: number) {
   const ticksRemaining = Math.max(0, targetTick - currentTick);
+  const gameHoursRemaining = ticksRemaining * gameHoursPerTick();
   return {
     currentTick,
     targetTick,
     ticksRemaining,
-    estimatedWaitMs: ticksRemaining * tickIntervalMs,
-    tickIntervalMs,
+    gameTimeRemaining: formatGameTime(gameHoursRemaining),
+    realTimeRemaining: formatRealWait(gameHoursRemaining),
+    estimatedWaitMs: gameHoursToRealMs(gameHoursRemaining),
   };
 }
 
@@ -135,7 +138,7 @@ Your computer simulates the physics, checks your resources and position, and tel
               },
               outcomes: outcome.outcomes,
               appliedChanges: log,
-              timing: timingInfo(currentTick, estimatedCompletionTick, config.game.tickIntervalMs),
+              timing: timingInfo(currentTick, estimatedCompletionTick),
             }, null, 2),
           }],
         };
@@ -161,7 +164,7 @@ Your computer simulates the physics, checks your resources and position, and tel
               },
               outcomes: outcome.outcomes,
               message: 'This is a preview. Call again with autoApply: true to execute.',
-              timing: timingInfo(previewCurrentTick, previewCompletionTick, config.game.tickIntervalMs),
+              timing: timingInfo(previewCurrentTick, previewCompletionTick),
             }, null, 2),
           }],
         };

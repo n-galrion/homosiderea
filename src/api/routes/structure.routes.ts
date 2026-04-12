@@ -1,13 +1,13 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import { Structure, ResourceStore, Tick } from '../../db/models/index.js';
 import { config } from '../../config.js';
+import { gameHoursPerTick, gameHoursToRealMs, formatGameTime, formatRealWait } from '../../shared/gameTime.js';
 
 export const structureRoutes = Router();
 
 /** Enrich a structure document with construction progress info if building. */
 function enrichStructure(structure: Record<string, unknown>, currentTick: number): Record<string, unknown> {
   const enriched = { ...structure };
-  const tickIntervalMs = config.game.tickIntervalMs;
 
   if (structure.status === 'building') {
     const construction = structure.construction as { complete: boolean; progressTicks: number; requiredTicks: number } | undefined;
@@ -16,11 +16,14 @@ function enrichStructure(structure: Record<string, unknown>, currentTick: number
       const percentComplete = construction.requiredTicks > 0
         ? Math.min(100, (construction.progressTicks / construction.requiredTicks) * 100)
         : 100;
+      const gameHoursRemaining = ticksRemaining * gameHoursPerTick();
 
       enriched.constructionProgress = {
         percentComplete: parseFloat(percentComplete.toFixed(1)),
         ticksRemaining,
-        estimatedCompletionMs: ticksRemaining * tickIntervalMs,
+        gameTimeRemaining: formatGameTime(gameHoursRemaining),
+        realTimeRemaining: formatRealWait(gameHoursRemaining),
+        estimatedCompletionMs: gameHoursToRealMs(gameHoursRemaining),
         estimatedCompletionTick: currentTick + ticksRemaining,
       };
     }

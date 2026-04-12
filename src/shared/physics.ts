@@ -1,5 +1,6 @@
 import type { Position } from './types.js';
-import { LIGHT_SPEED_AU_PER_TICK } from './constants.js';
+import { LIGHT_SPEED_AU_PER_TICK, LIGHT_SPEED_AU_PER_GAME_HOUR } from './constants.js';
+import { gameHoursPerTick } from './gameTime.js';
 
 const TWO_PI = 2 * Math.PI;
 
@@ -115,6 +116,24 @@ export function solarEnergyFactor(pos: Position): number {
   const r2 = pos.x * pos.x + pos.y * pos.y + pos.z * pos.z;
   if (r2 < 0.001) return 100; // Very close to Sun
   return 1.0 / r2;
+}
+
+/**
+ * Light-speed delay in game hours between two positions.
+ */
+export function lightDelayGameHours(a: Position, b: Position): number {
+  const d = distance(a, b);
+  return d / LIGHT_SPEED_AU_PER_GAME_HOUR;
+}
+
+/**
+ * Travel time in game hours at a given speed (AU/tick).
+ * Converts AU/tick speed to AU/game-hour internally.
+ */
+export function travelTimeGameHours(a: Position, b: Position, speedAUPerTick: number): number {
+  if (speedAUPerTick <= 0) return Infinity;
+  const speedAUPerGameHour = speedAUPerTick / gameHoursPerTick();
+  return distance(a, b) / speedAUPerGameHour;
 }
 
 /**

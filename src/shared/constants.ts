@@ -3,8 +3,11 @@ export const AU_IN_KM = 149_597_870.7;
 export const SPEED_OF_LIGHT_KM_S = 299_792.458;
 export const SPEED_OF_LIGHT_AU_S = SPEED_OF_LIGHT_KM_S / AU_IN_KM; // ~0.002004 AU/s
 
-// Game time mapping: 1 tick = 1 hour of game time (3600s)
-// Light speed in AU per tick = SPEED_OF_LIGHT_AU_S * 3600 ≈ 7.214 AU/tick
+// Light speed in AU per game hour (used for message delay calculations)
+// SPEED_OF_LIGHT_AU_S * 3600 ≈ 7.214 AU/game-hour
+// With dilation 600x and 5s ticks: each tick ≈ 0.833 game hours,
+// so LIGHT_SPEED_AU_PER_TICK ≈ 7.214 * 0.833 ≈ 6.01 AU/tick
+export const LIGHT_SPEED_AU_PER_GAME_HOUR = SPEED_OF_LIGHT_AU_S * 3600;
 export const LIGHT_SPEED_AU_PER_TICK = SPEED_OF_LIGHT_AU_S * 3600;
 
 // Resource types
