@@ -78,13 +78,16 @@ export function registerManufacturingTools(server: McpServer, replicantId: strin
     'Begin constructing a structure on a celestial body. Your ship must be orbiting the body with required materials.',
     {
       bodyId: z.string().describe('Celestial body to build on'),
+      shipId: z.string().describe('Ship orbiting the body (materials deducted from its cargo)'),
       structureType: z.enum([
         'habitat', 'mine', 'refinery', 'factory', 'solar_array',
         'fusion_plant', 'shipyard', 'sensor_station', 'relay_station',
       ]).describe('Type of structure to build'),
       name: z.string().describe('Name for the new structure'),
+      siteId: z.string().optional().describe('Landing site ID (required for colonies)'),
+      colonyId: z.string().optional().describe('Colony ID to attach structure to'),
     },
-    async ({ bodyId, structureType, name }) => {
+    async ({ bodyId, shipId, structureType, name, siteId, colonyId }) => {
       const body = await CelestialBody.findById(bodyId);
       if (!body) {
         return { content: [{ type: 'text', text: 'Error: Celestial body not found.' }] };
@@ -96,7 +99,7 @@ export function registerManufacturingTools(server: McpServer, replicantId: strin
       const action = await ActionQueue.create({
         replicantId,
         type: 'build_structure',
-        params: { bodyId, structureType, name },
+        params: { bodyId, shipId, structureType, name, siteId, colonyId },
         queuedAtTick: currentTick,
       });
 

@@ -97,6 +97,11 @@ export function createApp() {
           body: 'GET /api/world/bodies/:id',
           resources: 'GET /api/world/bodies/:id/resources',
           map: 'GET /api/world/map',
+          settlements: 'GET /api/world/settlements?bodyId=  — human cities/outposts with trade',
+          settlementDetail: 'GET /api/world/settlements/:id  — settlement + market prices',
+          replicants: 'GET /api/world/replicants  — public directory of active replicants',
+          actionTypes: 'GET /api/world/action-types  — valid action types and param schemas',
+          blueprints: 'GET /api/world/blueprints?category=  — manufacturing/building recipes',
         },
         actions: {
           propose: 'POST /api/actions/propose  body: { action: "free text description", context?, autoApply? }  — MC-evaluated, immediate',

@@ -318,17 +318,49 @@ export async function applyOutcomes(
   const log: string[] = [];
   if (!outcome.outcomes) return log;
 
-  // Apply resource changes
+  // Apply resource changes — resolve names to IDs if needed
   for (const rc of outcome.outcomes.resourceChanges) {
+    let targetId = rc.target;
+
+    // The LLM may return a name instead of an ObjectId — resolve it
+    if (targetId && !targetId.match(/^[0-9a-fA-F]{24}$/)) {
+      if (rc.targetType === 'Ship') {
+        const ship = await Ship.findOne({ name: new RegExp(`^${targetId}$`, 'i'), ownerId: replicantId }).lean();
+        if (ship) targetId = ship._id.toString();
+        else continue;
+      } else if (rc.targetType === 'Structure') {
+        const structure = await Structure.findOne({ name: new RegExp(`^${targetId}$`, 'i'), ownerId: replicantId }).lean();
+        if (structure) targetId = structure._id.toString();
+        else continue;
+      } else if (rc.targetType === 'Colony') {
+        const colony = await Colony.findOne({ name: new RegExp(`^${targetId}$`, 'i'), ownerId: replicantId }).lean();
+        if (colony) targetId = colony._id.toString();
+        else continue;
+      } else if (rc.targetType === 'Settlement') {
+        const settlement = await Settlement.findOne({ name: new RegExp(`^${targetId}$`, 'i') }).lean();
+        if (settlement) targetId = settlement._id.toString();
+        else continue;
+      } else {
+        continue; // Can't resolve
+      }
+    }
+
     const store = await ResourceStore.findOne({
       'ownerRef.kind': rc.targetType,
-      'ownerRef.item': rc.target,
+      'ownerRef.item': targetId,
     });
     if (store && rc.resource in store) {
       const storeAny = store as unknown as Record<string, number>;
       storeAny[rc.resource] = Math.max(0, (storeAny[rc.resource] || 0) + rc.delta);
       await store.save();
-      log.push(`Resource ${rc.resource} on ${rc.targetType}:${rc.target} changed by ${rc.delta}`);
+      log.push(`Resource ${rc.resource} on ${rc.targetType}:${targetId} changed by ${rc.delta}`);
+    } else if (rc.targetType === 'Ship' || rc.targetType === 'Colony') {
+      // Create ResourceStore if it doesn't exist
+      const newStore = await ResourceStore.create({
+        ownerRef: { kind: rc.targetType, item: targetId },
+        [rc.resource]: Math.max(0, rc.delta),
+      });
+      log.push(`Created ResourceStore for ${rc.targetType}:${targetId}, set ${rc.resource} to ${rc.delta}`);
     }
   }
 

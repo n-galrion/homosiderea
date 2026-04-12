@@ -58,13 +58,20 @@ authRoutes.post('/register', async (req: Request, res: Response, next: NextFunct
       createdAtTick: currentTick,
     });
 
-    // Create cargo hold for the ship with some starter resources
+    // Create cargo hold with bootstrap resources
+    // Enough to build a basic mine or trade with settlements
     await ResourceStore.create({
       ownerRef: { kind: 'Ship', item: ship._id },
-      metals: 50,
-      fuel: 30,
-      alloys: 20,
-      electronics: 10,
+      metals: 100,
+      alloys: 50,
+      electronics: 20,
+      fuel: 50,
+      silicates: 30,
+      ice: 20,
+      engines: 2,
+      computers: 1,
+      sensors: 1,
+      hullPlating: 10,
     });
 
     // Set replicant's location to the ship
@@ -78,7 +85,7 @@ authRoutes.post('/register', async (req: Request, res: Response, next: NextFunct
       shipId: ship._id,
       shipName: ship.name,
       location: earth?.name || 'Earth orbit',
-      message: 'Welcome to Homosideria. You have been given a shuttle in Earth orbit with basic supplies. Use your API key to authenticate all future requests.',
+      message: 'Welcome to Homosideria. You have a shuttle in Earth orbit with starter resources (metals, alloys, electronics, engines, fuel). Human settlements on Earth, Luna, and Mars have markets for trading. Use GET /api/world/settlements to find them. Check GET /api to discover all API routes.',
     });
   } catch (err: unknown) {
     if (err && typeof err === 'object' && 'code' in err && (err as Record<string, unknown>).code === 11000) {

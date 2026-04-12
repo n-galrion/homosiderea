@@ -76,8 +76,8 @@ describe('Homosideria Integration Tests', () => {
 
       const { data: inv } = await api(`/api/ships/${shipId}/inventory`, { apiKey });
       const i = inv as Record<string, number>;
-      expect(i.metals).toBe(50);
-      expect(i.alloys).toBe(20);
+      expect(i.metals).toBe(100);
+      expect(i.alloys).toBe(50);
     });
   });
 

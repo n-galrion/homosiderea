@@ -1,5 +1,5 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
-import { Tick, Replicant, CelestialBody, Settlement, Market, Ship, ActionQueue, Colony } from '../../db/models/index.js';
+import { Tick, Replicant, CelestialBody, Settlement, Market, Ship, ActionQueue, Colony, Technology, Message } from '../../db/models/index.js';
 
 // GameLoop reference will be set at startup
 let gameLoopRef: { forceTick: () => Promise<unknown>; getCurrentTick: () => number } | null = null;
@@ -101,6 +101,35 @@ adminRoutes.get('/colonies', async (_req: Request, res: Response, next: NextFunc
   try {
     const colonies = await Colony.find().populate('bodyId', 'name').lean();
     res.json(colonies);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// All technologies
+adminRoutes.get('/technologies', async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const technologies = await Technology.find()
+      .populate('inventedBy', 'name')
+      .populate('knownBy', 'name')
+      .lean();
+    res.json(technologies);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// All messages
+adminRoutes.get('/messages', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { limit = '50' } = req.query;
+    const messages = await Message.find()
+      .sort({ sentAtTick: -1 })
+      .limit(parseInt(limit as string, 10))
+      .populate('senderId', 'name')
+      .populate('recipientId', 'name')
+      .lean();
+    res.json(messages);
   } catch (err) {
     next(err);
   }
