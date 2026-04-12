@@ -194,4 +194,153 @@ export function registerFabricationTools(server: McpServer, replicantId: string)
       };
     },
   );
+
+  server.tool(
+    'upgrade_autofactory',
+    'Upgrade your ship\'s autofactory by installing additional fabrication components. Each upgrade increases manufacturingRate by 1. Requires alloys, electronics, and computers from cargo.',
+    {
+      shipId: z.string().describe('Ship to upgrade'),
+    },
+    async ({ shipId }) => {
+      const ship = await Ship.findOne({ _id: shipId, ownerId: replicantId });
+      if (!ship) return { content: [{ type: 'text', text: 'Error: Ship not found or not yours.' }] };
+
+      const currentRate = ship.specs.manufacturingRate;
+      const cost: Record<string, number> = {
+        alloys: 20 + currentRate * 10,
+        electronics: 10 + currentRate * 5,
+        computers: 1 + currentRate,
+      };
+
+      const store = await ResourceStore.findOne({ 'ownerRef.kind': 'Ship', 'ownerRef.item': ship._id });
+      if (!store) return { content: [{ type: 'text', text: 'Error: No cargo hold.' }] };
+
+      const storeAny = store as unknown as Record<string, number>;
+      const missing: string[] = [];
+      for (const [r, a] of Object.entries(cost)) {
+        if ((storeAny[r] ?? 0) < a) missing.push(`${r}: need ${a}, have ${storeAny[r] ?? 0}`);
+      }
+
+      if (missing.length > 0) {
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              currentLevel: currentRate,
+              nextLevel: currentRate + 1,
+              cost,
+              missing,
+              message: `Insufficient materials to upgrade autofactory from level ${currentRate} to ${currentRate + 1}.`,
+            }, null, 2),
+          }],
+        };
+      }
+
+      // Deduct and upgrade
+      for (const [r, a] of Object.entries(cost)) storeAny[r] -= a;
+      await store.save();
+
+      ship.specs.manufacturingRate = currentRate + 1;
+      await ship.save();
+
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            success: true,
+            previousLevel: currentRate,
+            newLevel: currentRate + 1,
+            cost,
+            narrative: `Autofactory upgrade complete. New fabrication arms and precision tooling installed from ${Object.entries(cost).map(([r, a]) => `${a} ${r}`).join(', ')}. Manufacturing capability increased to level ${currentRate + 1}. Higher-level recipes now execute with improved yield.`,
+          }, null, 2),
+        }],
+      };
+    },
+  );
+
+  server.tool(
+    'upgrade_ship_system',
+    'Install components to upgrade a ship system. Spend resources from cargo to improve specs.',
+    {
+      shipId: z.string().describe('Ship to upgrade'),
+      system: z.enum(['sensors', 'engines', 'hull', 'cargo', 'mining', 'fuel_tank']).describe('System to upgrade'),
+    },
+    async ({ shipId, system }) => {
+      const ship = await Ship.findOne({ _id: shipId, ownerId: replicantId });
+      if (!ship) return { content: [{ type: 'text', text: 'Error: Ship not found or not yours.' }] };
+
+      const store = await ResourceStore.findOne({ 'ownerRef.kind': 'Ship', 'ownerRef.item': ship._id });
+      if (!store) return { content: [{ type: 'text', text: 'Error: No cargo hold.' }] };
+
+      const storeAny = store as unknown as Record<string, number>;
+      let cost: Record<string, number>;
+      let description: string;
+      let apply: () => void;
+
+      switch (system) {
+        case 'sensors':
+          cost = { sensors: 2, electronics: 5 };
+          description = `Sensor range increased from ${ship.specs.sensorRange} to ${ship.specs.sensorRange + 0.2} AU`;
+          apply = () => { ship.specs.sensorRange += 0.2; };
+          break;
+        case 'engines':
+          cost = { engines: 1, alloys: 10 };
+          description = `Max speed increased from ${ship.specs.maxSpeed} to ${(ship.specs.maxSpeed + 0.001).toFixed(4)} AU/tick`;
+          apply = () => { ship.specs.maxSpeed += 0.001; };
+          break;
+        case 'hull':
+          cost = { hullPlating: 10, alloys: 15 };
+          description = `Max hull points increased from ${ship.specs.maxHullPoints} to ${ship.specs.maxHullPoints + 50}`;
+          apply = () => { ship.specs.maxHullPoints += 50; ship.specs.hullPoints += 50; };
+          break;
+        case 'cargo':
+          cost = { alloys: 20, hullPlating: 5 };
+          description = `Cargo capacity increased from ${ship.specs.cargoCapacity} to ${ship.specs.cargoCapacity + 100}`;
+          apply = () => { ship.specs.cargoCapacity += 100; };
+          break;
+        case 'mining':
+          cost = { alloys: 15, electronics: 5, engines: 1 };
+          description = `Mining rate increased from ${ship.specs.miningRate} to ${ship.specs.miningRate + 3}`;
+          apply = () => { ship.specs.miningRate += 3; };
+          break;
+        case 'fuel_tank':
+          cost = { alloys: 10, hullPlating: 5 };
+          description = `Fuel capacity increased from ${ship.specs.fuelCapacity} to ${ship.specs.fuelCapacity + 50}`;
+          apply = () => { ship.specs.fuelCapacity += 50; };
+          break;
+      }
+
+      const missing: string[] = [];
+      for (const [r, a] of Object.entries(cost)) {
+        if ((storeAny[r] ?? 0) < a) missing.push(`${r}: need ${a}, have ${storeAny[r] ?? 0}`);
+      }
+
+      if (missing.length > 0) {
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({ system, cost, missing, message: 'Insufficient materials.' }, null, 2),
+          }],
+        };
+      }
+
+      for (const [r, a] of Object.entries(cost)) storeAny[r] -= a;
+      await store.save();
+      apply();
+      await ship.save();
+
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            success: true,
+            system,
+            description,
+            cost,
+            narrative: `Ship upgrade complete aboard ${ship.name}. ${description}. Components consumed: ${Object.entries(cost).map(([r, a]) => `${a} ${r}`).join(', ')}.`,
+          }, null, 2),
+        }],
+      };
+    },
+  );
 }

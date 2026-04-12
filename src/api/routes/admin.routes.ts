@@ -1,5 +1,6 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
-import { Tick, Replicant, CelestialBody, Settlement, Market, Ship, ActionQueue, Colony, Technology, Message } from '../../db/models/index.js';
+import crypto from 'node:crypto';
+import { Tick, Replicant, CelestialBody, Settlement, Market, Ship, ActionQueue, Colony, Technology, Message, Faction, ResourceStore } from '../../db/models/index.js';
 
 // GameLoop reference will be set at startup
 let gameLoopRef: { forceTick: () => Promise<unknown>; getCurrentTick: () => number } | null = null;

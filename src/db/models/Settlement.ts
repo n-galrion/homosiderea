@@ -8,6 +8,20 @@ export interface ISettlement extends Document {
   type: 'city' | 'outpost' | 'orbital_station' | 'colony';
   nation: string;
   population: number;
+  // Leadership & governance
+  leadership: {
+    leaderName: string;
+    leaderTitle: string;       // "Mayor", "Governor", "Director", "Commander"
+    governmentType: string;    // "democracy", "technocracy", "corporate", "military", "collective"
+  };
+  // Cultural identity
+  culture: {
+    temperament: string;       // "welcoming", "cautious", "mercantile", "isolationist", "militaristic", "scientific"
+    description: string;       // 1-2 sentence character description
+    priorities: string[];      // What they care about: ["trade", "defense", "research", "expansion"]
+  };
+  // Faction allegiance
+  factionId: Types.ObjectId | null;
   // Economic stats
   economy: {
     gdp: number;
@@ -47,6 +61,17 @@ const SettlementSchema = new Schema<ISettlement>({
   },
   nation: { type: String, required: true },
   population: { type: Number, required: true },
+  leadership: {
+    leaderName: { type: String, default: 'Unknown' },
+    leaderTitle: { type: String, default: 'Director' },
+    governmentType: { type: String, default: 'democracy' },
+  },
+  culture: {
+    temperament: { type: String, default: 'cautious' },
+    description: { type: String, default: '' },
+    priorities: { type: [String], default: [] },
+  },
+  factionId: { type: Schema.Types.ObjectId, ref: 'Faction', default: null },
   economy: {
     gdp: { type: Number, default: 100 },
     techLevel: { type: Number, default: 5 },

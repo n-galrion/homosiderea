@@ -13,6 +13,7 @@ import { generateCaptainsLog } from './systems/CaptainsLog.js';
 import { processMaintenance } from './systems/Maintenance.js';
 import { processOrbitFuelDrain } from './systems/FuelConsumption.js';
 import { processRandomEvents } from './systems/RandomEvents.js';
+import { processNPCTraffic } from './systems/NPCTraffic.js';
 
 /**
  * Orchestrates the processing of a single game tick.
@@ -136,7 +137,14 @@ export class TickProcessor {
       errors.push(`CaptainsLog: ${err instanceof Error ? err.message : String(err)}`);
     }
 
-    // Phase 15: Random Events
+    // Phase 15: NPC Traffic
+    try {
+      await processNPCTraffic(tickNumber);
+    } catch (err) {
+      errors.push(`NPCTraffic: ${err instanceof Error ? err.message : String(err)}`);
+    }
+
+    // Phase 16: Random Events
     try {
       const eventLogs = await processRandomEvents(tickNumber);
       if (eventLogs.length > 0) {

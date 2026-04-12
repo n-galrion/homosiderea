@@ -19,3 +19,4 @@ export { NavigationData, type INavigationData } from './NavigationData.js';
 export { Settlement, type ISettlement } from './Settlement.js';
 export { Market, type IMarket } from './Market.js';
 export { KnownEntity, type IKnownEntity } from './KnownEntity.js';
+export { Faction, type IFaction } from './Faction.js';

@@ -2,7 +2,7 @@ import { connectDB, disconnectDB } from '../connection.js';
 import { seedSolSystem } from './solSystem.js';
 import { seedBlueprints } from './blueprints.js';
 import { seedLandingSites } from './landingSites.js';
-import { seedSettlements } from './settlements.js';
+import { seedSettlements, seedFactions } from './settlements.js';
 
 async function run(): Promise<void> {
   try {
@@ -17,6 +17,8 @@ async function run(): Promise<void> {
     await seedBlueprints();
     console.log();
     await seedSettlements();
+    console.log();
+    await seedFactions();
 
     console.log('\nSeeding complete.');
   } catch (err) {
