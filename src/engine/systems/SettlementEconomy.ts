@@ -1,4 +1,4 @@
-import { Settlement, ResourceStore } from '../../db/models/index.js';
+import { Settlement, ResourceStore, Notification } from '../../db/models/index.js';
 
 /**
  * Resource keys on the ResourceStore model that can be read/written dynamically.
@@ -25,9 +25,28 @@ const MIN_POPULATION = 100;
  *  4. Population growth/decline based on resource satisfaction
  *  5. Update settlement status based on resource state
  */
+export interface EconomyEvent {
+  settlement: string;
+  consumed: Record<string, number>;
+  produced: Record<string, number>;
+  deficits: string[];
+  satisfaction: number;
+  efficiency: number;
+  populationDelta: number;
+  status: string;
+}
+
+const economyLog: EconomyEvent[] = [];
+
+/** Get the last tick's economy events (for feed/dashboard). */
+export function getLastEconomyLog(): EconomyEvent[] {
+  return [...economyLog];
+}
+
 export async function processSettlementEconomy(tick: number): Promise<number> {
   const settlements = await Settlement.find({ status: { $ne: 'destroyed' } });
   let processed = 0;
+  economyLog.length = 0; // reset for this tick
 
   for (const settlement of settlements) {
     // 1. Get or create settlement ResourceStore
@@ -132,6 +151,62 @@ export async function processSettlementEconomy(tick: number): Promise<number> {
       settlement.status = 'struggling';
     } else {
       settlement.status = 'damaged';
+    }
+
+    // 6. Log economy event for this tick
+    const consumedRecord: Record<string, number> = {};
+    const producedRecord: Record<string, number> = {};
+    for (const [resource, rate] of consumptionEntries) {
+      if (RESOURCE_KEYS.has(resource) && rate > 0) {
+        consumedRecord[resource] = Math.min(storeAny[resource] ?? 0, rate);
+      }
+    }
+    for (const [resource, rate] of Object.entries(production)) {
+      if (RESOURCE_KEYS.has(resource) && rate > 0) {
+        producedRecord[resource] = rate * productionEfficiency;
+      }
+    }
+    const deficits = consumptionEntries
+      .filter(([r, v]) => RESOURCE_KEYS.has(r) && v > 0 && (storeAny[r] ?? 0) < v * 10)
+      .map(([r]) => r);
+
+    const prevPop = settlement.population;
+    const popDelta = Math.round(settlement.population * populationMultiplier) - prevPop;
+
+    economyLog.push({
+      settlement: settlement.name,
+      consumed: consumedRecord,
+      produced: producedRecord,
+      deficits,
+      satisfaction: satisfactionRatio,
+      efficiency: productionEfficiency,
+      populationDelta: popDelta,
+      status: settlement.status as string,
+    });
+
+    // 7. Generate notifications for significant changes (every 10 ticks to reduce noise)
+    if (tick % 10 === 0) {
+      const deficits = consumptionEntries
+        .filter(([r, v]) => RESOURCE_KEYS.has(r) && v > 0 && (storeAny[r] ?? 0) < v * 10)
+        .map(([r]) => r);
+
+      if (deficits.length > 0 && satisfactionRatio < 0.6) {
+        await Notification.create({
+          type: 'settlement_event',
+          title: `${settlement.name}: Resource ${satisfactionRatio < 0.3 ? 'Crisis' : 'Shortage'}`,
+          body: `${settlement.name} (${settlement.nation}) is ${satisfactionRatio < 0.3 ? 'in crisis' : 'running low'}. Deficits: ${deficits.join(', ')}. Satisfaction: ${(satisfactionRatio * 100).toFixed(0)}%. Population: ${settlement.population.toLocaleString()}. Production at ${(productionEfficiency * 100).toFixed(0)}%.`,
+          data: {
+            settlementId: settlement._id.toString(),
+            settlementName: settlement.name,
+            deficits,
+            satisfactionRatio,
+            productionEfficiency,
+            population: settlement.population,
+            status: settlement.status,
+          },
+          tick,
+        });
+      }
     }
 
     // Mark all resource fields as modified and save

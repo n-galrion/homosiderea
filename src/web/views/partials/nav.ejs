@@ -11,13 +11,11 @@
     <a href="/events" class="sidebar-link<%= currentPath === '/events' ? ' active' : '' %>">Event Feed</a>
   </div>
 
-  <% if (user.role === 'owner' || user.role === 'operator') { %>
   <div class="sidebar-section">
     <div class="sidebar-label">Fleet</div>
     <a href="/replicants" class="sidebar-link<%= currentPath === '/replicants' ? ' active' : '' %>">My Replicants</a>
     <a href="/api-keys" class="sidebar-link<%= currentPath === '/api-keys' ? ' active' : '' %>">API Keys</a>
   </div>
-  <% } %>
 
   <% if (user.role === 'operator') { %>
   <div class="sidebar-section">

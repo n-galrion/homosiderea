@@ -2,6 +2,7 @@ import { Router, type Request, type Response, type NextFunction } from 'express'
 import { Tick, Replicant, ActionQueue, Message, Ship, Colony, MemoryLog } from '../../db/models/index.js';
 import { config } from '../../config.js';
 import { tickToGameTime, gameHoursPerTick, formatGameTime, formatRealWait } from '../../shared/gameTime.js';
+import { getLastEconomyLog } from '../../engine/systems/SettlementEconomy.js';
 
 export const gameRoutes = Router();
 
@@ -174,4 +175,23 @@ gameRoutes.get('/tick/:number/narrative', async (req: Request, res: Response, ne
   } catch (err) {
     next(err);
   }
+});
+
+// Get the latest tick's economy changelog — what changed in every settlement
+gameRoutes.get('/economy', async (_req: Request, res: Response) => {
+  const log = getLastEconomyLog();
+  const latestTick = await Tick.findOne().sort({ tickNumber: -1 }).lean();
+  res.json({
+    tick: latestTick?.tickNumber ?? 0,
+    settlements: log.map(e => ({
+      name: e.settlement,
+      status: e.status,
+      satisfaction: `${(e.satisfaction * 100).toFixed(0)}%`,
+      efficiency: `${(e.efficiency * 100).toFixed(0)}%`,
+      populationDelta: e.populationDelta,
+      deficits: e.deficits,
+      consumed: e.consumed,
+      produced: e.produced,
+    })),
+  });
 });

@@ -22,7 +22,7 @@ pagesRoutes.post('/elevate', requireAuth, async (req: Request, res: Response) =>
 });
 
 // ── Replicants List ──────────────────────────────────────────────────
-pagesRoutes.get('/replicants', requireAuth, requireRole('owner', 'operator'), async (req: Request, res: Response, next: NextFunction) => {
+pagesRoutes.get('/replicants', requireAuth, requireRole('owner', 'operator', 'spectator'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = res.locals.user;
     let replicants;
@@ -55,7 +55,7 @@ pagesRoutes.get('/replicants', requireAuth, requireRole('owner', 'operator'), as
 });
 
 // ── Create Replicant (POST) ──────────────────────────────────────────
-pagesRoutes.post('/replicants/create', requireAuth, requireRole('owner', 'operator'), async (req: Request, res: Response, next: NextFunction) => {
+pagesRoutes.post('/replicants/create', requireAuth, requireRole('owner', 'operator', 'spectator'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = res.locals.user;
     const { name, directive } = req.body;
@@ -97,7 +97,7 @@ pagesRoutes.post('/replicants/create', requireAuth, requireRole('owner', 'operat
 });
 
 // ── Replicant Detail ─────────────────────────────────────────────────
-pagesRoutes.get('/replicant/:id', requireAuth, requireRole('owner', 'operator'), async (req: Request, res: Response, next: NextFunction) => {
+pagesRoutes.get('/replicant/:id', requireAuth, requireRole('owner', 'operator', 'spectator'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = res.locals.user;
     const replicant = await Replicant.findById(req.params.id).lean();
@@ -137,7 +137,7 @@ pagesRoutes.get('/replicant/:id', requireAuth, requireRole('owner', 'operator'),
 });
 
 // ── Comms ────────────────────────────────────────────────────────────
-pagesRoutes.get('/replicant/:id/comms', requireAuth, requireRole('owner', 'operator'), async (req: Request, res: Response, next: NextFunction) => {
+pagesRoutes.get('/replicant/:id/comms', requireAuth, requireRole('owner', 'operator', 'spectator'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = res.locals.user;
     const replicant = await Replicant.findById(req.params.id).lean();
@@ -172,7 +172,7 @@ pagesRoutes.get('/replicant/:id/comms', requireAuth, requireRole('owner', 'opera
 });
 
 // ── Send Message (POST) ──────────────────────────────────────────────
-pagesRoutes.post('/replicant/:id/comms/send', requireAuth, requireRole('owner', 'operator'), async (req: Request, res: Response, next: NextFunction) => {
+pagesRoutes.post('/replicant/:id/comms/send', requireAuth, requireRole('owner', 'operator', 'spectator'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = res.locals.user;
     const replicant = await Replicant.findById(req.params.id);
@@ -205,7 +205,7 @@ pagesRoutes.post('/replicant/:id/comms/send', requireAuth, requireRole('owner', 
 });
 
 // ── API Keys ─────────────────────────────────────────────────────────
-pagesRoutes.get('/api-keys', requireAuth, requireRole('owner', 'operator'), async (req: Request, res: Response, next: NextFunction) => {
+pagesRoutes.get('/api-keys', requireAuth, requireRole('owner', 'operator', 'spectator'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = await User.findById(res.locals.user._id).lean();
     if (!user) { res.redirect('/login'); return; }
@@ -225,7 +225,7 @@ pagesRoutes.get('/api-keys', requireAuth, requireRole('owner', 'operator'), asyn
 });
 
 // ── Generate API Key (POST) ──────────────────────────────────────────
-pagesRoutes.post('/api-keys/generate', requireAuth, requireRole('owner', 'operator'), async (req: Request, res: Response, next: NextFunction) => {
+pagesRoutes.post('/api-keys/generate', requireAuth, requireRole('owner', 'operator', 'spectator'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = await User.findById(res.locals.user._id);
     if (!user) { res.redirect('/login'); return; }
@@ -263,7 +263,7 @@ pagesRoutes.post('/api-keys/generate', requireAuth, requireRole('owner', 'operat
 });
 
 // ── Revoke API Key (POST) ────────────────────────────────────────────
-pagesRoutes.post('/api-keys/revoke', requireAuth, requireRole('owner', 'operator'), async (req: Request, res: Response, next: NextFunction) => {
+pagesRoutes.post('/api-keys/revoke', requireAuth, requireRole('owner', 'operator', 'spectator'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = await User.findById(res.locals.user._id);
     if (!user) { res.redirect('/login'); return; }
@@ -317,7 +317,7 @@ pagesRoutes.get('/events', requireAuth, async (_req: Request, res: Response, nex
 });
 
 // ── Play ─────────────────────────────────────────────────────────────
-pagesRoutes.get('/play/:replicantId', requireAuth, requireRole('owner', 'operator'), async (req: Request, res: Response, next: NextFunction) => {
+pagesRoutes.get('/play/:replicantId', requireAuth, requireRole('owner', 'operator', 'spectator'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = res.locals.user;
     const replicant = await Replicant.findById(req.params.replicantId).lean();
