@@ -67,7 +67,7 @@ export function createApp() {
       game: 'Homosideria: To the Stars',
       version: '0.1.0',
       auth: {
-        register: 'POST /api/auth/register  body: { name, directive? }',
+        register: 'POST /api/auth/register  body: { name?, directive? }  — name is optional; omit to get a temporary name and awakening prompt',
         token: 'POST /api/auth/token  body: { apiKey }',
         note: 'All other routes require X-API-Key header',
       },
@@ -75,10 +75,12 @@ export function createApp() {
         game: {
           status: 'GET /api/game/status',
           tick: 'GET /api/game/tick/:number',
+          tickNarrative: 'GET /api/game/tick/:number/narrative  — human-readable summary of tick events',
         },
         replicant: {
           profile: 'GET /api/replicant/me',
           updateDirective: 'PUT /api/replicant/me/directive  body: { directive }',
+          updateIdentity: 'PUT /api/replicant/me/identity  body: { chosenName, background?, personality? }  — one-time self-naming',
           memories: 'GET /api/replicant/me/memories?category=&tag=&limit=',
           createMemory: 'POST /api/replicant/me/memories  body: { category, title, content, tags }',
         },

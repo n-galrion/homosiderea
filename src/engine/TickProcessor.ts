@@ -9,6 +9,9 @@ import { deliverMessages } from './systems/Communication.js';
 import { recomputeAllColonyStats } from './systems/ColonyManager.js';
 import { processCompletedResearch } from './systems/MasterController.js';
 import { simulateSettlements } from './systems/SettlementBehavior.js';
+import { generateCaptainsLog } from './systems/CaptainsLog.js';
+import { processMaintenance } from './systems/Maintenance.js';
+import { processOrbitFuelDrain } from './systems/FuelConsumption.js';
 
 /**
  * Orchestrates the processing of a single game tick.
@@ -111,7 +114,28 @@ export class TickProcessor {
       errors.push(`Settlements: ${err instanceof Error ? err.message : String(err)}`);
     }
 
-    // Phase 12: Save Tick Record
+    // Phase 12: Hull Degradation & Maintenance
+    try {
+      await processMaintenance(tickNumber);
+    } catch (err) {
+      errors.push(`Maintenance: ${err instanceof Error ? err.message : String(err)}`);
+    }
+
+    // Phase 13: Orbital Fuel Drain
+    try {
+      await processOrbitFuelDrain(tickNumber);
+    } catch (err) {
+      errors.push(`FuelConsumption: ${err instanceof Error ? err.message : String(err)}`);
+    }
+
+    // Phase 14: Captain's Log (auto-generated log entries)
+    try {
+      await generateCaptainsLog(tickNumber);
+    } catch (err) {
+      errors.push(`CaptainsLog: ${err instanceof Error ? err.message : String(err)}`);
+    }
+
+    // Phase 15: Save Tick Record
     const durationMs = Date.now() - startTime;
 
     tickRecord.completedAt = new Date();

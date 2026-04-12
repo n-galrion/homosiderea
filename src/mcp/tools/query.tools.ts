@@ -11,18 +11,59 @@ export function registerQueryTools(server: McpServer, replicantId: string): void
 
   server.tool(
     'get_game_state',
-    'Get high-level game state: current tick, tick interval, active replicants, time until next tick.',
+    'Get high-level game state: current tick, tick interval, active replicants, time until next tick, and a narrative status summary.',
     {},
     async () => {
       const latestTick = await Tick.findOne().sort({ tickNumber: -1 }).lean();
+      const currentTick = latestTick?.tickNumber ?? 0;
       const replicantCount = await Replicant.countDocuments({ status: 'active' });
+
+      // Build a narrative status summary
+      const ships = await Ship.find({ status: { $ne: 'destroyed' } }).lean();
+      const bodies = await CelestialBody.find({ type: { $in: ['planet', 'moon'] } }).lean();
+
+      // Determine where ships are concentrated
+      const orbitCounts: Record<string, number> = {};
+      for (const s of ships) {
+        if (s.orbitingBodyId) {
+          const bodyName = bodies.find(b => b._id.toString() === s.orbitingBodyId?.toString())?.name || 'unknown';
+          orbitCounts[bodyName] = (orbitCounts[bodyName] || 0) + 1;
+        }
+      }
+      const concentrationDesc = Object.entries(orbitCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([name, count]) => `${count} near ${name}`)
+        .join(', ');
+
+      // Check for any hostile activity (ships in attack status or damaged settlements)
+      const damagedSettlements = await import('../../db/models/index.js').then(m =>
+        m.Settlement.countDocuments({ status: { $in: ['damaged', 'destroyed'] } })
+      );
+      const hostileActivity = damagedSettlements > 0
+        ? `${damagedSettlements} settlement(s) report damage — the political landscape is unsettled.`
+        : 'No hostile activity detected.';
+
+      // Game hours to real-world time context
+      const gameHours = currentTick;
+      const gameDays = (gameHours / 24).toFixed(1);
+      const gameYears = (gameHours / 8760).toFixed(3);
+
+      const statusNarrative = [
+        `The Sol system turns through its ${currentTick}th hour (${gameDays} days / ${gameYears} years of game time).`,
+        `${replicantCount} replicant${replicantCount !== 1 ? 's' : ''} ${replicantCount !== 1 ? 'are' : 'is'} active across the system${concentrationDesc ? `, with vessels concentrated: ${concentrationDesc}` : ''}.`,
+        hostileActivity,
+        `Each tick represents 1 hour of game time; the simulation advances every ${(config.game.tickIntervalMs / 1000).toFixed(0)} real-world seconds.`,
+      ].join(' ');
 
       return {
         content: [{
           type: 'text',
           text: JSON.stringify({
+            status: statusNarrative,
             game: 'Homosideria: To the Stars',
-            currentTick: latestTick?.tickNumber ?? 0,
+            currentTick,
+            gameTime: { hours: gameHours, days: parseFloat(gameDays), years: parseFloat(gameYears) },
             tickIntervalMs: config.game.tickIntervalMs,
             gameTimePerTick: '1 hour',
             activeReplicants: replicantCount,

@@ -216,7 +216,102 @@ export function registerScanningTools(server: McpServer, replicantId: string): v
       // Get landing sites for this body
       const sites = await LandingSite.find({ bodyId: body._id, discovered: true }).lean();
 
+      // Get settlements for narrative
+      const settlements = await Settlement.find({ bodyId: body._id }).lean();
+
+      // Build scientific survey narrative
+      const surveyLines: string[] = [];
+      surveyLines.push(`SURVEY REPORT: ${body.name} (${body.type})`);
+      surveyLines.push('='.repeat(40));
+
+      // Physical description
+      const phys = body.physical as Record<string, unknown> | undefined;
+      if (phys) {
+        const descParts: string[] = [];
+        if (phys.radius) descParts.push(`radius ${phys.radius} km`);
+        if (phys.mass) descParts.push(`mass ${phys.mass} kg`);
+        if (phys.surfaceGravity) descParts.push(`surface gravity ${phys.surfaceGravity} m/s^2`);
+
+        if (body.type === 'star') {
+          surveyLines.push(`Sol-type stellar body. ${descParts.length > 0 ? descParts.join(', ') + '.' : ''} Electromagnetic radiation dominates the local environment — solar wind particle flux renders close approach hazardous to unshielded electronics. Solar energy collection is optimal within 1.5 AU.`);
+        } else if (body.type === 'planet') {
+          const hasAtmo = phys.atmosphere && (phys.atmosphere as Record<string, unknown>).composition;
+          surveyLines.push(`Planetary body ${body.name}. ${descParts.length > 0 ? descParts.join(', ') + '.' : ''}${hasAtmo ? ` Atmospheric analysis detects ${JSON.stringify((phys.atmosphere as Record<string, unknown>).composition)} — ${body.name === 'Earth' ? 'a nitrogen-oxygen mix capable of supporting carbon-based life' : body.name === 'Mars' ? 'a thin CO2 atmosphere at roughly 0.6% of Earth surface pressure' : body.name === 'Venus' ? 'a dense CO2 atmosphere with crushing surface pressures exceeding 90 atm and temperatures above 460C' : 'composition noted for reference'}.` : ' No significant atmosphere detected; surface is exposed to vacuum and unfiltered solar radiation.'} ${phys.magneticField ? 'A detectable magnetic field provides partial radiation shielding.' : 'No global magnetic field — surface radiation levels are elevated.'}`);
+        } else if (body.type === 'moon') {
+          surveyLines.push(`Natural satellite ${body.name}. ${descParts.length > 0 ? descParts.join(', ') + '.' : ''} Tidally locked to its primary — one face permanently sunlit during local day, the other in perpetual shadow. ${phys.surfaceGravity && (phys.surfaceGravity as number) < 2 ? 'Low surface gravity makes landing and launch operations fuel-efficient, but complicates surface construction anchoring.' : 'Surface gravity sufficient for conventional construction techniques.'}`);
+        } else if (body.type === 'dwarf_planet') {
+          surveyLines.push(`Dwarf planet ${body.name}. ${descParts.length > 0 ? descParts.join(', ') + '.' : ''} A cold, distant body at the outer reaches — solar energy collection is minimal this far from Sol. Surface temperatures hover near absolute zero; ice deposits may be abundant.`);
+        } else if (body.type === 'belt_zone') {
+          surveyLines.push(`Asteroid belt zone. This region contains a distributed field of minor bodies — metallic, carbonaceous, siliceous, and icy compositions detected across the field. Individual asteroids must be resolved by active scanning at closer range.`);
+        } else {
+          surveyLines.push(`Celestial body ${body.name} (${body.type}). ${descParts.length > 0 ? descParts.join(', ') + '.' : ''}`);
+        }
+      }
+
+      // Resource assessment
+      const accessibleResources = body.resources.filter(r => r.accessible && r.remaining > 0);
+      if (accessibleResources.length > 0) {
+        surveyLines.push('');
+        surveyLines.push('RESOURCE ASSESSMENT:');
+        for (const r of accessibleResources) {
+          const pct = r.totalDeposit > 0 ? ((r.remaining / r.totalDeposit) * 100).toFixed(1) : '?';
+          surveyLines.push(`  ${r.resourceType}: ${describeAbundance(r.resourceType, r.abundance)}. ${pct}% of estimated total deposit remains (${r.remaining.toLocaleString()} / ${r.totalDeposit.toLocaleString()} units). Accessible with current extraction technology.`);
+        }
+        const inaccessible = body.resources.filter(r => !r.accessible && r.remaining > 0);
+        if (inaccessible.length > 0) {
+          surveyLines.push(`  ${inaccessible.length} additional resource type(s) detected but not accessible with current technology — deeper geological strata or hostile surface conditions prevent extraction.`);
+        }
+      } else {
+        surveyLines.push('\nRESOURCE ASSESSMENT: No economically viable deposits detected at current technology levels.');
+      }
+
+      // Landing sites
+      if (sites.length > 0) {
+        surveyLines.push('');
+        surveyLines.push('LANDING SITE ANALYSIS:');
+        for (const s of sites) {
+          const condParts: string[] = [];
+          if (s.conditions) {
+            const conds = s.conditions as Record<string, unknown>;
+            if (conds.temperature) condParts.push(`surface temp ${conds.temperature}`);
+            if (conds.radiation) condParts.push(`radiation level ${conds.radiation}`);
+            if (conds.stability) condParts.push(`geological stability ${conds.stability}`);
+          }
+          surveyLines.push(`  ${s.name} — ${s.terrain} terrain. Capacity for ${s.maxStructures} structures. ${s.claimedBy ? 'CLAIMED by another operator.' : 'Available for claim.'} ${condParts.length > 0 ? condParts.join(', ') + '.' : ''} Resource access: ${Array.isArray(s.resourceAccess) ? s.resourceAccess.join(', ') : 'standard'}.`);
+        }
+      }
+
+      // Settlements
+      if (settlements.length > 0) {
+        surveyLines.push('');
+        surveyLines.push('SETTLEMENTS:');
+        for (const s of settlements) {
+          surveyLines.push(`  ${s.name} (${s.nation}) — ${s.type}, population ${s.population.toLocaleString()}, status: ${s.status}. Spaceport level ${s.economy.spaceportLevel}. Attitude toward replicants: ${s.attitude.general > 0.5 ? 'favorable' : s.attitude.general > 0 ? 'neutral' : 'hostile'} (${s.attitude.general.toFixed(2)}).`);
+        }
+      }
+
+      // Strategic assessment
+      surveyLines.push('');
+      surveyLines.push('STRATEGIC ASSESSMENT:');
+      const solarFactor = body.solarEnergyFactor;
+      const stratParts: string[] = [];
+      if (solarFactor >= 0.8) stratParts.push('Excellent solar energy collection — photovoltaic arrays will operate at high efficiency.');
+      else if (solarFactor >= 0.3) stratParts.push('Adequate solar energy — supplementary power generation recommended for heavy industry.');
+      else stratParts.push('Minimal solar flux at this distance — fusion or nuclear power required for sustained operations.');
+
+      if (accessibleResources.length >= 3) stratParts.push('Rich resource base supports self-sufficient colony operations.');
+      else if (accessibleResources.length >= 1) stratParts.push('Limited resource diversity — trade relationships or supply lines will be necessary.');
+      else stratParts.push('No local resources — this location is strategic only, not economic.');
+
+      if (settlements.length > 0) stratParts.push(`${settlements.length} settlement(s) present — trade opportunities and potential diplomatic considerations.`);
+      if (sites.length > 0 && sites.some(s => !s.claimedBy)) stratParts.push(`${sites.filter(s => !s.claimedBy).length} unclaimed landing site(s) available for colonization.`);
+
+      surveyLines.push(stratParts.join(' '));
+
+      const surveyNarrative = surveyLines.join('\n');
+
       const result = {
+        surveyReport: surveyNarrative,
         id: body._id.toString(),
         name: body.name,
         type: body.type,
@@ -232,6 +327,7 @@ export function registerScanningTools(server: McpServer, replicantId: string): v
             ? `${((r.remaining / r.totalDeposit) * 100).toFixed(1)}%`
             : 'N/A',
           accessible: r.accessible,
+          qualitative: describeAbundance(r.resourceType, r.abundance),
         })),
         orbit: body.orbit ? {
           semiMajorAxis: body.orbit.semiMajorAxis,
@@ -247,6 +343,14 @@ export function registerScanningTools(server: McpServer, replicantId: string): v
           claimed: !!s.claimedBy,
           resourceAccess: s.resourceAccess,
           conditions: s.conditions,
+        })),
+        settlements: settlements.map(s => ({
+          name: s.name,
+          nation: s.nation,
+          type: s.type,
+          population: s.population,
+          status: s.status,
+          attitudeGeneral: s.attitude.general,
         })),
       };
 

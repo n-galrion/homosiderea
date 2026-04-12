@@ -86,6 +86,28 @@ export function registerReplicationTools(server: McpServer, replicantId: string)
         );
       }
 
+      // Copy parent's recent action history (last 50 log entries) as inherited memories
+      const parentLogs = await MemoryLog.find({
+        replicantId: parent._id,
+        category: 'log',
+      })
+        .sort({ tick: -1 })
+        .limit(50)
+        .lean();
+
+      if (parentLogs.length > 0) {
+        await MemoryLog.insertMany(
+          parentLogs.map(log => ({
+            replicantId: child._id,
+            category: 'log',
+            title: `[Inherited] ${log.title}`,
+            content: log.content,
+            tags: ['inherited', ...(log.tags || [])],
+            tick: currentTick,
+          })),
+        );
+      }
+
       // Deduct from parent
       parent.computeCycles -= REPLICATE_COMPUTE_COST;
       parent.energyBudget -= REPLICATE_ENERGY_COST;
