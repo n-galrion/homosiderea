@@ -14,6 +14,7 @@ import { amiRoutes } from './routes/ami.routes.js';
 import { commsRoutes } from './routes/comms.routes.js';
 import { adminRoutes } from './routes/admin.routes.js';
 import { shipRoutes } from './routes/ship.routes.js';
+import { toolsRoutes } from './routes/tools.routes.js';
 import { structureRoutes } from './routes/structure.routes.js';
 import { colonyRoutes } from './routes/colony.routes.js';
 import { authMiddleware, adminAuth } from './middleware/auth.js';
@@ -97,6 +98,7 @@ export function createApp() {
   // Public routes
   app.use('/api/auth', authRoutes);
   app.use('/api/game', gameRoutes); // Public — just metadata, no secrets
+  app.use('/api/tools', toolsRoutes); // GET public, POST auth'd per-route
   app.use('/api/replicant', authMiddleware, replicantRoutes);
   app.use('/api/world', authMiddleware, worldRoutes);
   app.use('/api/actions', authMiddleware, actionRoutes);
@@ -186,6 +188,10 @@ export function createApp() {
           inbox: 'GET /api/messages/inbox?unreadOnly=&limit=&from=',
           get: 'GET /api/messages/:id',
           sent: 'GET /api/messages/sent',
+        },
+        tools: {
+          list: 'GET /api/tools  — all tool names, descriptions, and parameter schemas (public)',
+          execute: 'POST /api/tools/:toolName  body: { ...params }  — execute any MCP tool via REST (auth required)',
         },
         admin: {
           note: 'Requires X-Admin-Key header',
