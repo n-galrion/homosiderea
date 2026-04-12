@@ -1,6 +1,7 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import { ActionQueue, Tick } from '../../db/models/index.js';
 import { evaluateAction, applyOutcomes } from '../../engine/systems/ActionEvaluator.js';
+import { ACTION_TYPES } from '../../shared/constants.js';
 
 export const actionRoutes = Router();
 
@@ -74,6 +75,16 @@ actionRoutes.post('/', async (req: Request, res: Response, next: NextFunction) =
     const { type, params, priority } = req.body;
     if (!type || !params) {
       res.status(400).json({ error: 'VALIDATION', message: 'type and params are required' });
+      return;
+    }
+
+    // Validate action type
+    const validTypes = [...ACTION_TYPES];
+    if (!validTypes.includes(type)) {
+      res.status(400).json({
+        error: 'INVALID_ACTION_TYPE',
+        message: `Unknown action type: "${type}". Valid types: ${validTypes.join(', ')}. For free-text actions, use POST /api/actions/propose instead.`,
+      });
       return;
     }
 
