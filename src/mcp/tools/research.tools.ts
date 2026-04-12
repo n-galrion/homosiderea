@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { ResearchProposal, Technology, Replicant, Tick } from '../../db/models/index.js';
+import { config } from '../../config.js';
 
 const RESEARCH_DOMAINS = [
   'scanning', 'mining', 'propulsion', 'weapons', 'hull',
@@ -68,6 +69,9 @@ export function registerResearchTools(server: McpServer, replicantId: string): v
         startedAtTick: currentTick,
       });
 
+      const completionTick = currentTick + ticksRequired;
+      const tickIntervalMs = config.game.tickIntervalMs;
+
       return {
         content: [{
           type: 'text',
@@ -78,7 +82,11 @@ export function registerResearchTools(server: McpServer, replicantId: string): v
             computeCost,
             energyCost,
             ticksRequired,
-            completionTick: currentTick + ticksRequired,
+            completionTick,
+            currentTick,
+            ticksRemaining: ticksRequired,
+            estimatedCompletionMs: ticksRequired * tickIntervalMs,
+            tickIntervalMs,
             message: `Research simulation initiated in fabrication bay. Results expected after ${ticksRequired} ticks. The quality of your scientific approach directly affects the probability and magnitude of breakthroughs.`,
           }, null, 2),
         }],
@@ -96,6 +104,12 @@ export function registerResearchTools(server: McpServer, replicantId: string): v
         return { content: [{ type: 'text', text: 'Error: Proposal not found.' }] };
       }
 
+      const latestTick = await Tick.findOne().sort({ tickNumber: -1 }).lean();
+      const currentTick = latestTick?.tickNumber ?? 0;
+      const completionTick = proposal.startedAtTick + proposal.ticksRequired;
+      const ticksRemaining = Math.max(0, completionTick - currentTick);
+      const tickIntervalMs = config.game.tickIntervalMs;
+
       const result: Record<string, unknown> = {
         id: proposal._id.toString(),
         title: proposal.title,
@@ -103,7 +117,10 @@ export function registerResearchTools(server: McpServer, replicantId: string): v
         status: proposal.status,
         startedAtTick: proposal.startedAtTick,
         ticksRequired: proposal.ticksRequired,
-        completionTick: proposal.startedAtTick + proposal.ticksRequired,
+        completionTick,
+        currentTick,
+        ticksRemaining,
+        estimatedCompletionMs: ticksRemaining * tickIntervalMs,
       };
 
       if (proposal.evaluation) {

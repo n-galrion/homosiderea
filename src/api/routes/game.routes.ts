@@ -9,16 +9,28 @@ gameRoutes.get('/status', async (_req: Request, res: Response, next: NextFunctio
   try {
     const latestTick = await Tick.findOne().sort({ tickNumber: -1 }).lean();
     const replicantCount = await Replicant.countDocuments({ status: 'active' });
+    const currentTick = latestTick?.tickNumber ?? 0;
+
+    // Compute next tick time
+    const lastTickAt = latestTick?.completedAt ? new Date(latestTick.completedAt) : null;
+    const nextTickAt = lastTickAt
+      ? new Date(lastTickAt.getTime() + config.game.tickIntervalMs)
+      : null;
+
+    // Count ticks elapsed (first tick is the total count)
+    const ticksElapsed = currentTick;
 
     res.json({
       game: 'Homosideria: To the Stars',
       version: '0.1.0',
-      currentTick: latestTick?.tickNumber ?? 0,
+      currentTick,
       tickIntervalMs: config.game.tickIntervalMs,
       gameTimePerTick: `${config.game.gameTimePerTick}s (1 hour)`,
       activeReplicants: replicantCount,
       lastTickAt: latestTick?.completedAt ?? null,
       lastTickDurationMs: latestTick?.durationMs ?? null,
+      nextTickAt: nextTickAt?.toISOString() ?? null,
+      ticksElapsed,
     });
   } catch (err) {
     next(err);

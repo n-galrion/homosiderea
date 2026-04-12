@@ -1,7 +1,47 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
-import { Ship, ResourceStore } from '../../db/models/index.js';
+import { Ship, ResourceStore, Tick } from '../../db/models/index.js';
+import { config } from '../../config.js';
 
 export const shipRoutes = Router();
+
+/** Enrich a ship document with transit/mining status info. */
+async function enrichShip(ship: Record<string, unknown>, currentTick: number): Promise<Record<string, unknown>> {
+  const enriched = { ...ship };
+  const tickIntervalMs = config.game.tickIntervalMs;
+
+  // Transit ETA info
+  const nav = ship.navigation as Record<string, unknown> | undefined;
+  if (ship.status === 'in_transit' && nav?.arrivalTick != null) {
+    const arrivalTick = nav.arrivalTick as number;
+    const departureTick = (nav.departureTick as number) ?? currentTick;
+    const totalTicks = arrivalTick - departureTick;
+    const elapsed = currentTick - departureTick;
+    const ticksRemaining = Math.max(0, arrivalTick - currentTick);
+    const percentComplete = totalTicks > 0 ? Math.min(100, (elapsed / totalTicks) * 100) : 100;
+
+    enriched.transitInfo = {
+      ticksRemaining,
+      estimatedArrivalTick: arrivalTick,
+      estimatedArrivalMs: ticksRemaining * tickIntervalMs,
+      percentComplete: parseFloat(percentComplete.toFixed(1)),
+    };
+  }
+
+  // Mining info
+  const miningState = ship.miningState as Record<string, unknown> | null;
+  if (miningState?.active) {
+    enriched.miningInfo = {
+      active: true,
+      resourceType: miningState.resourceType || 'all accessible',
+      startedAtTick: miningState.startedAtTick,
+      ticksMining: miningState.startedAtTick != null
+        ? currentTick - (miningState.startedAtTick as number)
+        : 0,
+    };
+  }
+
+  return enriched;
+}
 
 // List own ships
 shipRoutes.get('/', async (req: Request, res: Response, next: NextFunction) => {
@@ -12,7 +52,15 @@ shipRoutes.get('/', async (req: Request, res: Response, next: NextFunction) => {
     if (type) filter.type = type;
 
     const ships = await Ship.find(filter).lean();
-    res.json(ships);
+
+    const latestTick = await Tick.findOne().sort({ tickNumber: -1 }).lean();
+    const currentTick = latestTick?.tickNumber ?? 0;
+
+    const enriched = await Promise.all(
+      ships.map(s => enrichShip(s as unknown as Record<string, unknown>, currentTick))
+    );
+
+    res.json(enriched);
   } catch (err) {
     next(err);
   }
@@ -26,7 +74,13 @@ shipRoutes.get('/:id', async (req: Request, res: Response, next: NextFunction) =
       res.status(404).json({ error: 'NOT_FOUND', message: 'Ship not found' });
       return;
     }
-    res.json(ship);
+
+    const latestTick = await Tick.findOne().sort({ tickNumber: -1 }).lean();
+    const currentTick = latestTick?.tickNumber ?? 0;
+
+    const enriched = await enrichShip(ship as unknown as Record<string, unknown>, currentTick);
+
+    res.json(enriched);
   } catch (err) {
     next(err);
   }

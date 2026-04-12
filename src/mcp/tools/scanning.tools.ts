@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { Ship, CelestialBody, Replicant, Structure, Asteroid, LandingSite, Settlement, Tick, MemoryLog } from '../../db/models/index.js';
+import { KnownEntity } from '../../db/models/KnownEntity.js';
 import { distance } from '../../shared/physics.js';
 import { AU_IN_KM, SPEED_OF_LIGHT_KM_S } from '../../shared/constants.js';
 import { generateForBeltZone, discoverNearby } from '../../engine/systems/AsteroidGenerator.js';
@@ -18,6 +19,51 @@ function describeAbundance(resourceType: string, abundance: number): string {
   if (abundance >= 0.3) return `moderate ${name} concentrations present in scattered formations`;
   if (abundance >= 0.1) return `trace ${name} signatures detected, economically marginal`;
   return `negligible ${name} readings, below extraction threshold`;
+}
+
+/** Upsert a known entity for a replicant. Upgrades intel level if new level is higher. */
+async function upsertKnownEntity(
+  replicantId: string,
+  entityType: 'celestial_body' | 'asteroid' | 'ship' | 'structure' | 'settlement' | 'replicant',
+  entityId: string,
+  entityName: string,
+  position: { x: number; y: number; z: number } | null,
+  discoveredBy: 'initial' | 'scan' | 'visit' | 'shared' | 'broadcast' | 'research',
+  intelLevel: 'vague' | 'basic' | 'detailed' | 'complete',
+  currentTick: number,
+): Promise<void> {
+  const intelOrder = ['vague', 'basic', 'detailed', 'complete'];
+  const existing = await KnownEntity.findOne({
+    replicantId,
+    entityType,
+    entityId,
+  });
+
+  if (existing) {
+    // Only upgrade intel level, never downgrade
+    const existingIdx = intelOrder.indexOf(existing.intelLevel);
+    const newIdx = intelOrder.indexOf(intelLevel);
+    if (newIdx > existingIdx) {
+      existing.intelLevel = intelLevel;
+    }
+    existing.lastUpdatedTick = currentTick;
+    if (position) {
+      existing.lastKnownPosition = position;
+    }
+    await existing.save();
+  } else {
+    await KnownEntity.create({
+      replicantId,
+      entityType,
+      entityId,
+      entityName,
+      discoveredAtTick: currentTick,
+      discoveredBy,
+      lastUpdatedTick: currentTick,
+      lastKnownPosition: position,
+      intelLevel,
+    });
+  }
 }
 
 /** Generate a sensor report narrative for a scan. */
@@ -102,7 +148,7 @@ export function registerScanningTools(server: McpServer, replicantId: string): v
         status: { $ne: 'destroyed' },
       }).lean();
       const shipsInRange = nearbyShips
-        .map(s => ({ name: s.name, type: s.type, dist: distance(myPos, s.position), status: s.status }))
+        .map(s => ({ ...s, dist: distance(myPos, s.position), status: s.status }))
         .filter(s => s.dist <= scanRange)
         .sort((a, b) => a.dist - b.dist);
 
@@ -135,19 +181,53 @@ export function registerScanningTools(server: McpServer, replicantId: string): v
         .sort((a, b) => a.dist - b.dist);
 
       // Find settlements near orbiting bodies for narrative context
-      const nearbySettlements: Array<{ name: string; nation: string; population: number }> = [];
+      const nearbySettlements: Array<{ _id: string; name: string; nation: string; population: number }> = [];
       for (const b of nearbyBodies) {
         const bodySettlements = await Settlement.find({ bodyId: b._id }).lean();
         for (const s of bodySettlements) {
-          nearbySettlements.push({ name: s.name, nation: s.nation, population: s.population });
+          nearbySettlements.push({ _id: s._id.toString(), name: s.name, nation: s.nation, population: s.population });
         }
+      }
+
+      // --- Upsert KnownEntity for all discovered items ---
+
+      // Celestial bodies found in range -> basic intel
+      for (const b of nearbyBodies) {
+        await upsertKnownEntity(
+          replicantId, 'celestial_body', b._id.toString(), b.name,
+          b.position, 'scan', 'basic', currentTick,
+        );
+      }
+
+      // Asteroids found in range -> basic intel
+      for (const a of asteroidsInRange) {
+        await upsertKnownEntity(
+          replicantId, 'asteroid', a._id.toString(), a.name,
+          a.position, 'scan', 'basic', currentTick,
+        );
+      }
+
+      // Ships found: add their owner replicant to known entities
+      for (const s of shipsInRange) {
+        await upsertKnownEntity(
+          replicantId, 'replicant', s.ownerId.toString(), s.name + ' (owner)',
+          null, 'scan', 'vague', currentTick,
+        );
+      }
+
+      // Settlements on scanned bodies -> basic intel
+      for (const s of nearbySettlements) {
+        await upsertKnownEntity(
+          replicantId, 'settlement', s._id.toString(), s.name,
+          null, 'scan', 'basic', currentTick,
+        );
       }
 
       const sensorReport = buildSensorReport(
         ship.name,
         scanRange,
         nearbyBodies.map(b => ({ name: b.name, type: b.type, dist: b.dist, resources: b.resources })),
-        shipsInRange,
+        shipsInRange.map(s => ({ name: s.name, type: s.type, dist: s.dist })),
         asteroidsInRange.map(a => ({ name: a.name, dist: a.dist, physical: a.physical })),
         nearbySettlements,
       );
@@ -193,7 +273,7 @@ export function registerScanningTools(server: McpServer, replicantId: string): v
           distanceLightSeconds: parseFloat(auToLightSeconds(s.dist).toFixed(1)),
           status: s.status,
         })),
-        settlements: nearbySettlements,
+        settlements: nearbySettlements.map(s => ({ name: s.name, nation: s.nation, population: s.population })),
         structuresDetected: nearbyStructures.length,
         asteroidsGenerated,
         asteroidsDiscovered,
@@ -218,6 +298,31 @@ export function registerScanningTools(server: McpServer, replicantId: string): v
 
       // Get settlements for narrative
       const settlements = await Settlement.find({ bodyId: body._id }).lean();
+
+      // --- Upgrade KnownEntity to detailed intel ---
+      const latestTick = await Tick.findOne().sort({ tickNumber: -1 }).lean();
+      const currentTick = latestTick?.tickNumber ?? 0;
+
+      await upsertKnownEntity(
+        replicantId, 'celestial_body', body._id.toString(), body.name,
+        body.position, 'scan', 'detailed', currentTick,
+      );
+
+      // Add all landing sites on this body to known entities
+      for (const s of sites) {
+        await upsertKnownEntity(
+          replicantId, 'structure', s._id.toString(), s.name,
+          null, 'scan', 'basic', currentTick,
+        );
+      }
+
+      // Add settlements on this body to known entities
+      for (const s of settlements) {
+        await upsertKnownEntity(
+          replicantId, 'settlement', s._id.toString(), s.name,
+          null, 'scan', 'detailed', currentTick,
+        );
+      }
 
       // Build scientific survey narrative
       const surveyLines: string[] = [];

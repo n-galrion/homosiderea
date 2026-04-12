@@ -56,6 +56,12 @@ export function registerQueryTools(server: McpServer, replicantId: string): void
         `Each tick represents 1 hour of game time; the simulation advances every ${(config.game.tickIntervalMs / 1000).toFixed(0)} real-world seconds.`,
       ].join(' ');
 
+      // Compute next tick time
+      const lastTickAt = latestTick?.completedAt ? new Date(latestTick.completedAt as unknown as string | number) : null;
+      const nextTickAt = lastTickAt
+        ? new Date(lastTickAt.getTime() + config.game.tickIntervalMs)
+        : null;
+
       return {
         content: [{
           type: 'text',
@@ -69,6 +75,8 @@ export function registerQueryTools(server: McpServer, replicantId: string): void
             activeReplicants: replicantCount,
             lastTickCompletedAt: latestTick?.completedAt,
             lastTickDurationMs: latestTick?.durationMs,
+            nextTickAt: nextTickAt?.toISOString() ?? null,
+            ticksElapsed: currentTick,
           }, null, 2),
         }],
       };

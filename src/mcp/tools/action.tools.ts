@@ -2,6 +2,19 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { evaluateAction, applyOutcomes } from '../../engine/systems/ActionEvaluator.js';
 import { ActionQueue, Tick } from '../../db/models/index.js';
+import { config } from '../../config.js';
+
+/** Compute timing info for an action or event that resolves at a target tick. */
+function timingInfo(currentTick: number, targetTick: number, tickIntervalMs: number) {
+  const ticksRemaining = Math.max(0, targetTick - currentTick);
+  return {
+    currentTick,
+    targetTick,
+    ticksRemaining,
+    estimatedWaitMs: ticksRemaining * tickIntervalMs,
+    tickIntervalMs,
+  };
+}
 
 export function registerActionTools(server: McpServer, replicantId: string): void {
 
@@ -74,6 +87,9 @@ Your computer simulates the physics, checks your resources and position, and tel
           resolvedAtTick: currentTick,
         });
 
+        const ticksToComplete = outcome.ticksToComplete ?? 0;
+        const estimatedCompletionTick = currentTick + ticksToComplete;
+
         return {
           content: [{
             type: 'text',
@@ -88,28 +104,37 @@ Your computer simulates the physics, checks your resources and position, and tel
               },
               outcomes: outcome.outcomes,
               appliedChanges: log,
+              timing: timingInfo(currentTick, estimatedCompletionTick, config.game.tickIntervalMs),
             }, null, 2),
           }],
         };
       }
 
       // Preview only
-      return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            status: 'PREVIEW',
-            reason: outcome.reason,
-            costs: {
-              compute: outcome.computeCost,
-              energy: outcome.energyCost,
-              ticks: outcome.ticksToComplete,
-            },
-            outcomes: outcome.outcomes,
-            message: 'This is a preview. Call again with autoApply: true to execute.',
-          }, null, 2),
-        }],
-      };
+      {
+        const previewTick = await Tick.findOne().sort({ tickNumber: -1 }).lean();
+        const previewCurrentTick = previewTick?.tickNumber ?? 0;
+        const previewTicksToComplete = outcome.ticksToComplete ?? 0;
+        const previewCompletionTick = previewCurrentTick + previewTicksToComplete;
+
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              status: 'PREVIEW',
+              reason: outcome.reason,
+              costs: {
+                compute: outcome.computeCost,
+                energy: outcome.energyCost,
+                ticks: outcome.ticksToComplete,
+              },
+              outcomes: outcome.outcomes,
+              message: 'This is a preview. Call again with autoApply: true to execute.',
+              timing: timingInfo(previewCurrentTick, previewCompletionTick, config.game.tickIntervalMs),
+            }, null, 2),
+          }],
+        };
+      }
     },
   );
 }

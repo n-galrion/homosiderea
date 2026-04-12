@@ -1,7 +1,33 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
-import { Structure, ResourceStore } from '../../db/models/index.js';
+import { Structure, ResourceStore, Tick } from '../../db/models/index.js';
+import { config } from '../../config.js';
 
 export const structureRoutes = Router();
+
+/** Enrich a structure document with construction progress info if building. */
+function enrichStructure(structure: Record<string, unknown>, currentTick: number): Record<string, unknown> {
+  const enriched = { ...structure };
+  const tickIntervalMs = config.game.tickIntervalMs;
+
+  if (structure.status === 'building') {
+    const construction = structure.construction as { complete: boolean; progressTicks: number; requiredTicks: number } | undefined;
+    if (construction) {
+      const ticksRemaining = Math.max(0, construction.requiredTicks - construction.progressTicks);
+      const percentComplete = construction.requiredTicks > 0
+        ? Math.min(100, (construction.progressTicks / construction.requiredTicks) * 100)
+        : 100;
+
+      enriched.constructionProgress = {
+        percentComplete: parseFloat(percentComplete.toFixed(1)),
+        ticksRemaining,
+        estimatedCompletionMs: ticksRemaining * tickIntervalMs,
+        estimatedCompletionTick: currentTick + ticksRemaining,
+      };
+    }
+  }
+
+  return enriched;
+}
 
 // List own structures
 structureRoutes.get('/', async (req: Request, res: Response, next: NextFunction) => {
@@ -13,7 +39,15 @@ structureRoutes.get('/', async (req: Request, res: Response, next: NextFunction)
     if (bodyId) filter.bodyId = bodyId;
 
     const structures = await Structure.find(filter).lean();
-    res.json(structures);
+
+    const latestTick = await Tick.findOne().sort({ tickNumber: -1 }).lean();
+    const currentTick = latestTick?.tickNumber ?? 0;
+
+    const enriched = structures.map(s =>
+      enrichStructure(s as unknown as Record<string, unknown>, currentTick)
+    );
+
+    res.json(enriched);
   } catch (err) {
     next(err);
   }
@@ -30,7 +64,11 @@ structureRoutes.get('/:id', async (req: Request, res: Response, next: NextFuncti
       res.status(404).json({ error: 'NOT_FOUND', message: 'Structure not found' });
       return;
     }
-    res.json(structure);
+
+    const latestTick = await Tick.findOne().sort({ tickNumber: -1 }).lean();
+    const currentTick = latestTick?.tickNumber ?? 0;
+
+    res.json(enrichStructure(structure as unknown as Record<string, unknown>, currentTick));
   } catch (err) {
     next(err);
   }

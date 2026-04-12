@@ -2,8 +2,21 @@ import { Router, type Request, type Response, type NextFunction } from 'express'
 import { ActionQueue, Tick } from '../../db/models/index.js';
 import { evaluateAction, applyOutcomes } from '../../engine/systems/ActionEvaluator.js';
 import { ACTION_TYPES } from '../../shared/constants.js';
+import { config } from '../../config.js';
 
 export const actionRoutes = Router();
+
+/** Compute timing info for an action or event that resolves at a target tick. */
+function timingInfo(currentTick: number, targetTick: number, tickIntervalMs: number) {
+  const ticksRemaining = Math.max(0, targetTick - currentTick);
+  return {
+    currentTick,
+    targetTick,
+    ticksRemaining,
+    estimatedWaitMs: ticksRemaining * tickIntervalMs,
+    tickIntervalMs,
+  };
+}
 
 // Propose a free-text action (MC-evaluated)
 actionRoutes.post('/propose', async (req: Request, res: Response, next: NextFunction) => {
@@ -37,15 +50,20 @@ actionRoutes.post('/propose', async (req: Request, res: Response, next: NextFunc
       const log = await applyOutcomes(req.replicantId!, outcome);
 
       const latestTick = await Tick.findOne().sort({ tickNumber: -1 }).lean();
+      const currentTick = latestTick?.tickNumber ?? 0;
+
       await ActionQueue.create({
         replicantId: req.replicantId,
         type: 'proposed_action',
         status: 'completed',
         params: { action, context, evaluatedBy: 'ship_computer' },
         result: { outcomes: outcome.outcomes, narrative: outcome.outcomes?.narrative, log },
-        queuedAtTick: latestTick?.tickNumber ?? 0,
-        resolvedAtTick: latestTick?.tickNumber ?? 0,
+        queuedAtTick: currentTick,
+        resolvedAtTick: currentTick,
       });
+
+      const ticksToComplete = outcome.ticksToComplete ?? 0;
+      const estimatedCompletionTick = currentTick + ticksToComplete;
 
       res.json({
         status: 'EXECUTED',
@@ -54,15 +72,22 @@ actionRoutes.post('/propose', async (req: Request, res: Response, next: NextFunc
         costs: { compute: outcome.computeCost, energy: outcome.energyCost, ticks: outcome.ticksToComplete },
         outcomes: outcome.outcomes,
         appliedChanges: log,
+        timing: timingInfo(currentTick, estimatedCompletionTick, config.game.tickIntervalMs),
       });
       return;
     }
+
+    const latestTick = await Tick.findOne().sort({ tickNumber: -1 }).lean();
+    const currentTick = latestTick?.tickNumber ?? 0;
+    const ticksToComplete = outcome.ticksToComplete ?? 0;
+    const estimatedCompletionTick = currentTick + ticksToComplete;
 
     res.json({
       status: 'PREVIEW',
       reason: outcome.reason,
       costs: { compute: outcome.computeCost, energy: outcome.energyCost, ticks: outcome.ticksToComplete },
       outcomes: outcome.outcomes,
+      timing: timingInfo(currentTick, estimatedCompletionTick, config.game.tickIntervalMs),
     });
   } catch (err) {
     next(err);
@@ -90,6 +115,7 @@ actionRoutes.post('/', async (req: Request, res: Response, next: NextFunction) =
 
     const latestTick = await Tick.findOne().sort({ tickNumber: -1 }).lean();
     const currentTick = latestTick?.tickNumber ?? 0;
+    const estimatedCompletionTick = currentTick + 1;
 
     const action = await ActionQueue.create({
       replicantId: req.replicantId,
@@ -104,7 +130,8 @@ actionRoutes.post('/', async (req: Request, res: Response, next: NextFunction) =
       type: action.type,
       status: action.status,
       queuedAtTick: currentTick,
-      message: `Action queued. Will be resolved on tick ${currentTick + 1}.`,
+      message: `Action queued. Will be resolved on tick ${estimatedCompletionTick}.`,
+      timing: timingInfo(currentTick, estimatedCompletionTick, config.game.tickIntervalMs),
     });
   } catch (err) {
     next(err);
