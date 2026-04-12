@@ -12,6 +12,7 @@ import { simulateSettlements } from './systems/SettlementBehavior.js';
 import { generateCaptainsLog } from './systems/CaptainsLog.js';
 import { processMaintenance } from './systems/Maintenance.js';
 import { processOrbitFuelDrain } from './systems/FuelConsumption.js';
+import { processRandomEvents } from './systems/RandomEvents.js';
 
 /**
  * Orchestrates the processing of a single game tick.
@@ -135,7 +136,17 @@ export class TickProcessor {
       errors.push(`CaptainsLog: ${err instanceof Error ? err.message : String(err)}`);
     }
 
-    // Phase 15: Save Tick Record
+    // Phase 15: Random Events
+    try {
+      const eventLogs = await processRandomEvents(tickNumber);
+      if (eventLogs.length > 0) {
+        errors.push(...eventLogs.map(l => `[EVENT] ${l}`));
+      }
+    } catch (err) {
+      errors.push(`RandomEvents: ${err instanceof Error ? err.message : String(err)}`);
+    }
+
+    // Phase 16: Save Tick Record
     const durationMs = Date.now() - startTime;
 
     tickRecord.completedAt = new Date();
