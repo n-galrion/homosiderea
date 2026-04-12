@@ -17,30 +17,37 @@ export function registerCommunicationTools(server: McpServer, replicantId: strin
 
   server.tool(
     'send_message',
-    'Send a message to another Replicant. Delivery is subject to light-speed delay based on distance.',
+    'Send a message to another Replicant by name or ID. Delivery is subject to light-speed delay based on distance.',
     {
-      recipientId: z.string().describe('ID of the recipient Replicant'),
+      recipientId: z.string().optional().describe('ID of the recipient Replicant'),
+      recipientName: z.string().optional().describe('Name of the recipient (alternative to ID)'),
       subject: z.string().optional().describe('Message subject'),
       body: z.string().describe('Message body'),
       metadata: z.record(z.string(), z.unknown()).optional().describe('Structured metadata (trade offers, scan data, etc.)'),
     },
-    async ({ recipientId: recipId, subject, body, metadata }) => {
-      const recipient = await Replicant.findById(recipId);
+    async ({ recipientId: recipId, recipientName, subject, body, metadata }) => {
+      let recipient;
+      if (recipId) {
+        recipient = await Replicant.findById(recipId);
+      } else if (recipientName) {
+        recipient = await Replicant.findOne({ name: new RegExp(`^${recipientName}$`, 'i') });
+      }
       if (!recipient) {
-        return { content: [{ type: 'text', text: 'Error: Recipient not found.' }] };
+        return { content: [{ type: 'text', text: `Error: Recipient not found. ${recipientName ? `No replicant named "${recipientName}".` : ''} Use list_nearby_ships or GET /api/world/replicants to find others.` }] };
       }
 
       const latestTick = await Tick.findOne().sort({ tickNumber: -1 }).lean();
       const currentTick = latestTick?.tickNumber ?? 0;
 
+      const recipientIdStr = recipient._id.toString();
       const senderPos = await getReplicantPosition(replicantId);
-      const recipientPos = await getReplicantPosition(recipId);
+      const recipientPos = await getReplicantPosition(recipientIdStr);
       const dist = distance(senderPos, recipientPos);
       const delay = lightDelayTicks(senderPos, recipientPos);
 
       const msg = await Message.create({
         senderId: replicantId,
-        recipientId: recipId,
+        recipientId: recipientIdStr,
         subject: subject || '',
         body,
         metadata: metadata || {},

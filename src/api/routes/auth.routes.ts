@@ -1,7 +1,7 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { nanoid } from 'nanoid';
-import { Replicant, Ship, ResourceStore, CelestialBody, AMI, Settlement } from '../../db/models/index.js';
+import { Replicant, Ship, ResourceStore, CelestialBody, AMI, Settlement, KnownEntity } from '../../db/models/index.js';
 import { config } from '../../config.js';
 import { Tick } from '../../db/models/index.js';
 import { DEFAULT_REPLICANT_COMPUTE, DEFAULT_REPLICANT_ENERGY } from '../../shared/constants.js';
@@ -109,6 +109,49 @@ authRoutes.post('/register', async (req: Request, res: Response, next: NextFunct
     // Set replicant's location to the ship
     replicant.locationRef = { kind: 'Ship', item: ship._id };
     await replicant.save();
+
+    // Seed initial knowledge — new replicants know nearby visible bodies
+    const visibleBodies = await CelestialBody.find({
+      type: { $in: ['star', 'planet', 'dwarf_planet'] },
+    }).lean();
+    const nearbyMoons = earth
+      ? await CelestialBody.find({ parentId: earth._id }).lean()
+      : [];
+    const knownBodies = [...visibleBodies, ...nearbyMoons];
+
+    const knowledgeEntries = knownBodies.map(b => ({
+      replicantId: replicant._id,
+      entityType: 'celestial_body' as const,
+      entityId: b._id,
+      entityName: b.name,
+      discoveredAtTick: currentTick,
+      discoveredBy: 'initial' as const,
+      lastUpdatedTick: currentTick,
+      lastKnownPosition: b.position,
+      intelLevel: b.name === 'Earth' || b.name === 'Luna' ? 'complete' as const : 'vague' as const,
+    }));
+
+    // Also know nearby settlements
+    const earthSettlementsForKnowledge = earth
+      ? await Settlement.find({ bodyId: earth._id }).lean()
+      : [];
+    const settlementKnowledge = earthSettlementsForKnowledge.map(s => ({
+      replicantId: replicant._id,
+      entityType: 'settlement' as const,
+      entityId: s._id,
+      entityName: s.name,
+      discoveredAtTick: currentTick,
+      discoveredBy: 'initial' as const,
+      lastUpdatedTick: currentTick,
+      lastKnownPosition: null,
+      intelLevel: 'basic' as const,
+    }));
+
+    if (settlementKnowledge.length > 0) {
+      await KnownEntity.insertMany(settlementKnowledge);
+    }
+
+    await KnownEntity.insertMany(knowledgeEntries);
 
     // Fetch nearby settlements for immersive briefing
     const nearbySettlements = earth
