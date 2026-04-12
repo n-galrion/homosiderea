@@ -399,6 +399,25 @@ export async function applyOutcomes(
     const store = await ResourceStore.findOne({ 'ownerRef.kind': rc.targetType, 'ownerRef.item': targetId });
     if (store && rc.resource in store) {
       const storeAny = store as unknown as Record<string, number>;
+
+      // Enforce cargo capacity for ships
+      if (rc.targetType === 'Ship' && rc.delta > 0) {
+        const CARGO_FIELDS = ['metals','ice','silicates','rareEarths','helium3','organics','hydrogen','uranium','carbon','alloys','fuel','electronics','hullPlating','engines','sensors','computers','weaponSystems','lifeSupportUnits','solarPanels','fusionCores'];
+        const totalUsed = CARGO_FIELDS.reduce((sum, f) => sum + (storeAny[f] || 0), 0);
+        const ship = await Ship.findById(targetId).lean();
+        if (ship) {
+          const space = ship.specs.cargoCapacity - totalUsed;
+          if (space <= 0) {
+            log.push(`REJECTED: ${rc.resource} +${rc.delta} on ${rc.target} — cargo full (${totalUsed}/${ship.specs.cargoCapacity})`);
+            continue;
+          }
+          if (rc.delta > space) {
+            log.push(`CLAMPED: ${rc.resource} +${rc.delta} → +${space} on ${rc.target} — cargo limit`);
+            rc.delta = space;
+          }
+        }
+      }
+
       storeAny[rc.resource] = Math.max(0, (storeAny[rc.resource] || 0) + rc.delta);
       await store.save();
       log.push(`${rc.resource} on ${rc.targetType}:${rc.target} changed by ${rc.delta}`);

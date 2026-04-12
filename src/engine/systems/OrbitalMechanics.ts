@@ -1,4 +1,4 @@
-import { CelestialBody } from '../../db/models/index.js';
+import { CelestialBody, Ship } from '../../db/models/index.js';
 import { computeOrbitalPosition, solarEnergyFactor } from '../../shared/physics.js';
 import type { Position } from '../../shared/types.js';
 
@@ -102,5 +102,26 @@ export async function updateAllPositions(tick: number): Promise<void> {
 
   if (bulkOps.length > 0) {
     await CelestialBody.bulkWrite(bulkOps);
+  }
+
+  // Update positions of all orbiting ships to match their parent body
+  const orbitingShips = await Ship.find({
+    status: 'orbiting',
+    orbitingBodyId: { $ne: null },
+  });
+
+  for (const ship of orbitingShips) {
+    const bodyPos = computedPositions.get(ship.orbitingBodyId!.toString());
+    if (bodyPos) {
+      ship.position = bodyPos;
+      await ship.save();
+    } else {
+      // Body wasn't in computed set — look it up directly
+      const body = await CelestialBody.findById(ship.orbitingBodyId).lean();
+      if (body) {
+        ship.position = body.position;
+        await ship.save();
+      }
+    }
   }
 }
