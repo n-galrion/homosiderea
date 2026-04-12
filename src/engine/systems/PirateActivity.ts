@@ -1,15 +1,9 @@
 import { Ship, Replicant, MemoryLog, Message, Tick, ResourceStore } from '../../db/models/index.js';
 import { distance } from '../../shared/physics.js';
-import { nanoid } from 'nanoid';
+import { generatePirateName } from '../../shared/nameGen.js';
+import { generateSalvageFromShip } from './SalvageGenerator.js';
 
 const PIRATE_OWNER_ID = '000000000000000000000001'; // sentinel for pirate ships
-
-const PIRATE_NAMES = [
-  'Void Reaper', 'Dust Runner', 'Shadow of Ceres', 'Iron Fang',
-  'Black Albedo', 'Perihelion Raider', 'Trojan Specter', 'Red Shift',
-  'Kuiper Ghost', 'Belt Shark', 'Debris Wolf', 'Dark Transit',
-  'Orbital Jackal', 'Slag Witch', 'The Scavenger',
-];
 
 const PIRATE_TAUNTS = [
   'Drop your cargo or we drop your hull integrity. Your choice.',
@@ -43,7 +37,7 @@ export async function ensurePiratePresence(tick: number): Promise<number> {
   ];
 
   const pos = spawnLocations[Math.floor(Math.random() * spawnLocations.length)];
-  const pirateName = PIRATE_NAMES[Math.floor(Math.random() * PIRATE_NAMES.length)] + `-${nanoid(3)}`;
+  const pirateName = generatePirateName();
 
   await Ship.create({
     name: pirateName,
@@ -132,6 +126,9 @@ export async function simulatePirates(tick: number): Promise<string[]> {
 
         if (closestShip.specs.hullPoints <= 0) {
           closestShip.status = 'destroyed';
+
+          // Generate salvage and black box
+          await generateSalvageFromShip(closestShip, tick, 'player');
 
           // Pirate loots some cargo
           const victimStore = await ResourceStore.findOne({

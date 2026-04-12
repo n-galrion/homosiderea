@@ -16,6 +16,7 @@ import { registerActionTools } from './action.tools.js';
 import { registerFabricationTools } from './fabrication.tools.js';
 import { registerTradeTools } from './trade.tools.js';
 import { registerHackingTools } from './hacking.tools.js';
+import { registerSalvageTools } from './salvage.tools.js';
 
 export function registerAllTools(server: McpServer, replicantId: string): void {
   registerScanningTools(server, replicantId);
@@ -35,4 +36,5 @@ export function registerAllTools(server: McpServer, replicantId: string): void {
   registerFabricationTools(server, replicantId);
   registerTradeTools(server, replicantId);
   registerHackingTools(server, replicantId);
+  registerSalvageTools(server, replicantId);
 }
