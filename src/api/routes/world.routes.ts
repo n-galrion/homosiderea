@@ -330,12 +330,35 @@ worldRoutes.get('/replicants', async (req: Request, res: Response, next: NextFun
 worldRoutes.get('/action-types', async (_req: Request, res: Response, next: NextFunction) => {
   try {
     res.json({
-      structured: ACTION_TYPES.map(t => t),
+      structured: {
+        scan: { params: { shipId: 'string' }, description: 'Scan surroundings from ship position' },
+        move: { params: { shipId: 'string', destinationBodyId: 'string' }, description: 'Move ship to a celestial body' },
+        mine: { params: { shipId: 'string (optional)', structureId: 'string (optional)', resourceType: 'string (optional — omit to mine all)' }, description: 'Start continuous mining at current location' },
+        build_structure: { params: { shipId: 'string', bodyId: 'string', structureType: 'habitat|mine|refinery|factory|solar_array|fusion_plant|shipyard|sensor_station|relay_station', name: 'string', siteId: 'string (optional)', colonyId: 'string (optional)' }, description: 'Build a structure. Ship must orbit the body with required materials.' },
+        build_ship: { params: { shipyardId: 'string', blueprintId: 'string', name: 'string' }, description: 'Build a ship at a shipyard' },
+        manufacture: { params: { structureId: 'string', blueprintId: 'string', quantity: 'number' }, description: 'Manufacture items from a blueprint' },
+        refine: { params: { structureId: 'string', blueprintId: 'string', quantity: 'number' }, description: 'Refine raw materials' },
+        replicate: { params: { name: 'string', directive: 'string', shipId: 'string', initialMemories: 'string[] (optional)' }, description: 'Spawn a new autonomous Replicant' },
+        send_message: { params: { recipientId: 'string', subject: 'string (optional)', body: 'string', metadata: 'object (optional)' }, description: 'Send a message (light-speed delay)' },
+        transfer_resources: { params: { fromId: 'string', fromType: 'Ship|Structure', toId: 'string', toType: 'Ship|Structure', resources: '{ resourceName: amount, ... }' }, description: 'Move resources between ship/structure at same location' },
+        found_colony: { params: { name: 'string', siteId: 'string', shipId: 'string' }, description: 'Found a colony at a landing site' },
+        dock: { params: { shipId: 'string', structureId: 'string' }, description: 'Dock a ship at a structure' },
+        undock: { params: { shipId: 'string' }, description: 'Undock a ship' },
+        attack: { params: { shipId: 'string', targetShipId: 'string' }, description: 'Attack a ship (use attack_ship MCP tool for better results)' },
+      },
       propose: {
         endpoint: 'POST /api/actions/propose',
         body: '{ action: "free text description", context?: "additional context", autoApply?: true }',
-        description: 'Ship computer simulates the physics and evaluates any free-text action',
+        description: 'Ship computer simulates physics and evaluates any free-text action. Use this when structured actions don\'t cover what you want to do.',
       },
+      directTools: {
+        note: 'These are available as MCP tools or REST endpoints — no action queue needed:',
+        mining: 'POST /api/ships/:id/autofactory — { recipeId, quantity } — fabricate items from cargo',
+        trade: 'Use the "trade" MCP tool, or hail_settlement to negotiate',
+        repair: 'Use the "repair_ship" MCP tool',
+        combat: 'Use the "attack_ship" MCP tool',
+      },
+      marketNote: 'In market prices: "buy" = what they pay YOU (sell your stuff). "sell" = what they charge YOU (buy their stuff). Fuel is the universal currency.',
     });
   } catch (err) {
     next(err);

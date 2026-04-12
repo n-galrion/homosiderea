@@ -7,19 +7,36 @@ import { InvalidActionError, NotFoundError, InsufficientResourcesError } from '.
  * Supports Ship<->Ship, Ship<->Structure, Structure<->Structure transfers.
  */
 export async function handleTransferResources(action: IActionQueue, tick: number): Promise<Record<string, unknown>> {
-  const { sourceKind, sourceId, targetKind, targetId, transfers } = action.params as {
-    sourceKind?: 'Ship' | 'Structure';
-    sourceId?: string;
-    targetKind?: 'Ship' | 'Structure';
-    targetId?: string;
-    transfers?: Array<{ resource: string; amount: number }>;
-  };
+  const p = action.params as Record<string, unknown>;
+
+  // Accept both naming conventions
+  const sourceKind = (p.sourceKind || p.fromType) as 'Ship' | 'Structure' | undefined;
+  const sourceId = (p.sourceId || p.fromId) as string | undefined;
+  const targetKind = (p.targetKind || p.toType) as 'Ship' | 'Structure' | undefined;
+  const targetId = (p.targetId || p.toId) as string | undefined;
+
+  // Accept transfers as array [{resource, amount}] or object {resource: amount}
+  let transfers: Array<{ resource: string; amount: number }> | undefined;
+  if (Array.isArray(p.transfers)) {
+    transfers = p.transfers as Array<{ resource: string; amount: number }>;
+  } else if (p.resources && typeof p.resources === 'object') {
+    transfers = Object.entries(p.resources as Record<string, number>)
+      .filter(([, v]) => v > 0)
+      .map(([resource, amount]) => ({ resource, amount }));
+  }
 
   if (!sourceKind || !sourceId || !targetKind || !targetId) {
-    throw new InvalidActionError('Must specify sourceKind, sourceId, targetKind, and targetId');
+    throw new InvalidActionError(
+      'Transfer requires: fromId + fromType + toId + toType + resources. ' +
+      'fromType/toType must be "Ship" or "Structure". ' +
+      'resources is an object like { "metals": 50, "fuel": 20 }. ' +
+      'Example: { "fromId": "shipId", "fromType": "Ship", "toId": "structureId", "toType": "Structure", "resources": { "metals": 50 } }'
+    );
   }
   if (!transfers || transfers.length === 0) {
-    throw new InvalidActionError('Must specify at least one resource transfer');
+    throw new InvalidActionError(
+      'Must specify resources to transfer. Use: resources: { "metals": 50, "fuel": 20 }'
+    );
   }
 
   // Validate ownership — at least one entity must belong to the replicant
