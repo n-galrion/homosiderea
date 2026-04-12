@@ -297,12 +297,15 @@ pagesRoutes.get('/map', requireAuth, async (_req: Request, res: Response, next: 
 pagesRoutes.get('/events', requireAuth, async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const user = res.locals.user;
+    const { getLastEconomyLog } = await import('../../engine/systems/SettlementEconomy.js');
 
     const [ticks, actions, notifications] = await Promise.all([
       Tick.find().sort({ tickNumber: -1 }).limit(20).lean(),
       ActionQueue.find().sort({ createdAt: -1 }).limit(30).populate('replicantId', 'name').lean(),
       Notification.find().sort({ createdAt: -1 }).limit(30).lean(),
     ]);
+
+    const economyLog = getLastEconomyLog();
 
     res.render('feed', {
       title: 'Event Feed',
@@ -312,6 +315,7 @@ pagesRoutes.get('/events', requireAuth, async (_req: Request, res: Response, nex
       ticks,
       actions,
       notifications,
+      economyLog,
     });
   } catch (err) { next(err); }
 });

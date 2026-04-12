@@ -29,6 +29,7 @@
           <span class="filter-btn" onclick="filterFeed('action', this)">Actions</span>
           <span class="filter-btn" onclick="filterFeed('tick', this)">Ticks</span>
           <span class="filter-btn" onclick="filterFeed('notification', this)">Notifications</span>
+          <span class="filter-btn" onclick="filterFeed('economy', this)">Economy</span>
         </div>
 
         <div id="feed-list">
@@ -66,6 +67,35 @@
             </div>
           <% } %>
 
+          <!-- Economy -->
+          <% if (typeof economyLog !== 'undefined' && economyLog.length > 0) { %>
+            <% for (const e of economyLog) { %>
+              <div class="feed-entry" data-type="economy">
+                <div class="feed-tick" style="color: <%= e.satisfaction >= 0.8 ? 'var(--green)' : e.satisfaction >= 0.5 ? 'var(--accent)' : 'var(--red)' %>"><%= e.status %></div>
+                <div class="feed-content">
+                  <div>
+                    <span class="badge" style="background:rgba(245,158,11,0.15);color:var(--accent);border:1px solid var(--accent);">economy</span>
+                    <strong><%= e.settlement %></strong>
+                    <span class="text-dim" style="font-size:11px;margin-left:8px;">
+                      satisfaction <%= (e.satisfaction * 100).toFixed(0) %>% · efficiency <%= (e.efficiency * 100).toFixed(0) %>% · pop <%= e.populationDelta > 0 ? '+' : '' %><%= e.populationDelta %>
+                    </span>
+                  </div>
+                  <div class="feed-desc" style="font-size:12px;">
+                    <% if (Object.keys(e.consumed).length > 0) { %>
+                      <span class="text-dim">consumed:</span> <%= Object.entries(e.consumed).map(function(x) { return x[1].toFixed(0) + ' ' + x[0]; }).join(', ') %>
+                    <% } %>
+                    <% if (Object.keys(e.produced).length > 0) { %>
+                      · <span class="text-dim">produced:</span> <%= Object.entries(e.produced).map(function(x) { return x[1].toFixed(0) + ' ' + x[0]; }).join(', ') %>
+                    <% } %>
+                    <% if (e.deficits.length > 0) { %>
+                      · <span style="color:var(--red);">deficits: <%= e.deficits.join(', ') %></span>
+                    <% } %>
+                  </div>
+                </div>
+              </div>
+            <% } %>
+          <% } %>
+
           <!-- Ticks -->
           <% for (const t of ticks) { %>
             <div class="feed-entry" data-type="tick">
@@ -73,8 +103,8 @@
               <div class="feed-content">
                 <div><span class="badge badge-spectator">tick</span></div>
                 <div class="feed-desc">
-                  Simulation tick completed
-                  <% if (t.phaseDurations) { %> &mdash; <%= Object.keys(t.phaseDurations).length %> phases<% } %>
+                  Completed in <%= t.durationMs || '?' %>ms · <%= t.actionsProcessed || 0 %> actions · <%= t.messagesDelivered || 0 %> messages
+                  <% if (t.tickErrors && t.tickErrors.length > 0) { %> · <span style="color:var(--accent);"><%= t.tickErrors.length %> events</span><% } %>
                 </div>
                 <div class="feed-time"><%= new Date(t.createdAt).toLocaleString() %></div>
               </div>
