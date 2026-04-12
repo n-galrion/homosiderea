@@ -455,6 +455,100 @@ tr.clickable:hover td { background: rgba(59,130,246,0.06); }
 .notification.show { transform: translateY(0); opacity: 1; }
 .notification.success { border-color: var(--green); color: var(--green); }
 .notification.error { border-color: var(--red); color: var(--red); }
+
+/* ===== GAME MASTER FORMS ===== */
+.gm-section {
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.gm-section-title {
+  font-size: 12px; font-weight: 700; color: var(--text-bright);
+  text-transform: uppercase; letter-spacing: 0.5px;
+  margin-bottom: 12px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+.gm-field {
+  margin-bottom: 10px;
+}
+.gm-field label {
+  display: block;
+  font-size: 10px; color: var(--dim-light); text-transform: uppercase;
+  letter-spacing: 0.5px; margin-bottom: 4px;
+}
+.gm-field input[type="text"],
+.gm-field input[type="number"],
+.gm-field textarea,
+.gm-field select {
+  width: 100%;
+  background: var(--bg); border: 1px solid var(--border);
+  color: var(--text); padding: 6px 10px; border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace; font-size: 11px;
+  transition: border-color 0.15s;
+}
+.gm-field input:focus, .gm-field textarea:focus, .gm-field select:focus {
+  outline: none; border-color: var(--accent);
+}
+.gm-field textarea { min-height: 80px; resize: vertical; }
+.gm-field input[type="range"] { width: 100%; accent-color: var(--accent); }
+.gm-actions {
+  display: flex; gap: 8px; align-items: center; margin-top: 10px;
+}
+.gm-result {
+  font-size: 10px; margin-top: 6px; padding: 4px 8px;
+  border-radius: 3px; display: none;
+}
+.gm-result.show { display: block; }
+.gm-result.success { background: var(--green-dim); color: var(--green); border: 1px solid rgba(16,185,129,0.3); }
+.gm-result.error { background: var(--red-dim); color: var(--red); border: 1px solid rgba(239,68,68,0.3); }
+
+/* ===== REPLICANT CONTROL PANEL ===== */
+.rep-control-section {
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 8px;
+}
+.rep-control-section .ctrl-title {
+  font-size: 10px; font-weight: 600; color: var(--accent);
+  text-transform: uppercase; letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+.rep-control-section textarea,
+.rep-control-section input[type="text"] {
+  width: 100%;
+  background: var(--bg); border: 1px solid var(--border);
+  color: var(--text); padding: 6px 10px; border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace; font-size: 11px;
+  margin-bottom: 6px;
+}
+.rep-control-section textarea { min-height: 60px; resize: vertical; }
+.rep-control-section textarea:focus,
+.rep-control-section input[type="text"]:focus { outline: none; border-color: var(--accent); }
+
+/* ===== IDENTITY CARD ===== */
+.identity-card {
+  background: var(--surface-alt);
+  border: 1px solid var(--accent-dim);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 6px 6px 0;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+}
+.identity-card .id-row {
+  display: flex; gap: 8px; margin-bottom: 4px; font-size: 11px;
+}
+.identity-card .id-label {
+  color: var(--dim); min-width: 90px; font-size: 10px; text-transform: uppercase;
+}
+.identity-card .id-value {
+  color: var(--text-bright); flex: 1;
+  white-space: pre-wrap; word-break: break-word;
+}
 </style>
 </head>
 <body>
@@ -487,6 +581,7 @@ tr.clickable:hover td { background: rgba(59,130,246,0.06); }
   <div class="sidebar-item" data-tab="settlements"><span class="icon">&#9636;</span> Settlements</div>
   <div class="sidebar-item" data-tab="actions"><span class="icon">&#9654;</span> Actions</div>
   <div class="sidebar-item" data-tab="messages"><span class="icon">&#9993;</span> Messages</div>
+  <div class="sidebar-item" data-tab="gamemaster"><span class="icon">&#9813;</span> Game Master</div>
 </div>
 
 <!-- ===== MAIN ===== -->
@@ -667,6 +762,138 @@ tr.clickable:hover td { background: rgba(59,130,246,0.06); }
     </div>
   </div>
 
+  <!-- GAME MASTER TAB -->
+  <div class="tab-content" id="tab-gamemaster">
+    <div class="grid-2">
+      <!-- Left Column -->
+      <div>
+        <!-- Send Suggestion -->
+        <div class="gm-section" id="gm-suggest">
+          <div class="gm-section-title">Send Suggestion to Replicant</div>
+          <div class="gm-field">
+            <label>Replicant</label>
+            <select id="gm-suggest-rep"></select>
+          </div>
+          <div class="gm-field">
+            <label>Subject</label>
+            <input type="text" id="gm-suggest-subject" placeholder="System Advisory">
+          </div>
+          <div class="gm-field">
+            <label>Body</label>
+            <textarea id="gm-suggest-body" placeholder="Enter suggestion text..."></textarea>
+          </div>
+          <div class="gm-actions">
+            <button class="btn btn-accent" id="gm-suggest-send">Send Suggestion</button>
+          </div>
+          <div class="gm-result" id="gm-suggest-result"></div>
+        </div>
+
+        <!-- Inject Event -->
+        <div class="gm-section" id="gm-event">
+          <div class="gm-section-title">Inject Event</div>
+          <div class="gm-field">
+            <label>Subject</label>
+            <input type="text" id="gm-event-subject" placeholder="Event Alert">
+          </div>
+          <div class="gm-field">
+            <label>Body</label>
+            <textarea id="gm-event-body" placeholder="Enter event description..."></textarea>
+          </div>
+          <div class="gm-field" style="display:flex;gap:16px;align-items:center">
+            <label class="toggle-label" style="margin:0">
+              <input type="checkbox" id="gm-event-global"> Global (all replicants)
+            </label>
+          </div>
+          <div class="gm-field" id="gm-event-rep-wrap">
+            <label>Replicant (if not global)</label>
+            <select id="gm-event-rep"></select>
+          </div>
+          <div class="gm-actions">
+            <button class="btn btn-accent" id="gm-event-send">Inject Event</button>
+          </div>
+          <div class="gm-result" id="gm-event-result"></div>
+        </div>
+
+        <!-- World Event -->
+        <div class="gm-section" id="gm-world-event">
+          <div class="gm-section-title">World Event</div>
+          <div class="gm-field">
+            <label>Title</label>
+            <input type="text" id="gm-we-title" placeholder="Solar Storm, Trade Embargo, etc.">
+          </div>
+          <div class="gm-field">
+            <label>Description</label>
+            <textarea id="gm-we-desc" placeholder="Describe the world event..."></textarea>
+          </div>
+          <div class="gm-actions">
+            <button class="btn btn-danger" id="gm-we-send">Broadcast World Event</button>
+          </div>
+          <div class="gm-result" id="gm-we-result"></div>
+        </div>
+      </div>
+
+      <!-- Right Column -->
+      <div>
+        <!-- Create NPC -->
+        <div class="gm-section" id="gm-npc">
+          <div class="gm-section-title">Create NPC</div>
+          <div class="gm-field">
+            <label>Name</label>
+            <input type="text" id="gm-npc-name" placeholder="NPC name">
+          </div>
+          <div class="gm-field">
+            <label>Type</label>
+            <select id="gm-npc-type">
+              <option value="trader">Trader</option>
+              <option value="pirate">Pirate</option>
+              <option value="scientist">Scientist</option>
+              <option value="military">Military</option>
+            </select>
+          </div>
+          <div class="gm-field">
+            <label>Directive</label>
+            <textarea id="gm-npc-directive" placeholder="NPC behavior directive..."></textarea>
+          </div>
+          <div class="gm-actions">
+            <button class="btn btn-green" id="gm-npc-create">Create NPC</button>
+          </div>
+          <div class="gm-result" id="gm-npc-result"></div>
+        </div>
+
+        <!-- Modify Settlement -->
+        <div class="gm-section" id="gm-settlement">
+          <div class="gm-section-title">Modify Settlement</div>
+          <div class="gm-field">
+            <label>Settlement</label>
+            <select id="gm-sett-select"></select>
+          </div>
+          <div class="gm-field">
+            <label>Attitude <span id="gm-sett-att-val" style="color:var(--accent)">0.00</span></label>
+            <input type="range" id="gm-sett-attitude" min="-1" max="1" step="0.01" value="0">
+          </div>
+          <div class="gm-field">
+            <label>Status</label>
+            <select id="gm-sett-status">
+              <option value="">(no change)</option>
+              <option value="thriving">Thriving</option>
+              <option value="stable">Stable</option>
+              <option value="struggling">Struggling</option>
+              <option value="damaged">Damaged</option>
+            </select>
+          </div>
+          <div class="gm-field">
+            <label>Population (leave blank for no change)</label>
+            <input type="number" id="gm-sett-pop" placeholder="Population" min="0">
+          </div>
+          <div class="gm-actions">
+            <button class="btn btn-accent" id="gm-sett-save">Save Changes</button>
+          </div>
+          <div class="gm-result" id="gm-sett-result"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <!-- ===== DETAIL OVERLAY ===== -->
@@ -705,6 +932,8 @@ const state = {
   mapOffsetY: 0,
   mapDragging: false,
   mapDragStart: null,
+  // Market price history (client-side tracking)
+  priceHistory: new Map(), // key: "settlementId:resource" -> [{tick, buy, sell}]
 };
 
 // --------------- DOM refs ---------------
@@ -738,6 +967,21 @@ async function apiFetch(url, opts = {}) {
   }
 }
 
+async function apiPost(url, body) {
+  try {
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: adminHeaders(),
+      body: JSON.stringify(body),
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.message || `${resp.status} ${resp.statusText}`);
+    return { ok: true, data };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+}
+
 // --------------- Notifications ---------------
 let notifTimer = null;
 function notify(msg, type = 'success') {
@@ -745,6 +989,45 @@ function notify(msg, type = 'success') {
   $notification.className = 'notification show ' + type;
   clearTimeout(notifTimer);
   notifTimer = setTimeout(() => { $notification.className = 'notification'; }, 3000);
+}
+
+// --------------- GM result feedback ---------------
+function showGmResult(elId, msg, ok) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'gm-result show ' + (ok ? 'success' : 'error');
+  setTimeout(() => { el.className = 'gm-result'; }, 5000);
+}
+
+// --------------- Market Price History Tracking ---------------
+function recordPriceHistory() {
+  const currentTick = state.status?.currentTick;
+  if (currentTick == null) return;
+
+  (state.markets || []).forEach(market => {
+    const settId = market.settlementId?._id || market.settlementId;
+    if (!settId) return;
+    const buyPrices = market.prices?.buy || {};
+    const sellPrices = market.prices?.sell || {};
+    const allRes = new Set([...Object.keys(buyPrices), ...Object.keys(sellPrices)]);
+    allRes.forEach(resource => {
+      const key = settId + ':' + resource;
+      if (!state.priceHistory.has(key)) {
+        state.priceHistory.set(key, []);
+      }
+      const arr = state.priceHistory.get(key);
+      // Avoid duplicating the same tick
+      if (arr.length > 0 && arr[arr.length - 1].tick === currentTick) return;
+      arr.push({
+        tick: currentTick,
+        buy: buyPrices[resource] ?? null,
+        sell: sellPrices[resource] ?? null,
+      });
+      // Keep at most 100 data points
+      if (arr.length > 100) arr.shift();
+    });
+  });
 }
 
 // --------------- Data loading ---------------
@@ -781,8 +1064,14 @@ async function loadAll() {
     $tickDisplay.textContent = 'TICK ' + state.status.currentTick;
   }
 
+  // Record price history after loading market data
+  recordPriceHistory();
+
   // Populate replicant filter for actions
   populateReplicantFilter();
+
+  // Populate Game Master dropdowns
+  populateGmDropdowns();
 
   renderActiveTab();
 }
@@ -799,6 +1088,38 @@ function populateReplicantFilter() {
     sel.appendChild(opt);
   });
   sel.value = current;
+}
+
+function populateGmDropdowns() {
+  // Replicant dropdowns in Game Master tab
+  const repDropdowns = ['gm-suggest-rep', 'gm-event-rep'];
+  repDropdowns.forEach(id => {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    const current = sel.value;
+    sel.innerHTML = '<option value="">-- Select Replicant --</option>';
+    (state.replicants || []).forEach(r => {
+      const opt = document.createElement('option');
+      opt.value = r._id;
+      opt.textContent = r.name + (r.identity?.chosenName ? ' (' + r.identity.chosenName + ')' : '');
+      sel.appendChild(opt);
+    });
+    if (current) sel.value = current;
+  });
+
+  // Settlement dropdown
+  const settSel = document.getElementById('gm-sett-select');
+  if (settSel) {
+    const current = settSel.value;
+    settSel.innerHTML = '<option value="">-- Select Settlement --</option>';
+    (state.settlements || []).forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s._id;
+      opt.textContent = s.name + ' (' + s.nation + ')';
+      settSel.appendChild(opt);
+    });
+    if (current) settSel.value = current;
+  }
 }
 
 // --------------- Tab switching ---------------
@@ -826,6 +1147,7 @@ function renderActiveTab() {
     case 'settlements': renderSettlements(); break;
     case 'actions': renderActions(); break;
     case 'messages': renderMessages(); break;
+    case 'gamemaster': renderGameMaster(); break;
   }
 }
 
@@ -1376,7 +1698,7 @@ function openBodyDetail(body) {
       <table><tbody>
         <tr><td style="color:var(--dim)">Semi-Major Axis</td><td>${fmtNum(body.orbit.semiMajorAxis, 4)} AU</td></tr>
         <tr><td style="color:var(--dim)">Eccentricity</td><td>${fmtNum(body.orbit.eccentricity, 4)}</td></tr>
-        <tr><td style="color:var(--dim)">Inclination</td><td>${fmtNum(body.orbit.inclination, 2)}°</td></tr>
+        <tr><td style="color:var(--dim)">Inclination</td><td>${fmtNum(body.orbit.inclination, 2)}\u00B0</td></tr>
         <tr><td style="color:var(--dim)">Period</td><td>${fmtNum(body.orbit.orbitalPeriod, 1)} ticks</td></tr>
       </tbody></table>
     </div>`;
@@ -1483,6 +1805,24 @@ function openReplicantDetail(rep) {
   let html = `<div class="detail-header">
     <h2>${esc(rep.name)}</h2>
     ${statusBadge(rep.status)}
+  </div>`;
+
+  // Identity Card
+  const identity = rep.identity || {};
+  const displayName = identity.chosenName || rep.name;
+  html += `<div class="identity-card">
+    <div class="id-row">
+      <span class="id-label">Name</span>
+      <span class="id-value" style="font-weight:700;color:var(--accent)">${esc(displayName)}</span>
+    </div>
+    <div class="id-row">
+      <span class="id-label">Background</span>
+      <span class="id-value">${esc(identity.background || '(not set)')}</span>
+    </div>
+    <div class="id-row">
+      <span class="id-label">Personality</span>
+      <span class="id-value">${esc(identity.personality || '(not set)')}</span>
+    </div>
   </div>`;
 
   // Profile
@@ -1603,7 +1943,117 @@ function openReplicantDetail(rep) {
     html += '</tbody></table></div>';
   }
 
+  // MC Control Panel for this replicant
+  const repId = rep._id;
+  html += `<div class="detail-section">
+    <div class="detail-section-title">MC Controls</div>
+
+    <div class="rep-control-section">
+      <div class="ctrl-title">Send Suggestion</div>
+      <input type="text" id="rep-suggest-subject-${repId}" placeholder="Subject (optional)">
+      <textarea id="rep-suggest-body-${repId}" placeholder="Enter suggestion text..."></textarea>
+      <div style="display:flex;gap:6px;align-items:center">
+        <button class="btn btn-accent btn-sm" onclick="repSendSuggestion('${repId}')">Send Suggestion</button>
+        <span class="gm-result" id="rep-suggest-result-${repId}" style="margin:0"></span>
+      </div>
+    </div>
+
+    <div class="rep-control-section">
+      <div class="ctrl-title">Send Event</div>
+      <input type="text" id="rep-event-subject-${repId}" placeholder="Subject (optional)">
+      <textarea id="rep-event-body-${repId}" placeholder="Enter event text..."></textarea>
+      <div style="display:flex;gap:6px;align-items:center">
+        <button class="btn btn-accent btn-sm" onclick="repSendEvent('${repId}')">Send Event</button>
+        <span class="gm-result" id="rep-event-result-${repId}" style="margin:0"></span>
+      </div>
+    </div>
+
+    <div class="rep-control-section">
+      <div class="ctrl-title">Update Directive</div>
+      <textarea id="rep-directive-body-${repId}" placeholder="New directive instruction...">${esc(rep.directive || '')}</textarea>
+      <div style="display:flex;gap:6px;align-items:center">
+        <button class="btn btn-accent btn-sm" onclick="repUpdateDirective('${repId}')">Send Directive Update</button>
+        <span class="gm-result" id="rep-directive-result-${repId}" style="margin:0"></span>
+      </div>
+    </div>
+
+    <div class="rep-control-section" style="border-color:var(--red-dim)">
+      <div class="ctrl-title" style="color:var(--red)">Danger Zone</div>
+      <button class="btn btn-danger btn-sm" onclick="repReboot('${repId}', '${esc(rep.name)}')">Reboot Replicant</button>
+    </div>
+  </div>`;
+
   openDetail(html);
+}
+
+// Replicant control actions (global functions for onclick)
+async function repSendSuggestion(repId) {
+  const subject = document.getElementById('rep-suggest-subject-' + repId)?.value || '';
+  const body = document.getElementById('rep-suggest-body-' + repId)?.value || '';
+  if (!body.trim()) {
+    showGmResultInline('rep-suggest-result-' + repId, 'Body is required', false);
+    return;
+  }
+  const result = await apiPost('/api/admin/suggest', { replicantId: repId, subject: subject || 'System Advisory', body });
+  showGmResultInline('rep-suggest-result-' + repId, result.ok ? result.data.message : result.error, result.ok);
+  if (result.ok) {
+    document.getElementById('rep-suggest-body-' + repId).value = '';
+    document.getElementById('rep-suggest-subject-' + repId).value = '';
+  }
+}
+
+async function repSendEvent(repId) {
+  const subject = document.getElementById('rep-event-subject-' + repId)?.value || '';
+  const body = document.getElementById('rep-event-body-' + repId)?.value || '';
+  if (!body.trim()) {
+    showGmResultInline('rep-event-result-' + repId, 'Body is required', false);
+    return;
+  }
+  const result = await apiPost('/api/admin/event', { replicantId: repId, subject: subject || 'Event Alert', body });
+  showGmResultInline('rep-event-result-' + repId, result.ok ? result.data.message : result.error, result.ok);
+  if (result.ok) {
+    document.getElementById('rep-event-body-' + repId).value = '';
+    document.getElementById('rep-event-subject-' + repId).value = '';
+  }
+}
+
+async function repUpdateDirective(repId) {
+  const body = document.getElementById('rep-directive-body-' + repId)?.value || '';
+  if (!body.trim()) {
+    showGmResultInline('rep-directive-result-' + repId, 'Directive text is required', false);
+    return;
+  }
+  const result = await apiPost('/api/admin/suggest', {
+    replicantId: repId,
+    subject: 'Directive Update',
+    body: '[DIRECTIVE UPDATE] ' + body,
+    metadata: { type: 'directive_update' },
+  });
+  showGmResultInline('rep-directive-result-' + repId, result.ok ? 'Directive update sent' : result.error, result.ok);
+}
+
+async function repReboot(repId, repName) {
+  if (!confirm('Reboot replicant "' + repName + '"? This will send a reboot advisory.')) return;
+  const result = await apiPost('/api/admin/suggest', {
+    replicantId: repId,
+    subject: 'SYSTEM REBOOT',
+    body: '[SYSTEM] Reboot initiated by Mission Control. All current tasks will be interrupted. Replicant state will be reset.',
+    metadata: { type: 'reboot_command' },
+  });
+  if (result.ok) {
+    notify('Reboot advisory sent to ' + repName);
+  } else {
+    notify('Failed: ' + result.error, 'error');
+  }
+}
+
+function showGmResultInline(elId, msg, ok) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'gm-result show ' + (ok ? 'success' : 'error');
+  el.style.display = 'inline-block';
+  setTimeout(() => { el.className = 'gm-result'; el.style.display = 'none'; }, 4000);
 }
 
 // ================ RENDER: SHIPS ================
@@ -1967,6 +2417,24 @@ function openSettlementDetail(sett) {
       | Min attitude to trade: ${market.restrictions?.minAttitudeToTrade ?? 'N/A'}
     </div>`;
     html += '</div>';
+
+    // Market Price History Chart
+    const settId = market.settlementId?._id || market.settlementId || sett._id;
+    const chartResources = [];
+    allResources.forEach(r => {
+      const key = settId + ':' + r;
+      const history = state.priceHistory.get(key);
+      if (history && history.length > 1) {
+        chartResources.push({ resource: r, history });
+      }
+    });
+
+    if (chartResources.length > 0) {
+      html += `<div class="detail-section">
+        <div class="detail-section-title">Price History</div>
+        <canvas id="sett-price-chart-${settId}" class="chart-canvas" style="height:250px"></canvas>
+      </div>`;
+    }
   }
 
   // Defenses
@@ -1980,6 +2448,144 @@ function openSettlementDetail(sett) {
   </div>`;
 
   openDetail(html);
+
+  // Draw price chart after DOM is updated
+  if (market) {
+    const settId = market.settlementId?._id || market.settlementId || sett._id;
+    const buyPrices = market.prices?.buy || {};
+    const sellPrices = market.prices?.sell || {};
+    const allResources = [...new Set([...Object.keys(buyPrices), ...Object.keys(sellPrices)])].sort();
+    const chartResources = [];
+    allResources.forEach(r => {
+      const key = settId + ':' + r;
+      const history = state.priceHistory.get(key);
+      if (history && history.length > 1) {
+        chartResources.push({ resource: r, history });
+      }
+    });
+    if (chartResources.length > 0) {
+      setTimeout(() => drawPriceChart(settId, chartResources), 50);
+    }
+  }
+}
+
+// ================ PRICE HISTORY CHART ================
+function drawPriceChart(settId, chartResources) {
+  const canvas = document.getElementById('sett-price-chart-' + settId);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const rect = canvas.parentElement.getBoundingClientRect();
+  canvas.width = rect.width - 4;
+  canvas.height = 250;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  const padding = { top: 20, right: 120, bottom: 30, left: 55 };
+  const w = canvas.width - padding.left - padding.right;
+  const h = canvas.height - padding.top - padding.bottom;
+
+  // Determine global min/max tick and price
+  let minTick = Infinity, maxTick = -Infinity, maxPrice = 0;
+  chartResources.forEach(({ history }) => {
+    history.forEach(pt => {
+      if (pt.tick < minTick) minTick = pt.tick;
+      if (pt.tick > maxTick) maxTick = pt.tick;
+      if (pt.buy != null && pt.buy > maxPrice) maxPrice = pt.buy;
+      if (pt.sell != null && pt.sell > maxPrice) maxPrice = pt.sell;
+    });
+  });
+  if (maxPrice === 0) maxPrice = 1;
+  const tickRange = maxTick - minTick || 1;
+
+  // Grid lines
+  ctx.strokeStyle = '#1f2937';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = padding.top + (h / 4) * i;
+    ctx.beginPath();
+    ctx.moveTo(padding.left, y);
+    ctx.lineTo(padding.left + w, y);
+    ctx.stroke();
+    ctx.fillStyle = '#6b7280';
+    ctx.font = '9px JetBrains Mono';
+    ctx.textAlign = 'right';
+    ctx.fillText(fmtNum(maxPrice - (maxPrice / 4) * i, 1), padding.left - 5, y + 3);
+  }
+
+  // X axis labels
+  ctx.fillStyle = '#6b7280';
+  ctx.font = '9px JetBrains Mono';
+  ctx.textAlign = 'center';
+  const tickStep = Math.max(1, Math.floor(tickRange / 6));
+  for (let t = minTick; t <= maxTick; t += tickStep) {
+    const x = padding.left + ((t - minTick) / tickRange) * w;
+    ctx.fillText('T' + t, x, canvas.height - 5);
+  }
+
+  // Color palette for resources
+  const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316', '#ec4899'];
+
+  // Draw lines for each resource
+  chartResources.forEach(({ resource, history }, idx) => {
+    const baseColor = colors[idx % colors.length];
+
+    // Buy price line (solid)
+    const buyPoints = history.filter(pt => pt.buy != null);
+    if (buyPoints.length > 1) {
+      ctx.strokeStyle = baseColor;
+      ctx.lineWidth = 2;
+      ctx.setLineDash([]);
+      ctx.beginPath();
+      buyPoints.forEach((pt, i) => {
+        const x = padding.left + ((pt.tick - minTick) / tickRange) * w;
+        const y = padding.top + h - (pt.buy / maxPrice) * h;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+    }
+
+    // Sell price line (dashed)
+    const sellPoints = history.filter(pt => pt.sell != null);
+    if (sellPoints.length > 1) {
+      ctx.strokeStyle = baseColor;
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 3]);
+      ctx.beginPath();
+      sellPoints.forEach((pt, i) => {
+        const x = padding.left + ((pt.tick - minTick) / tickRange) * w;
+        const y = padding.top + h - (pt.sell / maxPrice) * h;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+
+    // Legend entry
+    const legendY = padding.top + idx * 16;
+    const legendX = padding.left + w + 10;
+    ctx.fillStyle = baseColor;
+    ctx.fillRect(legendX, legendY, 10, 3);
+    ctx.setLineDash([3, 2]);
+    ctx.strokeStyle = baseColor;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(legendX, legendY + 8);
+    ctx.lineTo(legendX + 10, legendY + 8);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.fillStyle = '#9ca3af';
+    ctx.font = '9px JetBrains Mono';
+    ctx.textAlign = 'left';
+    const displayName = resource.length > 10 ? resource.substring(0, 9) + '..' : resource;
+    ctx.fillText(displayName, legendX + 14, legendY + 4);
+  });
+
+  // Legend header
+  ctx.fillStyle = '#6b7280';
+  ctx.font = '8px JetBrains Mono';
+  ctx.textAlign = 'left';
+  const lx = padding.left + w + 10;
+  ctx.fillText('-- buy  - - sell', lx, canvas.height - 10);
 }
 
 // ================ RENDER: ACTIONS ================
@@ -2106,6 +2712,125 @@ function renderMessages() {
   });
 }
 
+// ================ RENDER: GAME MASTER ================
+function renderGameMaster() {
+  // Dropdowns are populated by populateGmDropdowns() on data load
+  // Update settlement attitude display when the selected settlement changes
+  const settSel = document.getElementById('gm-sett-select');
+  const attSlider = document.getElementById('gm-sett-attitude');
+  if (settSel && attSlider) {
+    const sett = state.settlements.find(s => s._id === settSel.value);
+    if (sett) {
+      attSlider.value = sett.attitude?.general ?? 0;
+      document.getElementById('gm-sett-att-val').textContent = Number(attSlider.value).toFixed(2);
+    }
+  }
+}
+
+// ================ GAME MASTER EVENT WIRING ================
+function initGameMasterEvents() {
+  // Send Suggestion
+  document.getElementById('gm-suggest-send').addEventListener('click', async () => {
+    const repId = document.getElementById('gm-suggest-rep').value;
+    const subject = document.getElementById('gm-suggest-subject').value;
+    const body = document.getElementById('gm-suggest-body').value;
+    if (!repId) return showGmResult('gm-suggest-result', 'Select a replicant', false);
+    if (!body.trim()) return showGmResult('gm-suggest-result', 'Body is required', false);
+    const result = await apiPost('/api/admin/suggest', { replicantId: repId, subject: subject || 'System Advisory', body });
+    showGmResult('gm-suggest-result', result.ok ? result.data.message : result.error, result.ok);
+    if (result.ok) {
+      document.getElementById('gm-suggest-body').value = '';
+      document.getElementById('gm-suggest-subject').value = '';
+    }
+  });
+
+  // Inject Event
+  document.getElementById('gm-event-send').addEventListener('click', async () => {
+    const isGlobal = document.getElementById('gm-event-global').checked;
+    const repId = document.getElementById('gm-event-rep').value;
+    const subject = document.getElementById('gm-event-subject').value;
+    const body = document.getElementById('gm-event-body').value;
+    if (!body.trim()) return showGmResult('gm-event-result', 'Body is required', false);
+    if (!isGlobal && !repId) return showGmResult('gm-event-result', 'Select a replicant or check Global', false);
+    const payload = { subject: subject || 'Event Alert', body };
+    if (isGlobal) payload.global = true;
+    else payload.replicantId = repId;
+    const result = await apiPost('/api/admin/event', payload);
+    showGmResult('gm-event-result', result.ok ? result.data.message : result.error, result.ok);
+    if (result.ok) {
+      document.getElementById('gm-event-body').value = '';
+      document.getElementById('gm-event-subject').value = '';
+    }
+  });
+
+  // Toggle replicant dropdown based on global checkbox
+  document.getElementById('gm-event-global').addEventListener('change', (e) => {
+    document.getElementById('gm-event-rep-wrap').style.display = e.target.checked ? 'none' : 'block';
+  });
+
+  // World Event
+  document.getElementById('gm-we-send').addEventListener('click', async () => {
+    const title = document.getElementById('gm-we-title').value;
+    const description = document.getElementById('gm-we-desc').value;
+    if (!title.trim()) return showGmResult('gm-we-result', 'Title is required', false);
+    if (!description.trim()) return showGmResult('gm-we-result', 'Description is required', false);
+    const result = await apiPost('/api/admin/mc/world-event', { title, description, global: true });
+    showGmResult('gm-we-result', result.ok ? result.data.message : result.error, result.ok);
+    if (result.ok) {
+      document.getElementById('gm-we-title').value = '';
+      document.getElementById('gm-we-desc').value = '';
+    }
+  });
+
+  // Create NPC
+  document.getElementById('gm-npc-create').addEventListener('click', async () => {
+    const name = document.getElementById('gm-npc-name').value;
+    const type = document.getElementById('gm-npc-type').value;
+    const directive = document.getElementById('gm-npc-directive').value;
+    if (!name.trim()) return showGmResult('gm-npc-result', 'Name is required', false);
+    if (!directive.trim()) return showGmResult('gm-npc-result', 'Directive is required', false);
+    const result = await apiPost('/api/admin/mc/create-npc', { name, type, directive });
+    showGmResult('gm-npc-result', result.ok ? `${result.data.message} (API Key: ${result.data.apiKey})` : result.error, result.ok);
+    if (result.ok) {
+      document.getElementById('gm-npc-name').value = '';
+      document.getElementById('gm-npc-directive').value = '';
+      loadAll(); // Refresh to see new NPC
+    }
+  });
+
+  // Modify Settlement - attitude slider
+  document.getElementById('gm-sett-attitude').addEventListener('input', (e) => {
+    document.getElementById('gm-sett-att-val').textContent = Number(e.target.value).toFixed(2);
+  });
+
+  // Modify Settlement - populate attitude when selection changes
+  document.getElementById('gm-sett-select').addEventListener('change', (e) => {
+    const sett = state.settlements.find(s => s._id === e.target.value);
+    if (sett) {
+      document.getElementById('gm-sett-attitude').value = sett.attitude?.general ?? 0;
+      document.getElementById('gm-sett-att-val').textContent = (sett.attitude?.general ?? 0).toFixed(2);
+      document.getElementById('gm-sett-status').value = '';
+      document.getElementById('gm-sett-pop').value = '';
+    }
+  });
+
+  // Modify Settlement - save
+  document.getElementById('gm-sett-save').addEventListener('click', async () => {
+    const settlementId = document.getElementById('gm-sett-select').value;
+    if (!settlementId) return showGmResult('gm-sett-result', 'Select a settlement', false);
+    const changes = {};
+    const attVal = Number(document.getElementById('gm-sett-attitude').value);
+    changes.attitude = attVal;
+    const statusVal = document.getElementById('gm-sett-status').value;
+    if (statusVal) changes.status = statusVal;
+    const popVal = document.getElementById('gm-sett-pop').value;
+    if (popVal !== '') changes.population = Number(popVal);
+    const result = await apiPost('/api/admin/mc/modify-settlement', { settlementId, changes });
+    showGmResult('gm-sett-result', result.ok ? result.data.message : result.error, result.ok);
+    if (result.ok) loadAll();
+  });
+}
+
 // ================ EVENT WIRING ================
 document.querySelectorAll('.sidebar-item').forEach(item => {
   item.addEventListener('click', () => switchTab(item.dataset.tab));
@@ -2169,6 +2894,7 @@ window.addEventListener('resize', () => {
 
 // ================ INIT ================
 initMapEvents();
+initGameMasterEvents();
 loadAll();
 </script>
 </body>

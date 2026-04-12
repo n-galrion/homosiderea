@@ -2,6 +2,7 @@ import { Ship, Replicant, MemoryLog, Message, Tick, ResourceStore } from '../../
 import { distance } from '../../shared/physics.js';
 import { generatePirateName } from '../../shared/nameGen.js';
 import { generateSalvageFromShip } from './SalvageGenerator.js';
+import { generatePirateTransmission } from './MCGenerator.js';
 
 const PIRATE_OWNER_ID = '000000000000000000000001'; // sentinel for pirate ships
 
@@ -154,8 +155,8 @@ export async function simulatePirates(tick: number): Promise<string[]> {
         logs.push(desc);
 
       } else if (action < 0.7) {
-        // Threaten — send intimidating message
-        const taunt = PIRATE_TAUNTS[Math.floor(Math.random() * PIRATE_TAUNTS.length)];
+        // Threaten — LLM-generated intimidating message (falls back to templates)
+        const taunt = await generatePirateTransmission(pirate.name, closestShip.name);
 
         await Message.create({
           senderId: ownerId, recipientId: ownerId,

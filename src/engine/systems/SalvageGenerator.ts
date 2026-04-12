@@ -1,5 +1,6 @@
 import { Salvage, Ship, ResourceStore } from '../../db/models/index.js';
 import { generatePirateName } from '../../shared/nameGen.js';
+import { generateFlightLog, generateBlackBoxData, generateTechHint } from './MCGenerator.js';
 
 const TECH_DOMAINS = ['scanning', 'mining', 'propulsion', 'weapons', 'hull', 'construction', 'computing', 'energy', 'communication'];
 
@@ -73,21 +74,10 @@ export async function generateSalvageFromShip(
     expiresAtTick: tick + 500, // wreckage decays after 500 ticks
   });
 
-  // 2. Black box (80% chance)
+  // 2. Black box (80% chance) — LLM-generated content
   if (Math.random() < 0.8) {
-    const logTemplate = pick(FLIGHT_LOG_TEMPLATES);
-    const flightLog = logTemplate(ship.name)
-      .replace('{tick}', String(tick))
-      .replace('{reading}', pick(SENSOR_READINGS).slice(0, 80))
-      .replace('{bearing}', String(Math.floor(Math.random() * 360)))
-      .replace('{vel}', (5 + Math.random() * 30).toFixed(1))
-      .replace('{heading}', String(Math.floor(Math.random() * 360)))
-      .replace('{cargo}', Object.entries(wreckageResources).map(([k, v]) => `${v} ${k}`).join(', '))
-      .replace('{coords}', `(${(Math.random() * 5).toFixed(2)}, ${(Math.random() * 5 - 2.5).toFixed(2)}, ${(Math.random() * 0.2 - 0.1).toFixed(3)})`)
-      .replace('{sector}', `${Math.floor(Math.random() * 12) + 1}-${String.fromCharCode(65 + Math.floor(Math.random() * 8))}`)
-      .replace('{cause}', pick(['pirate attack', 'hull breach', 'reactor failure', 'collision', 'unknown weapon']))
-      .replace('{resource}', pick(['metals', 'rare earths', 'helium-3', 'ice', 'uranium']))
-      .replace('{location}', pick(['inner belt zone', 'near Ceres', 'Mars-Jupiter transit corridor', 'Trojan point L4', 'outer belt']));
+    const flightLog = await generateFlightLog(ship.name, position, tick);
+    const blackBoxData = await generateBlackBoxData(ship.name, ownerType, position);
 
     await Salvage.create({
       name: `Black Box — ${ship.name}`,
@@ -102,20 +92,20 @@ export async function generateSalvageFromShip(
       resources: {},
       dataContent: {
         flightLog,
-        lastTransmission: Math.random() > 0.5 ? pick(SENSOR_READINGS) : null,
+        lastTransmission: blackBoxData,
         encryptedData: Math.random() > 0.6 ? `[ENCRYPTED — ${Math.floor(1024 + Math.random() * 4096)} byte block — decryption requires computing tech level ${1 + Math.floor(Math.random() * 3)}]` : null,
-        techHints: Math.random() > 0.5 ? [pick(TECH_HINTS)] : [],
-        sensorReadings: pick(SENSOR_READINGS),
+        techHints: [],
+        sensorReadings: null,
       },
       createdAtTick: tick,
     });
   }
 
-  // 3. Tech fragment (30% chance, higher for pirate ships)
+  // 3. Tech fragment (30% chance, higher for pirate ships) — LLM-generated
   const techChance = ownerType === 'pirate' ? 0.6 : 0.3;
   if (Math.random() < techChance) {
     const domain = pick(TECH_DOMAINS);
-    const hint = pick(TECH_HINTS);
+    const hint = await generateTechHint(domain, ship.name);
 
     await Salvage.create({
       name: `Tech Fragment — ${ship.name}`,
@@ -131,7 +121,7 @@ export async function generateSalvageFromShip(
       techFragment: {
         domain,
         description: hint,
-        researchBonus: 10 + Math.floor(Math.random() * 40), // 10-50 compute cycle bonus when researching this domain
+        researchBonus: 10 + Math.floor(Math.random() * 40),
       },
       createdAtTick: tick,
     });

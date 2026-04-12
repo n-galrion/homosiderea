@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { evaluateAction, applyOutcomes } from '../../engine/systems/ActionEvaluator.js';
-import { ActionQueue, Tick } from '../../db/models/index.js';
+import { ActionQueue, Tick, MemoryLog } from '../../db/models/index.js';
 import { config } from '../../config.js';
 
 /** Compute timing info for an action or event that resolves at a target tick. */
@@ -38,7 +38,19 @@ Your computer simulates the physics, checks your resources and position, and tel
     async ({ action, context, autoApply }) => {
       const outcome = await evaluateAction(replicantId, action, context || undefined);
 
+      const latestTickForLog = await Tick.findOne().sort({ tickNumber: -1 }).lean();
+      const tickForLog = latestTickForLog?.tickNumber ?? 0;
+
       if (outcome.impossible) {
+        // Log as learned lesson — don't try this again
+        await MemoryLog.create({
+          replicantId, category: 'log',
+          title: `IMPOSSIBLE: ${action.slice(0, 60)}`,
+          content: `Attempted: ${action}\n\nResult: IMPOSSIBLE — ${outcome.impossibleReason}\n\nThis action violates physical laws and can never succeed.`,
+          tags: ['action_result', 'learned', 'impossible', 'auto'],
+          tick: tickForLog,
+        });
+
         return {
           content: [{
             type: 'text',
@@ -52,6 +64,15 @@ Your computer simulates the physics, checks your resources and position, and tel
       }
 
       if (!outcome.feasible) {
+        // Log prerequisites so replicant can plan
+        await MemoryLog.create({
+          replicantId, category: 'log',
+          title: `NOT YET: ${action.slice(0, 60)}`,
+          content: `Attempted: ${action}\n\nResult: Not feasible — ${outcome.reason}\n\nPrerequisites needed: ${(outcome.prerequisites || []).join(', ') || 'unknown'}`,
+          tags: ['action_result', 'learned', 'not_feasible', 'auto'],
+          tick: tickForLog,
+        });
+
         return {
           content: [{
             type: 'text',
@@ -85,6 +106,16 @@ Your computer simulates the physics, checks your resources and position, and tel
           },
           queuedAtTick: currentTick,
           resolvedAtTick: currentTick,
+        });
+
+        // Store as learned knowledge — persists across sessions, private to this replicant
+        await MemoryLog.create({
+          replicantId,
+          category: 'log',
+          title: `Action: ${action.slice(0, 80)}`,
+          content: `Action: ${action}\n\nResult: ${outcome.outcomes?.narrative || outcome.reason}\n\nOutcomes: ${JSON.stringify(outcome.outcomes?.resourceChanges || [], null, 2)}\n\nCosts: compute=${outcome.computeCost}, energy=${outcome.energyCost}`,
+          tags: ['action_result', 'learned', 'auto'],
+          tick: currentTick,
         });
 
         const ticksToComplete = outcome.ticksToComplete ?? 0;
