@@ -18,6 +18,18 @@ export interface IShip extends Document {
     arrivalTick: number | null;
     speed: number | null;
   };
+  miningState: {
+    active: boolean;
+    targetBodyId: Types.ObjectId | null;
+    targetAsteroidId: Types.ObjectId | null;
+    resourceType: string | null;
+    startedAtTick: number | null;
+  } | null;
+  maintenance: {
+    hullDegradationRate: number;
+    lastMaintenanceTick: number;
+    radiationExposure: number;
+  };
   specs: {
     hullPoints: number;
     maxHullPoints: number;
@@ -69,6 +81,21 @@ const ShipSchema = new Schema<IShip>({
     departureTick: { type: Number, default: null },
     arrivalTick: { type: Number, default: null },
     speed: { type: Number, default: null },
+  },
+  miningState: {
+    type: {
+      active: { type: Boolean, default: false },
+      targetBodyId: { type: Schema.Types.ObjectId, ref: 'CelestialBody', default: null },
+      targetAsteroidId: { type: Schema.Types.ObjectId, ref: 'Asteroid', default: null },
+      resourceType: { type: String, default: null },
+      startedAtTick: { type: Number, default: null },
+    },
+    default: null,
+  },
+  maintenance: {
+    hullDegradationRate: { type: Number, default: 0.01 },
+    lastMaintenanceTick: { type: Number, default: 0 },
+    radiationExposure: { type: Number, default: 0 },
   },
   specs: {
     hullPoints: { type: Number, default: 100 },

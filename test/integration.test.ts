@@ -305,10 +305,13 @@ describe('Homosideria Integration Tests', () => {
   // ── AMIs ──────────────────────────────────────
 
   describe('AMIs', () => {
-    it('lists AMIs (initially empty)', async () => {
+    it('starts with 2 miner drones', async () => {
       const { apiKey } = await registerReplicant('AMIBot');
       const { data } = await api('/api/amis', { apiKey });
-      expect(data).toEqual([]);
+      const amis = data as Array<Record<string, unknown>>;
+      expect(amis.length).toBe(2);
+      expect(amis[0].type).toBe('miner');
+      expect(amis[1].type).toBe('miner');
     });
   });
 

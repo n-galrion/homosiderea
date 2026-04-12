@@ -170,10 +170,15 @@ export async function executeMining(tick: number): Promise<void> {
     shipId: { $ne: null },
   });
 
+  // Collect ship IDs already handled by AMIs to avoid double-mining
+  const amiMinedShipIds = new Set<string>();
+
   for (const ami of minerAMIs) {
     const ship = await Ship.findById(ami.shipId);
     if (!ship || ship.status !== 'orbiting') continue;
     if (ship.specs.miningRate <= 0) continue;
+
+    amiMinedShipIds.add(ship._id.toString());
 
     let store = await ResourceStore.findOne({
       'ownerRef.kind': 'Ship',
@@ -211,6 +216,73 @@ export async function executeMining(tick: number): Promise<void> {
 
       for (const res of asteroid.resources) {
         if (!res.accessible || res.remaining <= 0) continue;
+
+        const requestedAmount = ship.specs.miningRate * res.abundance;
+        if (requestedAmount <= 0) continue;
+
+        const extracted = await extractFromAsteroid(asteroid, res.resourceType, requestedAmount);
+        if (extracted <= 0) continue;
+
+        const storeAny = store as unknown as Record<string, number>;
+        if (res.resourceType in store && typeof storeAny[res.resourceType] === 'number') {
+          storeAny[res.resourceType] += extracted;
+        }
+      }
+    }
+
+    await store.save();
+  }
+
+  // --- Ship-based mining (ships with miningState.active = true) ---
+  const miningStateShips = await Ship.find({
+    'miningState.active': true,
+    status: 'orbiting',
+  });
+
+  for (const ship of miningStateShips) {
+    // Skip ships already handled by AMI-based mining
+    if (amiMinedShipIds.has(ship._id.toString())) continue;
+    if (ship.specs.miningRate <= 0) continue;
+
+    let store = await ResourceStore.findOne({
+      'ownerRef.kind': 'Ship',
+      'ownerRef.item': ship._id,
+    });
+
+    if (!store) {
+      store = await ResourceStore.create({
+        ownerRef: { kind: 'Ship', item: ship._id },
+      });
+    }
+
+    const targetResourceType = ship.miningState?.resourceType || null;
+
+    if (ship.orbitingBodyId) {
+      const body = await CelestialBody.findById(ship.orbitingBodyId);
+      if (!body || body.resources.length === 0) continue;
+
+      for (const res of body.resources) {
+        if (!res.accessible || res.remaining <= 0) continue;
+        if (targetResourceType && res.resourceType !== targetResourceType) continue;
+
+        const requestedAmount = ship.specs.miningRate * res.abundance;
+        if (requestedAmount <= 0) continue;
+
+        const extracted = await extractFromBody(body, res.resourceType, requestedAmount);
+        if (extracted <= 0) continue;
+
+        const storeAny = store as unknown as Record<string, number>;
+        if (res.resourceType in store && typeof storeAny[res.resourceType] === 'number') {
+          storeAny[res.resourceType] += extracted;
+        }
+      }
+    } else if (ship.orbitingAsteroidId) {
+      const asteroid = await Asteroid.findById(ship.orbitingAsteroidId);
+      if (!asteroid || asteroid.depleted) continue;
+
+      for (const res of asteroid.resources) {
+        if (!res.accessible || res.remaining <= 0) continue;
+        if (targetResourceType && res.resourceType !== targetResourceType) continue;
 
         const requestedAmount = ship.specs.miningRate * res.abundance;
         if (requestedAmount <= 0) continue;

@@ -8,6 +8,7 @@ import { advanceConstruction, processManufacturing } from './systems/Manufacturi
 import { deliverMessages } from './systems/Communication.js';
 import { recomputeAllColonyStats } from './systems/ColonyManager.js';
 import { processCompletedResearch } from './systems/MasterController.js';
+import { simulateSettlements } from './systems/SettlementBehavior.js';
 
 /**
  * Orchestrates the processing of a single game tick.
@@ -103,7 +104,14 @@ export class TickProcessor {
       errors.push(`Research: ${err instanceof Error ? err.message : String(err)}`);
     }
 
-    // Phase 11: Save Tick Record
+    // Phase 11: Settlement Behavior (NPC simulation)
+    try {
+      await simulateSettlements(tickNumber);
+    } catch (err) {
+      errors.push(`Settlements: ${err instanceof Error ? err.message : String(err)}`);
+    }
+
+    // Phase 12: Save Tick Record
     const durationMs = Date.now() - startTime;
 
     tickRecord.completedAt = new Date();

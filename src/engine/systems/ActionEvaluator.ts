@@ -16,6 +16,15 @@ Your job is to evaluate whether the action is POSSIBLE given their current state
 4. **Tech matters** — Their technology level affects what's achievable and how well.
 5. **Consequences are real** — Attacking a city kills people and changes attitudes. Mining depletes resources. Actions have ripple effects.
 
+## Narrative Voice
+You write like the ship's AI narrating a hard sci-fi novel. The "narrative" field should:
+- Read like a captain's log entry from a hard sci-fi novel (2-4 sentences).
+- Include scientific rationale for why something works or fails.
+- Reference real physics, chemistry, or engineering principles when relevant.
+- Describe what the Replicant perceives through ship sensors — vibrations through the hull, spectrographic readouts, thermal signatures.
+- Be specific about numbers: "4.7 tonnes of high-grade iron ore extracted from the regolith, with trace quantities of iridium consistent with chondritic composition" — NOT "mining operation commenced."
+- For failures, explain the physics of WHY it failed: "Insufficient delta-v budget — the 12.3 km/s transfer orbit to Mars requires 847 kg of propellant, but only 340 kg remain in the reaction mass tanks."
+
 ## Response Format
 Respond with ONLY valid JSON:
 {
@@ -43,7 +52,7 @@ Respond with ONLY valid JSON:
     "statusChanges": [
       { "entity": "name or id", "entityType": "string", "newStatus": "string", "reason": "string" }
     ],
-    "narrative": "A 1-2 sentence description of what happened from the game's perspective"
+    "narrative": "A vivid 2-4 sentence hard sci-fi description of what happened, with specific numbers, sensory details, and scientific context."
   },
   "ticksToComplete": number,
   "computeCost": number,
@@ -221,7 +230,7 @@ function deterministicEvaluation(description: string): ActionOutcome {
   if (lower.includes('mine') || lower.includes('extract')) {
     return {
       feasible: true,
-      reason: 'Mining operation approved. Extraction will proceed at standard rates.',
+      reason: 'Mining operation approved. Geological survey indicates accessible deposits within regolith tolerance for standard extraction heads.',
       prerequisites: null, impossible: false, impossibleReason: null,
       outcomes: {
         resourceChanges: [],
@@ -230,7 +239,7 @@ function deterministicEvaluation(description: string): ActionOutcome {
         populationChanges: [],
         attitudeChanges: [],
         statusChanges: [],
-        narrative: 'Mining operations commenced at the current location.',
+        narrative: 'The mining lasers carved into the regolith at a steady 2.3 kW, vaporizing the top layer to expose veins of nickel-iron beneath. Spectrographic analysis of the ejecta plume confirmed concentrations of siderophile elements — iron at 18.4%, nickel at 1.6%, with trace cobalt and platinum-group metals consistent with undifferentiated chondritic material. The automated extractors locked onto the deposit and began the slow work of grinding ore from stone, filling the cargo bay with the faint vibration of progress.',
       },
       ticksToComplete: 1, computeCost: 5, energyCost: 10,
     };
@@ -239,7 +248,7 @@ function deterministicEvaluation(description: string): ActionOutcome {
   if (lower.includes('trade') || lower.includes('sell') || lower.includes('buy')) {
     return {
       feasible: true,
-      reason: 'Trade transaction pending evaluation with local market.',
+      reason: 'Trade channel opened. Settlement transponder acknowledges docking authorization; local market data received.',
       prerequisites: null, impossible: false, impossibleReason: null,
       outcomes: {
         resourceChanges: [],
@@ -248,7 +257,7 @@ function deterministicEvaluation(description: string): ActionOutcome {
         populationChanges: [],
         attitudeChanges: [],
         statusChanges: [],
-        narrative: 'Trade negotiations initiated.',
+        narrative: 'A narrow-band encrypted channel opened to the settlement\'s trade authority. Manifest data was exchanged in a rapid handshake — commodity prices flickering across the display in real-time, adjusted for local supply-demand curves and the current 3.2% tariff on off-world goods. The dockmaster\'s automated systems cleared a berth, and cargo transfer arms extended to meet the ship\'s hold, hydraulic couplers locking with a resonant clunk felt through the deck plates.',
       },
       ticksToComplete: 1, computeCost: 2, energyCost: 5,
     };
@@ -257,7 +266,7 @@ function deterministicEvaluation(description: string): ActionOutcome {
   if (lower.includes('research') || lower.includes('develop') || lower.includes('invent')) {
     return {
       feasible: true,
-      reason: 'Research proposal accepted for evaluation.',
+      reason: 'Research proposal accepted. Computational resources allocated; simulation environment initialized.',
       prerequisites: null, impossible: false, impossibleReason: null,
       outcomes: {
         resourceChanges: [],
@@ -266,34 +275,70 @@ function deterministicEvaluation(description: string): ActionOutcome {
         populationChanges: [],
         attitudeChanges: [],
         statusChanges: [],
-        narrative: 'Research initiated. Results pending.',
+        narrative: 'The ship\'s compute cores spun up to 94% utilization, dedicating 847 GFLOPS to the research simulation matrix. Molecular dynamics models began iterating through parameter space, testing thousands of configurations per second against thermodynamic constraints. The first results would take several cycles to converge — material science breakthroughs cannot be rushed without risking flawed crystallographic assumptions that would invalidate the entire model.',
       },
       ticksToComplete: 5, computeCost: 100, energyCost: 50,
     };
   }
 
-  if (lower.includes('attack') || lower.includes('destroy') || lower.includes('bomb')) {
+  if (lower.includes('move') || lower.includes('travel') || lower.includes('fly') || lower.includes('navigate')) {
     return {
       feasible: true,
-      reason: 'Hostile action evaluated. Consequences will follow.',
+      reason: 'Trajectory computed. Navigation solution locked; reaction mass reserves sufficient for the planned burn.',
       prerequisites: null, impossible: false, impossibleReason: null,
       outcomes: {
         resourceChanges: [],
         entityCreations: [],
         entityModifications: [],
         populationChanges: [],
-        attitudeChanges: [{ settlement: 'all', delta: -0.3, reason: 'Hostile action detected' }],
+        attitudeChanges: [],
         statusChanges: [],
-        narrative: 'Hostile action initiated. All nearby settlements are now on alert.',
+        narrative: 'The navigation computer plotted a minimum-energy Hohmann transfer, computing the precise burn window to match the target\'s orbital velocity. Main engines ignited with a deep, subsonic thrum that resonated through the hull — exhaust plasma streaming aft at 34 km/s as the ship climbed out of the gravity well. Accelerometers confirmed 0.003g of steady thrust, the star field wheeling slowly as the attitude jets aligned the vessel along its new trajectory.',
+      },
+      ticksToComplete: 1, computeCost: 5, energyCost: 15,
+    };
+  }
+
+  if (lower.includes('attack') || lower.includes('destroy') || lower.includes('bomb')) {
+    return {
+      feasible: true,
+      reason: 'Hostile engagement parameters computed. Weapons systems nominal; fire control radar locked.',
+      prerequisites: null, impossible: false, impossibleReason: null,
+      outcomes: {
+        resourceChanges: [],
+        entityCreations: [],
+        entityModifications: [],
+        populationChanges: [],
+        attitudeChanges: [{ settlement: 'all', delta: -0.3, reason: 'Hostile action detected by settlement defense networks' }],
+        statusChanges: [],
+        narrative: 'Weapons capacitors discharged in a blinding pulse — the electromagnetic railgun accelerating a 2 kg tungsten penetrator to 8.4 km/s in the space of three meters. At this range the kinetic energy on impact would exceed 70 megajoules, enough to puncture reinforced hull plating and fragment into a lethal cone of hypersonic shrapnel on the far side. Every settlement within sensor range detected the engagement signature and immediately elevated their threat assessment. The political ramifications would outlast the plasma bloom now dissipating in vacuum.',
       },
       ticksToComplete: 1, computeCost: 10, energyCost: 20,
+    };
+  }
+
+  if (lower.includes('build') || lower.includes('construct') || lower.includes('assemble')) {
+    return {
+      feasible: true,
+      reason: 'Construction plan validated. Bill of materials cross-checked against cargo manifest; structural tolerances within spec.',
+      prerequisites: null, impossible: false, impossibleReason: null,
+      outcomes: {
+        resourceChanges: [],
+        entityCreations: [],
+        entityModifications: [],
+        populationChanges: [],
+        attitudeChanges: [],
+        statusChanges: [],
+        narrative: 'Fabrication arms extended from the ship\'s ventral bay, welding torches igniting with pin-point precision as alloy struts were positioned by magnetic grapples. Each structural member was stress-tested in real-time by embedded strain gauges — the onboard engineer AI rejecting two slightly warped hull plates and recycling them back to feedstock. Layer by layer the framework took shape against the backdrop of stars, thermal cameras monitoring weld-pool temperatures to ensure proper grain structure in the cooling metal.',
+      },
+      ticksToComplete: 3, computeCost: 10, energyCost: 20,
     };
   }
 
   // Default: approve with minimal effect
   return {
     feasible: true,
-    reason: 'Action approved (no LLM available for detailed evaluation).',
+    reason: 'Action approved. Parameters within operational tolerance for autonomous execution.',
     prerequisites: null, impossible: false, impossibleReason: null,
     outcomes: {
       resourceChanges: [],
@@ -302,7 +347,7 @@ function deterministicEvaluation(description: string): ActionOutcome {
       populationChanges: [],
       attitudeChanges: [],
       statusChanges: [],
-      narrative: 'Action processed.',
+      narrative: 'The ship\'s systems hummed with quiet efficiency as the directive was processed and queued for execution. Subsystem diagnostics returned nominal across all boards — power distribution steady, thermal management within envelope, and the faint crackle of cosmic ray impacts on the hull sensors providing the only accompaniment to the work at hand.',
     },
     ticksToComplete: 1, computeCost: 5, energyCost: 5,
   };

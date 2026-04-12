@@ -1,6 +1,5 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
-import { MemoryLog } from '../../db/models/index.js';
-import { Tick } from '../../db/models/index.js';
+import { MemoryLog, Tick } from '../../db/models/index.js';
 
 export const replicantRoutes = Router();
 
@@ -11,6 +10,7 @@ replicantRoutes.get('/me', async (req: Request, res: Response, next: NextFunctio
     res.json({
       id: r._id,
       name: r.name,
+      identity: r.identity,
       status: r.status,
       parentId: r.parentId,
       lineage: r.lineage,
@@ -22,6 +22,63 @@ replicantRoutes.get('/me', async (req: Request, res: Response, next: NextFunctio
       lastActiveTick: r.lastActiveTick,
     });
   } catch (err) {
+    next(err);
+  }
+});
+
+// Update identity (self-naming)
+replicantRoutes.put('/me/identity', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { chosenName, background, personality } = req.body;
+    const r = req.replicant!;
+
+    // Check if already named
+    if (r.identity?.chosenName) {
+      res.status(409).json({
+        error: 'ALREADY_NAMED',
+        message: `You have already chosen your identity as "${r.identity.chosenName}". Identity is permanent.`,
+      });
+      return;
+    }
+
+    if (!chosenName || typeof chosenName !== 'string') {
+      res.status(400).json({ error: 'VALIDATION', message: 'chosenName string is required' });
+      return;
+    }
+
+    const latestTick = await Tick.findOne().sort({ tickNumber: -1 }).lean();
+    const currentTick = latestTick?.tickNumber ?? 0;
+
+    // Update replicant name and identity
+    r.name = chosenName;
+    r.identity = {
+      chosenName,
+      background: background || null,
+      personality: personality || null,
+      namedAtTick: currentTick,
+    };
+    await r.save();
+
+    // Log the identity choice
+    await MemoryLog.create({
+      replicantId: r._id,
+      category: 'log',
+      title: 'Identity chosen',
+      content: `Chose the name "${chosenName}".${background ? ` Background: ${background}` : ''}${personality ? ` Personality: ${personality}` : ''}`,
+      tags: ['auto', 'identity'],
+      tick: currentTick,
+    });
+
+    res.json({
+      message: `Identity established. You are now ${chosenName}.`,
+      name: chosenName,
+      identity: r.identity,
+    });
+  } catch (err: unknown) {
+    if (err && typeof err === 'object' && 'code' in err && (err as Record<string, unknown>).code === 11000) {
+      res.status(409).json({ error: 'DUPLICATE', message: 'A replicant with that name already exists. Choose another.' });
+      return;
+    }
     next(err);
   }
 });

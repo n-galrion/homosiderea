@@ -27,6 +27,13 @@ export interface IReplicant extends Document {
     // Security level (affects hacking difficulty)
     securityLevel: number;
   };
+  // Identity (self-naming)
+  identity: {
+    chosenName: string | null;
+    background: string | null;
+    personality: string | null;
+    namedAtTick: number | null;
+  };
   // Reboot tracking
   lastRebootTick: number | null;
   rebootCount: number;
@@ -62,6 +69,12 @@ const ReplicantSchema = new Schema<IReplicant>({
     authorizedReaders: [{ type: Schema.Types.ObjectId, ref: 'Replicant' }],
     physicalAccessEnabled: { type: Boolean, default: true },
     securityLevel: { type: Number, default: 1 },
+  },
+  identity: {
+    chosenName: { type: String, default: null },
+    background: { type: String, default: null },
+    personality: { type: String, default: null },
+    namedAtTick: { type: Number, default: null },
   },
   lastRebootTick: { type: Number, default: null },
   rebootCount: { type: Number, default: 0 },

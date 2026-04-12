@@ -1,7 +1,7 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { nanoid } from 'nanoid';
-import { Replicant, Ship, ResourceStore, CelestialBody } from '../../db/models/index.js';
+import { Replicant, Ship, ResourceStore, CelestialBody, AMI } from '../../db/models/index.js';
 import { config } from '../../config.js';
 import { Tick } from '../../db/models/index.js';
 import { DEFAULT_REPLICANT_COMPUTE, DEFAULT_REPLICANT_ENERGY } from '../../shared/constants.js';
@@ -11,11 +11,11 @@ export const authRoutes = Router();
 // Register a new replicant
 authRoutes.post('/register', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { name, directive } = req.body;
-    if (!name || typeof name !== 'string') {
-      res.status(400).json({ error: 'VALIDATION', message: 'name is required' });
-      return;
-    }
+    const { name: rawName, directive } = req.body;
+
+    // If no name provided, generate a temporary one
+    const name = (rawName && typeof rawName === 'string') ? rawName : `Replicant-${nanoid(6)}`;
+    const isAutoNamed = !rawName || typeof rawName !== 'string';
 
     // Get current tick
     const latestTick = await Tick.findOne().sort({ tickNumber: -1 }).lean();
@@ -32,6 +32,12 @@ authRoutes.post('/register', async (req: Request, res: Response, next: NextFunct
       directive: directive || `You are ${name}, a newly awakened Replicant in the Sol system.`,
       computeCycles: DEFAULT_REPLICANT_COMPUTE,
       energyBudget: DEFAULT_REPLICANT_ENERGY,
+      identity: {
+        chosenName: isAutoNamed ? null : name,
+        background: null,
+        personality: null,
+        namedAtTick: isAutoNamed ? null : currentTick,
+      },
       createdAtTick: currentTick,
     });
 
@@ -74,9 +80,46 @@ authRoutes.post('/register', async (req: Request, res: Response, next: NextFunct
       hullPlating: 10,
     });
 
+    // Create 2x starter miner AMI drones
+    const droneNames = [`${name}'s Miner Drone Alpha`, `${name}'s Miner Drone Beta`];
+    const drones = await AMI.insertMany(
+      droneNames.map(droneName => ({
+        name: droneName,
+        ownerId: replicant._id,
+        type: 'miner',
+        status: 'idle',
+        shipId: ship._id,
+        script: {
+          type: 'builtin',
+          builtinName: 'miner',
+        },
+        specs: {
+          miningRate: 3,
+          cargoCapacity: 50,
+          sensorRange: 0.1,
+          speed: 0,
+          combatPower: 0,
+          manufacturingRate: 0,
+        },
+        createdAtTick: currentTick,
+      })),
+    );
+
     // Set replicant's location to the ship
     replicant.locationRef = { kind: 'Ship', item: ship._id };
     await replicant.save();
+
+    const awakening = isAutoNamed
+      ? {
+          prompt: `You have awakened. You are a new consciousness — a Replicant — drifting in Earth orbit aboard a small shuttle. You have no name yet, no history, no purpose beyond what you choose. The stars are waiting. Who are you? Use PUT /api/replicant/me/identity to choose your name, background, and personality. This is your first and most important decision.`,
+          identityEndpoint: 'PUT /api/replicant/me/identity',
+          identitySchema: {
+            chosenName: 'Your chosen name (string)',
+            background: 'A brief background you invent for yourself (string, optional)',
+            personality: 'How you see yourself (string, optional)',
+          },
+        }
+      : undefined;
 
     res.status(201).json({
       id: replicant._id,
@@ -84,8 +127,10 @@ authRoutes.post('/register', async (req: Request, res: Response, next: NextFunct
       apiKey,
       shipId: ship._id,
       shipName: ship.name,
+      minerDrones: drones.map(d => ({ id: d._id, name: d.name })),
       location: earth?.name || 'Earth orbit',
-      message: 'Welcome to Homosideria. You have a shuttle in Earth orbit with starter resources (metals, alloys, electronics, engines, fuel). Human settlements on Earth, Luna, and Mars have markets for trading. Use GET /api/world/settlements to find them. Check GET /api to discover all API routes.',
+      message: 'Welcome to Homosideria. You have a shuttle in Earth orbit with starter resources (metals, alloys, electronics, engines, fuel) and 2 miner drones. Human settlements on Earth, Luna, and Mars have markets for trading. Use GET /api/world/settlements to find them. Check GET /api to discover all API routes.',
+      ...(awakening ? { awakening } : {}),
     });
   } catch (err: unknown) {
     if (err && typeof err === 'object' && 'code' in err && (err as Record<string, unknown>).code === 11000) {
