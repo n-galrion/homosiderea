@@ -1,7 +1,8 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import { requireAuth, requireRole } from '../middleware/roles.js';
-import { Replicant, Ship, ResourceStore, Technology, ActionQueue, MemoryLog, Message, User, CelestialBody, Tick, Notification, Blueprint } from '../../db/models/index.js';
+import { Replicant, Ship, ResourceStore, Technology, ActionQueue, MemoryLog, Message, User, CelestialBody, Tick, Notification, Blueprint, AgentConfig, AgentSession } from '../../db/models/index.js';
 import { config } from '../../config.js';
+import { encrypt } from '../../shared/crypto.js';
 
 export const pagesRoutes = Router();
 
@@ -394,3 +395,127 @@ pagesRoutes.get('/play/:replicantId', requireAuth, requireRole('owner', 'operato
     });
   } catch (err) { next(err); }
 });
+
+// ── Agent List ──────────────────────────────────────────────────────
+pagesRoutes.get('/agents', requireAuth, requireRole('owner', 'operator'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const user = res.locals.user;
+    const replicantFilter = user.role === 'operator' ? {} : { _id: { $in: user.replicantIds || [] } };
+    const replicants = await Replicant.find(replicantFilter).lean();
+    const replicantIds = replicants.map(r => r._id);
+
+    const configs = await AgentConfig.find({ replicantId: { $in: replicantIds } }).lean();
+    const sessions = await AgentSession.find({ replicantId: { $in: replicantIds } }).lean();
+
+    const configMap = new Map(configs.map(c => [c.replicantId.toString(), c]));
+    const sessionMap = new Map(sessions.map(s => [s.replicantId.toString(), s]));
+
+    const agents = replicants.map(r => ({
+      replicant: r,
+      config: configMap.get(r._id.toString()) || null,
+      session: sessionMap.get(r._id.toString()) || null,
+    }));
+
+    res.render('agents', { title: 'Agents', user, currentPath: '/agents', flash: {}, agents });
+  } catch (err) { next(err); }
+});
+
+// ── Agent Config Page ───────────────────────────────────────────────
+pagesRoutes.get('/agent/:replicantId', requireAuth, requireRole('owner', 'operator'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const user = res.locals.user;
+    const replicant = await Replicant.findById(req.params.replicantId).lean();
+    if (!replicant) { res.status(404).send('Replicant not found'); return; }
+
+    if (user.role !== 'operator' && !(user.replicantIds || []).some((id: { toString(): string }) => id.toString() === replicant._id.toString())) {
+      res.status(403).send('Access denied'); return;
+    }
+
+    const agentConfig = await AgentConfig.findOne({ replicantId: replicant._id }).lean();
+    const session = await AgentSession.findOne({ replicantId: replicant._id }).lean();
+
+    res.render('agent', {
+      title: `Agent: ${replicant.identity?.chosenName || replicant.name}`,
+      user, currentPath: '/agents', flash: {},
+      replicant, agentConfig, session,
+    });
+  } catch (err) { next(err); }
+});
+
+// ── Save Agent Config ───────────────────────────────────────────────
+pagesRoutes.post('/agent/:replicantId/config', requireAuth, requireRole('owner', 'operator'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const user = res.locals.user;
+    const replicant = await Replicant.findById(req.params.replicantId);
+    if (!replicant) { res.status(404).send('Replicant not found'); return; }
+
+    if (user.role !== 'operator' && !(user.replicantIds || []).some((id: { toString(): string }) => id.toString() === replicant._id.toString())) {
+      res.status(403).send('Access denied'); return;
+    }
+
+    const { baseUrl, apiKey, model, temperature, topP, maxTokens, thinkEveryNTicks, tokenBudgetPerCycle, systemPromptOverride } = req.body;
+
+    let agentConfig = await AgentConfig.findOne({ replicantId: replicant._id });
+    if (!agentConfig) {
+      agentConfig = new AgentConfig({ userId: user._id, replicantId: replicant._id });
+    }
+
+    if (baseUrl) agentConfig.provider.baseUrl = baseUrl;
+    if (apiKey && apiKey !== '••••••••') {
+      agentConfig.provider.apiKey = encrypt(apiKey, config.agent.encryptionKey);
+    }
+    if (model) agentConfig.provider.model = model;
+    if (temperature !== undefined) agentConfig.sampling.temperature = parseFloat(temperature);
+    if (topP !== undefined) agentConfig.sampling.topP = parseFloat(topP);
+    if (maxTokens !== undefined) agentConfig.sampling.maxTokens = parseInt(maxTokens, 10);
+    if (thinkEveryNTicks !== undefined) agentConfig.thinkEveryNTicks = parseInt(thinkEveryNTicks, 10);
+    if (tokenBudgetPerCycle !== undefined) agentConfig.tokenBudgetPerCycle = parseInt(tokenBudgetPerCycle, 10);
+    agentConfig.systemPromptOverride = systemPromptOverride?.trim() || null;
+
+    agentConfig.markModified('provider');
+    agentConfig.markModified('sampling');
+    await agentConfig.save();
+
+    res.redirect(`/agent/${req.params.replicantId}`);
+  } catch (err) { next(err); }
+});
+
+// ── Start/Pause/Stop Agent ──────────────────────────────────────────
+for (const action of ['start', 'pause', 'stop'] as const) {
+  pagesRoutes.post(`/agent/:replicantId/${action}`, requireAuth, requireRole('owner', 'operator'), async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const user = res.locals.user;
+      const replicant = await Replicant.findById(req.params.replicantId);
+      if (!replicant) { res.status(404).send('Replicant not found'); return; }
+
+      if (user.role !== 'operator' && !(user.replicantIds || []).some((id: { toString(): string }) => id.toString() === replicant._id.toString())) {
+        res.status(403).send('Access denied'); return;
+      }
+
+      const agentConfig = await AgentConfig.findOne({ replicantId: replicant._id });
+      if (!agentConfig) { res.redirect(`/agent/${req.params.replicantId}`); return; }
+
+      let session = await AgentSession.findOne({ replicantId: replicant._id });
+      if (!session) {
+        session = new AgentSession({ replicantId: replicant._id });
+      }
+
+      if (action === 'start') {
+        agentConfig.enabled = true;
+        session.status = 'running';
+        session.consecutiveErrors = 0;
+        session.lastError = null;
+      } else if (action === 'pause') {
+        session.status = 'paused';
+      } else {
+        agentConfig.enabled = false;
+        session.status = 'stopped';
+      }
+
+      await agentConfig.save();
+      await session.save();
+
+      res.redirect(`/agent/${req.params.replicantId}`);
+    } catch (err) { next(err); }
+  });
+}

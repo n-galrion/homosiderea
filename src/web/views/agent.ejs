@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/_head') %>
+</head>
+<body>
+  <div class="app">
+    <%- include('partials/nav', { user, currentPath }) %>
+    <div style="flex:1; margin-left:var(--sidebar-width);">
+      <%- include('partials/header', { user }) %>
+      <main class="main">
+        <%- include('partials/flash', { flash }) %>
+
+        <div class="flex justify-between items-center mb-3">
+          <h1 class="page-title" style="margin-bottom:0;">Agent: <%= replicant.identity?.chosenName || replicant.name %></h1>
+          <div class="flex gap-1">
+            <% if (session && session.status === 'running') { %>
+              <form method="POST" action="/agent/<%= replicant._id %>/pause" style="display:inline;"><button class="btn btn-outline btn-sm">Pause</button></form>
+              <form method="POST" action="/agent/<%= replicant._id %>/stop" style="display:inline;"><button class="btn btn-outline btn-sm">Stop</button></form>
+            <% } else if (session && session.status === 'paused') { %>
+              <form method="POST" action="/agent/<%= replicant._id %>/start" style="display:inline;"><button class="btn btn-accent btn-sm">Resume</button></form>
+              <form method="POST" action="/agent/<%= replicant._id %>/stop" style="display:inline;"><button class="btn btn-outline btn-sm">Stop</button></form>
+            <% } else { %>
+              <form method="POST" action="/agent/<%= replicant._id %>/start" style="display:inline;"><button class="btn btn-accent btn-sm">Start Agent</button></form>
+            <% } %>
+          </div>
+        </div>
+
+        <% if (session && session.lastError) { %>
+          <div class="card mb-3" style="border-color:var(--danger);">
+            <div class="card-title" style="color:var(--danger);">Last Error</div>
+            <pre class="mono" style="font-size:12px;white-space:pre-wrap;"><%= session.lastError %></pre>
+          </div>
+        <% } %>
+
+        <form method="POST" action="/agent/<%= replicant._id %>/config">
+          <div class="grid-2 mb-3">
+            <!-- Provider -->
+            <div class="card">
+              <div class="card-title">LLM Provider</div>
+              <div class="form-group">
+                <label class="form-label">Base URL</label>
+                <input type="text" name="baseUrl" class="form-input" value="<%= agentConfig?.provider?.baseUrl || 'https://openrouter.ai/api/v1' %>" placeholder="https://openrouter.ai/api/v1">
+              </div>
+              <div class="form-group">
+                <label class="form-label">API Key</label>
+                <input type="password" name="apiKey" class="form-input" value="<%= agentConfig?.provider?.apiKey ? '••••••••' : '' %>" placeholder="sk-...">
+                <div class="text-muted" style="font-size:11px;margin-top:4px;"><%= agentConfig?.provider?.apiKey ? 'Key configured. Enter a new value to replace.' : 'Not configured.' %></div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Model</label>
+                <input type="text" name="model" class="form-input" value="<%= agentConfig?.provider?.model || 'anthropic/claude-sonnet-4' %>" placeholder="anthropic/claude-sonnet-4">
+              </div>
+            </div>
+
+            <!-- Sampling -->
+            <div class="card">
+              <div class="card-title">Sampling</div>
+              <div class="form-group">
+                <label class="form-label">Temperature (0.0 - 2.0)</label>
+                <input type="number" name="temperature" class="form-input" value="<%= agentConfig?.sampling?.temperature ?? 0.7 %>" min="0" max="2" step="0.1">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Top P (0.0 - 1.0)</label>
+                <input type="number" name="topP" class="form-input" value="<%= agentConfig?.sampling?.topP ?? 1.0 %>" min="0" max="1" step="0.1">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Max Output Tokens</label>
+                <input type="number" name="maxTokens" class="form-input" value="<%= agentConfig?.sampling?.maxTokens ?? 4096 %>" min="256" max="32768">
+              </div>
+            </div>
+          </div>
+
+          <div class="grid-2 mb-3">
+            <!-- Scheduling -->
+            <div class="card">
+              <div class="card-title">Scheduling</div>
+              <div class="form-group">
+                <label class="form-label">Think Every N Ticks</label>
+                <input type="number" name="thinkEveryNTicks" class="form-input" value="<%= agentConfig?.thinkEveryNTicks ?? 5 %>" min="1" max="100" id="think-interval">
+                <div class="text-muted" style="font-size:11px;margin-top:4px;" id="think-desc">Every ~25 seconds / ~4 game hours</div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Token Budget Per Cycle</label>
+                <input type="number" name="tokenBudgetPerCycle" class="form-input" value="<%= agentConfig?.tokenBudgetPerCycle ?? 50000 %>" min="1000" max="200000" step="1000">
+              </div>
+            </div>
+
+            <!-- System Prompt -->
+            <div class="card">
+              <div class="card-title">System Prompt Override</div>
+              <div class="form-group">
+                <textarea name="systemPromptOverride" class="form-input" style="min-height:140px;" placeholder="Leave blank to use the default agent prompt. Context (identity, ships, messages) is always injected as the user message."><%= agentConfig?.systemPromptOverride || '' %></textarea>
+              </div>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-accent">Save Configuration</button>
+        </form>
+
+        <% if (session && session.cycleHistory && session.cycleHistory.length > 0) { %>
+        <div class="card mt-3">
+          <div class="card-title">Cycle History (last <%= session.cycleHistory.length %>)</div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Tick</th><th>Tokens</th><th>Tool Calls</th><th>Duration</th><th>Status</th></tr></thead>
+              <tbody>
+                <% for (const c of [...session.cycleHistory].reverse().slice(0, 20)) { %>
+                  <tr>
+                    <td class="mono"><%= c.tick %></td>
+                    <td class="mono"><%= c.tokensUsed.toLocaleString() %></td>
+                    <td class="mono"><%= c.toolCalls %></td>
+                    <td class="mono"><%= (c.durationMs / 1000).toFixed(1) %>s</td>
+                    <td><%= c.error ? '&#x274C; ' + c.error.slice(0, 50) : '&#x2713;' %></td>
+                  </tr>
+                <% } %>
+              </tbody>
+            </table>
+          </div>
+
+          <div style="margin-top:12px;">
+            <table>
+              <tr><td class="label" style="width:120px;">Total Cycles</td><td class="mono"><%= session.totalCycles %></td></tr>
+              <tr><td class="label">Total Tokens</td><td class="mono"><%= session.totalTokensUsed.toLocaleString() %></td></tr>
+              <tr><td class="label">Total Tool Calls</td><td class="mono"><%= session.totalToolCalls.toLocaleString() %></td></tr>
+            </table>
+          </div>
+        </div>
+        <% } %>
+
+      </main>
+    </div>
+  </div>
+
+  <script>
+  (function() {
+    var input = document.getElementById('think-interval');
+    var desc = document.getElementById('think-desc');
+    function update() {
+      var n = parseInt(input.value) || 5;
+      var realSec = n * 5;
+      var gameMins = n * 50;
+      desc.textContent = 'Every ~' + realSec + ' seconds / ~' + (gameMins >= 60 ? (gameMins / 60).toFixed(1) + ' game hours' : gameMins + ' game minutes');
+    }
+    input.addEventListener('input', update);
+    update();
+  })();
+  </script>
+</body>
+</html>

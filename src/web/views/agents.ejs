@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/_head') %>
+</head>
+<body>
+  <div class="app">
+    <%- include('partials/nav', { user, currentPath }) %>
+    <div style="flex:1; margin-left:var(--sidebar-width);">
+      <%- include('partials/header', { user }) %>
+      <main class="main">
+        <%- include('partials/flash', { flash }) %>
+
+        <h1 class="page-title">Agent Management</h1>
+        <p class="text-dim" style="margin-bottom:24px;">Configure AI agents to autonomously control your replicants. Agents use your LLM API key and think on a configurable schedule.</p>
+
+        <% if (agents.length === 0) { %>
+          <div class="card"><p class="text-dim">No replicants found. Create a replicant first.</p></div>
+        <% } else { %>
+          <div class="grid-3">
+            <% for (const a of agents) { %>
+              <div class="card" style="cursor:pointer;" onclick="location.href='/agent/<%= a.replicant._id %>'">
+                <div class="flex justify-between items-center mb-2">
+                  <div class="card-title" style="margin-bottom:0;"><%= a.replicant.identity?.chosenName || a.replicant.name %></div>
+                  <% if (a.session) { %>
+                    <span class="badge badge-<%= a.session.status === 'running' ? 'owner' : a.session.status === 'paused' ? 'spectator' : a.session.status === 'error' ? 'operator' : 'spectator' %>"><%= a.session.status %></span>
+                  <% } else if (a.config) { %>
+                    <span class="badge badge-spectator">configured</span>
+                  <% } else { %>
+                    <span class="badge badge-spectator">not configured</span>
+                  <% } %>
+                </div>
+
+                <% if (a.config) { %>
+                  <table>
+                    <tr><td class="label" style="width:100px;">Model</td><td class="mono" style="font-size:12px;"><%= a.config.provider.model %></td></tr>
+                    <tr><td class="label">Think Every</td><td class="mono"><%= a.config.thinkEveryNTicks %> ticks</td></tr>
+                    <tr><td class="label">Token Budget</td><td class="mono"><%= a.config.tokenBudgetPerCycle.toLocaleString() %></td></tr>
+                  </table>
+                <% } %>
+
+                <% if (a.session) { %>
+                  <table style="margin-top:8px;">
+                    <tr><td class="label" style="width:100px;">Total Cycles</td><td class="mono"><%= a.session.totalCycles %></td></tr>
+                    <tr><td class="label">Tokens Used</td><td class="mono"><%= a.session.totalTokensUsed.toLocaleString() %></td></tr>
+                    <tr><td class="label">Last Cycle</td><td class="mono">Tick <%= a.session.lastCycleTick %></td></tr>
+                    <% if (a.session.lastError) { %>
+                      <tr><td class="label">Error</td><td class="text-dim" style="font-size:12px;color:var(--danger);"><%= a.session.lastError.slice(0, 80) %></td></tr>
+                    <% } %>
+                  </table>
+                <% } %>
+
+                <div class="mt-2">
+                  <a href="/agent/<%= a.replicant._id %>" class="btn btn-outline btn-sm" onclick="event.stopPropagation()">Configure</a>
+                </div>
+              </div>
+            <% } %>
+          </div>
+        <% } %>
+      </main>
+    </div>
+  </div>
+</body>
+</html>
