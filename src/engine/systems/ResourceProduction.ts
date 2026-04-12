@@ -1,5 +1,15 @@
 import { Structure, CelestialBody, ResourceStore, Ship, AMI, Asteroid, Colony } from '../../db/models/index.js';
 
+const CARGO_FIELDS = [
+  'metals','ice','silicates','rareEarths','helium3','organics','hydrogen','uranium','carbon',
+  'alloys','fuel','electronics','hullPlating','engines','sensors','computers','weaponSystems',
+  'lifeSupportUnits','solarPanels','fusionCores',
+];
+
+function getCargoUsed(store: Record<string, number>): number {
+  return CARGO_FIELDS.reduce((sum, f) => sum + (store[f] || 0), 0);
+}
+
 /**
  * Generate energy for all operational solar arrays and fusion plants.
  */
@@ -192,6 +202,8 @@ export async function executeMining(tick: number): Promise<void> {
     }
 
     // Check if mining a celestial body or an asteroid
+    const cargoCapacity = ship.specs.cargoCapacity;
+
     if (ship.orbitingBodyId) {
       const body = await CelestialBody.findById(ship.orbitingBodyId);
       if (!body || body.resources.length === 0) continue;
@@ -199,13 +211,19 @@ export async function executeMining(tick: number): Promise<void> {
       for (const res of body.resources) {
         if (!res.accessible || res.remaining <= 0) continue;
 
-        const requestedAmount = ship.specs.miningRate * res.abundance;
+        const storeAny = store as unknown as Record<string, number>;
+        const totalUsed = getCargoUsed(storeAny);
+        if (totalUsed >= cargoCapacity) break;
+
+        let requestedAmount = ship.specs.miningRate * res.abundance;
         if (requestedAmount <= 0) continue;
+
+        const remaining = cargoCapacity - totalUsed;
+        requestedAmount = Math.min(requestedAmount, remaining);
 
         const extracted = await extractFromBody(body, res.resourceType, requestedAmount);
         if (extracted <= 0) continue;
 
-        const storeAny = store as unknown as Record<string, number>;
         if (res.resourceType in store && typeof storeAny[res.resourceType] === 'number') {
           storeAny[res.resourceType] += extracted;
         }
@@ -217,13 +235,19 @@ export async function executeMining(tick: number): Promise<void> {
       for (const res of asteroid.resources) {
         if (!res.accessible || res.remaining <= 0) continue;
 
-        const requestedAmount = ship.specs.miningRate * res.abundance;
+        const storeAny = store as unknown as Record<string, number>;
+        const totalUsed = getCargoUsed(storeAny);
+        if (totalUsed >= cargoCapacity) break;
+
+        let requestedAmount = ship.specs.miningRate * res.abundance;
         if (requestedAmount <= 0) continue;
+
+        const remaining = cargoCapacity - totalUsed;
+        requestedAmount = Math.min(requestedAmount, remaining);
 
         const extracted = await extractFromAsteroid(asteroid, res.resourceType, requestedAmount);
         if (extracted <= 0) continue;
 
-        const storeAny = store as unknown as Record<string, number>;
         if (res.resourceType in store && typeof storeAny[res.resourceType] === 'number') {
           storeAny[res.resourceType] += extracted;
         }
@@ -256,6 +280,7 @@ export async function executeMining(tick: number): Promise<void> {
     }
 
     const targetResourceType = ship.miningState?.resourceType || null;
+    const cargoCapacity2 = ship.specs.cargoCapacity;
 
     if (ship.orbitingBodyId) {
       const body = await CelestialBody.findById(ship.orbitingBodyId);
@@ -265,13 +290,19 @@ export async function executeMining(tick: number): Promise<void> {
         if (!res.accessible || res.remaining <= 0) continue;
         if (targetResourceType && res.resourceType !== targetResourceType) continue;
 
-        const requestedAmount = ship.specs.miningRate * res.abundance;
+        const storeAny = store as unknown as Record<string, number>;
+        const totalUsed = getCargoUsed(storeAny);
+        if (totalUsed >= cargoCapacity2) break;
+
+        let requestedAmount = ship.specs.miningRate * res.abundance;
         if (requestedAmount <= 0) continue;
+
+        const remaining = cargoCapacity2 - totalUsed;
+        requestedAmount = Math.min(requestedAmount, remaining);
 
         const extracted = await extractFromBody(body, res.resourceType, requestedAmount);
         if (extracted <= 0) continue;
 
-        const storeAny = store as unknown as Record<string, number>;
         if (res.resourceType in store && typeof storeAny[res.resourceType] === 'number') {
           storeAny[res.resourceType] += extracted;
         }
@@ -284,13 +315,19 @@ export async function executeMining(tick: number): Promise<void> {
         if (!res.accessible || res.remaining <= 0) continue;
         if (targetResourceType && res.resourceType !== targetResourceType) continue;
 
-        const requestedAmount = ship.specs.miningRate * res.abundance;
+        const storeAny = store as unknown as Record<string, number>;
+        const totalUsed = getCargoUsed(storeAny);
+        if (totalUsed >= cargoCapacity2) break;
+
+        let requestedAmount = ship.specs.miningRate * res.abundance;
         if (requestedAmount <= 0) continue;
+
+        const remaining = cargoCapacity2 - totalUsed;
+        requestedAmount = Math.min(requestedAmount, remaining);
 
         const extracted = await extractFromAsteroid(asteroid, res.resourceType, requestedAmount);
         if (extracted <= 0) continue;
 
-        const storeAny = store as unknown as Record<string, number>;
         if (res.resourceType in store && typeof storeAny[res.resourceType] === 'number') {
           storeAny[res.resourceType] += extracted;
         }

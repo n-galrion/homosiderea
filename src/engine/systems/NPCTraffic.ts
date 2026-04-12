@@ -1,4 +1,4 @@
-import { Ship, Settlement, CelestialBody, ResourceStore } from '../../db/models/index.js';
+import { Ship, Settlement, CelestialBody, ResourceStore, Market } from '../../db/models/index.js';
 import { distance } from '../../shared/physics.js';
 import { nanoid } from 'nanoid';
 
@@ -86,6 +86,35 @@ export async function simulateNPCShips(tick: number): Promise<number> {
     const isMiner = ship.name.includes('Mining');
 
     if (isFreighter) {
+      // Freighters at a settlement nudge the local market (simulating trade goods delivered)
+      if (ship.orbitingBodyId) {
+        const localSettlement = await Settlement.findOne({
+          bodyId: ship.orbitingBodyId,
+          status: { $ne: 'destroyed' },
+        }).lean();
+
+        if (localSettlement) {
+          const market = await Market.findOne({ settlementId: localSettlement._id });
+          if (market) {
+            // Freighter "delivers" goods — small supply increase, small demand decrease
+            const tradeGoods = ['metals', 'alloys', 'electronics', 'fuel', 'ice'];
+            const supplyAny = market.supply as Record<string, number>;
+            const demandAny = market.demand as Record<string, number>;
+            for (const good of tradeGoods) {
+              if (supplyAny[good] !== undefined) {
+                supplyAny[good] = (supplyAny[good] ?? 0) + Math.floor(Math.random() * 5) + 1;
+              }
+              if (demandAny[good] !== undefined && demandAny[good] > 0) {
+                demandAny[good] = Math.max(0, (demandAny[good] ?? 0) - Math.floor(Math.random() * 3));
+              }
+            }
+            market.markModified('supply');
+            market.markModified('demand');
+            await market.save();
+          }
+        }
+      }
+
       // Freighters pick a random different settlement body and travel there
       if (Math.random() < 0.2) { // 20% chance per 5-tick cycle to depart
         const settlements = await Settlement.find({

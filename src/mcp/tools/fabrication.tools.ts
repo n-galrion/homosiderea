@@ -153,6 +153,25 @@ export function registerFabricationTools(server: McpServer, replicantId: string)
         };
       }
 
+      // Check cargo capacity for outputs
+      const CARGO_FIELDS = ['metals','ice','silicates','rareEarths','helium3','organics','hydrogen','uranium','carbon','alloys','fuel','electronics','hullPlating','engines','sensors','computers','weaponSystems','lifeSupportUnits','solarPanels','fusionCores'];
+      const currentCargo = CARGO_FIELDS.reduce((sum, f) => sum + (storeAny[f] || 0), 0);
+      const totalOutputs = Object.entries(recipe.outputs)
+        .filter(([r]) => CARGO_FIELDS.includes(r))
+        .reduce((sum, [, a]) => sum + a * quantity, 0);
+      const totalInputs = Object.entries(recipe.inputs)
+        .filter(([r]) => CARGO_FIELDS.includes(r))
+        .reduce((sum, [, a]) => sum + a * quantity, 0);
+      const netCargo = currentCargo - totalInputs + totalOutputs;
+      if (netCargo > ship.specs.cargoCapacity) {
+        return {
+          content: [{
+            type: 'text',
+            text: `Insufficient cargo space. Current cargo: ${currentCargo.toFixed(1)}, capacity: ${ship.specs.cargoCapacity}. After fabrication cargo would be ${netCargo.toFixed(1)}. Reduce quantity or free up space.`,
+          }],
+        };
+      }
+
       // Deduct inputs
       for (const [resource, amount] of Object.entries(recipe.inputs)) {
         storeAny[resource] -= amount * quantity;
@@ -338,6 +357,75 @@ export function registerFabricationTools(server: McpServer, replicantId: string)
             description,
             cost,
             narrative: `Ship upgrade complete aboard ${ship.name}. ${description}. Components consumed: ${Object.entries(cost).map(([r, a]) => `${a} ${r}`).join(', ')}.`,
+          }, null, 2),
+        }],
+      };
+    },
+  );
+
+  server.tool(
+    'repair_ship',
+    'Repair hull damage on your ship using alloys and hull plating from cargo. Ship must be docked or orbiting. Cost scales with damage amount.',
+    {
+      shipId: z.string().describe('Ship to repair'),
+    },
+    async ({ shipId }) => {
+      const ship = await Ship.findOne({ _id: shipId, ownerId: replicantId });
+      if (!ship) return { content: [{ type: 'text', text: 'Error: Ship not found or not yours.' }] };
+
+      if (ship.status !== 'docked' && ship.status !== 'orbiting') {
+        return { content: [{ type: 'text', text: 'Error: Ship must be docked or orbiting to perform repairs.' }] };
+      }
+
+      const damage = ship.specs.maxHullPoints - ship.specs.hullPoints;
+      if (damage <= 0) {
+        return { content: [{ type: 'text', text: 'Ship hull is already at full integrity. No repairs needed.' }] };
+      }
+
+      const store = await ResourceStore.findOne({ 'ownerRef.kind': 'Ship', 'ownerRef.item': ship._id });
+      if (!store) return { content: [{ type: 'text', text: 'Error: No cargo hold.' }] };
+
+      const storeAny = store as unknown as Record<string, number>;
+      const availableAlloys = storeAny['alloys'] ?? 0;
+      const availableHullPlating = storeAny['hullPlating'] ?? 0;
+
+      // repairAmount limited by damage, alloys (2 HP per alloy), and hullPlating (5 HP per plate)
+      const repairAmount = Math.min(damage, availableAlloys * 2, availableHullPlating * 5);
+
+      if (repairAmount <= 0) {
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              damage,
+              availableAlloys,
+              availableHullPlating,
+              message: 'Insufficient materials to repair. Need alloys and hullPlating in cargo.',
+            }, null, 2),
+          }],
+        };
+      }
+
+      const alloysUsed = Math.ceil(repairAmount / 2);
+      const platingUsed = Math.ceil(repairAmount / 5);
+
+      storeAny['alloys'] -= alloysUsed;
+      storeAny['hullPlating'] -= platingUsed;
+      await store.save();
+
+      ship.specs.hullPoints = Math.min(ship.specs.hullPoints + repairAmount, ship.specs.maxHullPoints);
+      await ship.save();
+
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            success: true,
+            repaired: repairAmount,
+            hullPoints: ship.specs.hullPoints,
+            maxHullPoints: ship.specs.maxHullPoints,
+            consumed: { alloys: alloysUsed, hullPlating: platingUsed },
+            narrative: `Hull repair complete aboard ${ship.name}. Restored ${repairAmount} hull points using ${alloysUsed} alloys and ${platingUsed} hull plating. Hull integrity now at ${ship.specs.hullPoints}/${ship.specs.maxHullPoints}.`,
           }, null, 2),
         }],
       };

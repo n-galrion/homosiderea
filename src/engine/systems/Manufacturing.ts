@@ -1,4 +1,4 @@
-import { Structure, ActionQueue, Blueprint, ResourceStore } from '../../db/models/index.js';
+import { Structure, ActionQueue, Blueprint, ResourceStore, Colony } from '../../db/models/index.js';
 
 /**
  * Advance construction progress for all structures currently being built.
@@ -127,13 +127,23 @@ export async function processManufacturing(tick: number): Promise<void> {
         store.energy -= blueprint.energyCost;
       }
 
-      // Add outputs
+      // Check colony power ratio — if under-powered, output is reduced
+      let powerRatio = 1.0;
+      if (structure.colonyId) {
+        const colony = await Colony.findById(structure.colonyId).lean();
+        if (colony) {
+          powerRatio = Math.min(1.0, colony.stats.powerRatio);
+        }
+      }
+
+      // Add outputs (scaled by power ratio — partial yield when under-powered)
       for (const output of blueprint.outputs) {
         const key = output.resource;
+        const scaledAmount = output.amount * powerRatio;
         if (typeof storeAny[key] === 'number') {
-          storeAny[key] += output.amount;
+          storeAny[key] += scaledAmount;
         } else {
-          storeAny[key] = output.amount;
+          storeAny[key] = scaledAmount;
         }
       }
 

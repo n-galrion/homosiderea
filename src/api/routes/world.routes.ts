@@ -2,8 +2,16 @@ import { Router, type Request, type Response, type NextFunction } from 'express'
 import { CelestialBody, ResourceStore, Settlement, Market, Replicant, Blueprint } from '../../db/models/index.js';
 import { KnownEntity } from '../../db/models/KnownEntity.js';
 import { ACTION_TYPES } from '../../shared/constants.js';
+import { config } from '../../config.js';
 
 export const worldRoutes = Router();
+
+/** Check if the request is authorized for all-mode (admin bypass). */
+function isAllModeAuthorized(req: Request): boolean {
+  if (req.query.all !== 'true') return false;
+  const adminKey = req.headers['x-admin-key'] as string | undefined;
+  return adminKey === config.auth.adminKey;
+}
 
 /** Round a number to the nearest increment (e.g. 0.1 AU). */
 function roundTo(value: number, increment: number): number {
@@ -72,12 +80,12 @@ function shapeBodyByIntel(body: Record<string, unknown>, intelLevel: string): Re
 worldRoutes.get('/bodies', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { type, parentId } = req.query;
-    const allMode = req.query.all === 'true';
+    const allMode = isAllModeAuthorized(req);
     const filter: Record<string, unknown> = {};
     if (type) filter.type = type;
     if (parentId) filter.parentId = parentId;
 
-    // Admin / backward-compat mode: return everything
+    // Admin mode: return everything (requires X-Admin-Key)
     if (allMode) {
       const bodies = await CelestialBody.find(filter)
         .select('name type parentId position physical.radius physical.gravity physical.hasAtmosphere solarEnergyFactor')
@@ -123,7 +131,7 @@ worldRoutes.get('/bodies', async (req: Request, res: Response, next: NextFunctio
 // Get specific body (fog-of-war filtered)
 worldRoutes.get('/bodies/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const allMode = req.query.all === 'true';
+    const allMode = isAllModeAuthorized(req);
 
     if (allMode) {
       const body = await CelestialBody.findById(req.params.id).lean();
@@ -167,7 +175,7 @@ worldRoutes.get('/bodies/:id', async (req: Request, res: Response, next: NextFun
 // Get resources on a body (fog-of-war filtered)
 worldRoutes.get('/bodies/:id/resources', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const allMode = req.query.all === 'true';
+    const allMode = isAllModeAuthorized(req);
     const replicantId = req.replicantId;
 
     if (!allMode && replicantId) {
@@ -207,7 +215,7 @@ worldRoutes.get('/bodies/:id/resources', async (req: Request, res: Response, nex
 worldRoutes.get('/settlements', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { bodyId } = req.query;
-    const allMode = req.query.all === 'true';
+    const allMode = isAllModeAuthorized(req);
     const filter: Record<string, unknown> = {};
     if (bodyId) filter.bodyId = bodyId;
 
@@ -251,7 +259,7 @@ worldRoutes.get('/settlements', async (req: Request, res: Response, next: NextFu
 // Get settlement detail + market
 worldRoutes.get('/settlements/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const allMode = req.query.all === 'true';
+    const allMode = isAllModeAuthorized(req);
 
     if (!allMode && req.replicantId) {
       const knownEntry = await KnownEntity.findOne({
@@ -281,7 +289,7 @@ worldRoutes.get('/settlements/:id', async (req: Request, res: Response, next: Ne
 // List known replicants (fog-of-war filtered: only encountered replicants)
 worldRoutes.get('/replicants', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const allMode = req.query.all === 'true';
+    const allMode = isAllModeAuthorized(req);
 
     if (allMode) {
       const replicants = await Replicant.find({ status: 'active' })
