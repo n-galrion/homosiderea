@@ -1,5 +1,6 @@
 import { config } from './config.js';
 import { connectDB } from './db/connection.js';
+import { initRedisPublisher } from './shared/redis.js';
 import { createApp } from './api/server.js';
 import { handleMcpPost, handleMcpGet, handleMcpDelete, handleSSEGet, handleSSEPost } from './mcp/server.js';
 import { GameLoop } from './engine/GameLoop.js';
@@ -19,6 +20,8 @@ async function main() {
   console.log('Connecting to MongoDB...');
   await connectDB();
   console.log('MongoDB connected.');
+
+  initRedisPublisher();
 
   // 2. Seed data if empty
   const bodyCount = await CelestialBody.countDocuments();

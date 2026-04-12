@@ -2,6 +2,7 @@ import { Tick } from '../db/models/index.js';
 import { config } from '../config.js';
 import { TickProcessor } from './TickProcessor.js';
 import type { TickResult } from '../shared/types.js';
+import { getRedisPublisher } from '../shared/redis.js';
 
 /**
  * Manages the setInterval-based tick scheduler for the game engine.
@@ -74,6 +75,12 @@ export class GameLoop {
     try {
       const result = await this.tickProcessor.processTick(nextTick);
       this.currentTick = nextTick;
+
+      // Notify agent workers that a tick completed
+      const redis = getRedisPublisher();
+      if (redis) {
+        redis.publish('tick:complete', JSON.stringify({ tick: nextTick })).catch(() => {});
+      }
 
       if (result.errors.length > 0) {
         console.warn(`[GameLoop] Tick ${nextTick} completed with ${result.errors.length} error(s) in ${result.durationMs}ms`);
