@@ -17,6 +17,9 @@ import { shipRoutes } from './routes/ship.routes.js';
 import { structureRoutes } from './routes/structure.routes.js';
 import { colonyRoutes } from './routes/colony.routes.js';
 import { authMiddleware, adminAuth } from './middleware/auth.js';
+import '../web/middleware/session.js'; // side-effect: augments SessionData type
+import { authWebRoutes } from '../web/routes/auth.web.routes.js';
+import { requireAuth } from '../web/middleware/roles.js';
 
 export function createApp() {
   const app = express();
@@ -48,12 +51,17 @@ export function createApp() {
     }),
   }));
 
-  // Static files + dashboard
+  // Static files
   const publicDir = join(__dirname, '..', '..', 'public');
   app.use('/static', express.static(publicDir));
   app.use('/web', express.static(join(__dirname, '..', 'web', 'public')));
-  app.get('/dashboard', (_req: Request, res: Response) => {
-    res.sendFile(join(publicDir, 'dashboard.html'));
+
+  // Web routes (auth pages: landing, login, register, logout)
+  app.use(authWebRoutes);
+
+  // Authenticated dashboard
+  app.get('/dashboard', requireAuth, (req: Request, res: Response) => {
+    res.render('dashboard', { title: 'Dashboard', user: res.locals.user, currentPath: '/dashboard', flash: {} });
   });
 
   // Dashboard map data (unauthenticated, limited fields)

@@ -1,0 +1,32 @@
+<aside class="sidebar">
+  <div class="sidebar-brand">
+    <span class="dot"></span>
+    HOMOSIDERIA
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-label">System</div>
+    <a href="/dashboard" class="sidebar-link<%= currentPath === '/dashboard' ? ' active' : '' %>">Dashboard</a>
+    <a href="/map" class="sidebar-link<%= currentPath === '/map' ? ' active' : '' %>">Sol Map</a>
+    <a href="/events" class="sidebar-link<%= currentPath === '/events' ? ' active' : '' %>">Event Feed</a>
+  </div>
+
+  <% if (user.role === 'owner' || user.role === 'operator') { %>
+  <div class="sidebar-section">
+    <div class="sidebar-label">Fleet</div>
+    <a href="/replicants" class="sidebar-link<%= currentPath === '/replicants' ? ' active' : '' %>">My Replicants</a>
+    <a href="/api-keys" class="sidebar-link<%= currentPath === '/api-keys' ? ' active' : '' %>">API Keys</a>
+  </div>
+  <% } %>
+
+  <% if (user.role === 'operator') { %>
+  <div class="sidebar-section">
+    <div class="sidebar-label">Operator</div>
+    <a href="/admin/control" class="sidebar-link<%= currentPath === '/admin/control' ? ' active' : '' %>">Control Panel</a>
+    <a href="/admin/settlements" class="sidebar-link<%= currentPath === '/admin/settlements' ? ' active' : '' %>">Settlements</a>
+    <a href="/admin/events" class="sidebar-link<%= currentPath === '/admin/events' ? ' active' : '' %>">Events</a>
+    <a href="/admin/game" class="sidebar-link<%= currentPath === '/admin/game' ? ' active' : '' %>">Game</a>
+    <a href="/admin/users" class="sidebar-link<%= currentPath === '/admin/users' ? ' active' : '' %>">Users</a>
+  </div>
+  <% } %>
+</aside>

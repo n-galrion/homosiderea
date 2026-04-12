@@ -1,0 +1,83 @@
+<h2>Visual Direction for Mission Control</h2>
+<p class="subtitle">Which aesthetic feels right for a hard sci-fi space game control center?</p>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image" style="background: #0a0e17; padding: 24px; border-radius: 8px 8px 0 0;">
+      <div style="font-family: 'JetBrains Mono', monospace; color: #3b82f6; font-size: 11px; letter-spacing: 2px; margin-bottom: 12px;">HOMOSIDERIA // MISSION CONTROL</div>
+      <div style="display: flex; gap: 12px;">
+        <div style="background: #111827; border: 1px solid #1f2937; border-radius: 4px; padding: 12px; flex: 1;">
+          <div style="color: #6b7280; font-size: 9px; text-transform: uppercase; letter-spacing: 1px;">TICK</div>
+          <div style="color: #10b981; font-size: 20px; font-family: monospace;">247</div>
+        </div>
+        <div style="background: #111827; border: 1px solid #1f2937; border-radius: 4px; padding: 12px; flex: 1;">
+          <div style="color: #6b7280; font-size: 9px; text-transform: uppercase; letter-spacing: 1px;">REPLICANTS</div>
+          <div style="color: #3b82f6; font-size: 20px; font-family: monospace;">3</div>
+        </div>
+      </div>
+      <div style="margin-top: 12px; background: #111827; border: 1px solid #1f2937; border-radius: 4px; padding: 8px; color: #9ca3af; font-size: 10px; font-family: monospace;">
+        > [MC] Shanghai shifts rare earth prices +12%<br>
+        > [EVENT] Micrometeorite impact on Vigil's Shuttle<br>
+        > [PIRATE] Dark Fang threatens Bob-1
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A: Terminal / CRT</h3>
+      <p>Current aesthetic refined. Dark backgrounds, monospace fonts, green/blue accents, terminal-style logs. Feels like operating a real mission control console. Dense, data-heavy.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image" style="background: linear-gradient(135deg, #0f172a, #1e1b4b); padding: 24px; border-radius: 8px 8px 0 0;">
+      <div style="font-family: system-ui, sans-serif; color: #e2e8f0; font-size: 16px; font-weight: 600; margin-bottom: 16px;">
+        <span style="color: #818cf8;">⚛</span> Homosideria
+        <span style="float: right; font-size: 12px; color: #64748b; font-weight: 400;">Mission Control</span>
+      </div>
+      <div style="display: flex; gap: 12px;">
+        <div style="background: rgba(255,255,255,0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 16px; flex: 1;">
+          <div style="color: #94a3b8; font-size: 11px; margin-bottom: 4px;">Game Time</div>
+          <div style="color: #e2e8f0; font-size: 18px; font-weight: 600;">Day 10.3</div>
+          <div style="color: #64748b; font-size: 10px;">Tick 247 • 600x dilation</div>
+        </div>
+        <div style="background: rgba(255,255,255,0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 16px; flex: 1;">
+          <div style="color: #94a3b8; font-size: 11px; margin-bottom: 4px;">Active Agents</div>
+          <div style="color: #818cf8; font-size: 18px; font-weight: 600;">3 Replicants</div>
+          <div style="color: #64748b; font-size: 10px;">2 Earth orbit • 1 Luna</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B: Modern Glass</h3>
+      <p>Clean, modern dark UI with glassmorphism effects, rounded corners, sans-serif fonts. Feels like a premium SaaS dashboard. Less dense, more breathable. Indigo/purple accent palette.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image" style="background: #0c0c0c; padding: 24px; border-radius: 8px 8px 0 0; border-bottom: 2px solid #f59e0b;">
+      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px;">
+        <div style="width: 8px; height: 8px; background: #f59e0b; border-radius: 50%;"></div>
+        <span style="font-family: system-ui; color: #fbbf24; font-size: 13px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase;">HOMOSIDERIA</span>
+        <span style="color: #525252; font-size: 11px; margin-left: auto;">SOL SYSTEM • TICK 247</span>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+        <div style="background: #171717; border-left: 3px solid #f59e0b; padding: 12px;">
+          <div style="color: #737373; font-size: 10px; text-transform: uppercase;">Replicants Online</div>
+          <div style="color: #fafafa; font-size: 22px; font-weight: 700; font-family: system-ui;">3</div>
+        </div>
+        <div style="background: #171717; border-left: 3px solid #ef4444; padding: 12px;">
+          <div style="color: #737373; font-size: 10px; text-transform: uppercase;">Threats Active</div>
+          <div style="color: #ef4444; font-size: 22px; font-weight: 700; font-family: system-ui;">2 pirates</div>
+        </div>
+      </div>
+      <div style="margin-top: 12px; display: flex; gap: 6px;">
+        <span style="background: #1a1a1a; border: 1px solid #333; color: #a3a3a3; font-size: 10px; padding: 3px 8px; border-radius: 3px;">Overview</span>
+        <span style="background: #f59e0b22; border: 1px solid #f59e0b; color: #f59e0b; font-size: 10px; padding: 3px 8px; border-radius: 3px;">Sol Map</span>
+        <span style="background: #1a1a1a; border: 1px solid #333; color: #a3a3a3; font-size: 10px; padding: 3px 8px; border-radius: 3px;">Replicants</span>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C: Industrial / Aerospace</h3>
+      <p>Black backgrounds with amber/gold accents. Bold left-border indicators. Clean sans-serif with uppercase labels. Feels like actual aerospace mission control — functional, authoritative, no-nonsense. High contrast.</p>
+    </div>
+  </div>
+</div>

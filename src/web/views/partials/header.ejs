@@ -1,0 +1,33 @@
+<div class="topbar">
+  <div class="topbar-left">
+    <span class="topbar-time" id="game-time">TICK ---</span>
+  </div>
+  <div class="topbar-right">
+    <span class="badge badge-<%= user.role %>"><%= user.role %></span>
+    <span class="topbar-user"><%= user.username %></span>
+    <form action="/auth/logout" method="POST" class="inline-form">
+      <button type="submit" class="btn-link">Logout</button>
+    </form>
+  </div>
+</div>
+<script>
+(function() {
+  async function updateTime() {
+    try {
+      const res = await fetch('/api/game/status');
+      if (res.ok) {
+        const data = await res.json();
+        const el = document.getElementById('game-time');
+        if (el && data.currentTick != null) {
+          el.textContent = 'TICK ' + data.currentTick;
+          if (data.gameTime) {
+            el.textContent += ' | ' + data.gameTime;
+          }
+        }
+      }
+    } catch (_) {}
+  }
+  updateTime();
+  setInterval(updateTime, 5000);
+})();
+</script>

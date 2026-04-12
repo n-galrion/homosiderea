@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/_head') %>
+</head>
+<body>
+  <div class="app">
+    <%- include('partials/nav', { user, currentPath }) %>
+    <div style="flex:1; margin-left:var(--sidebar-width);">
+      <%- include('partials/header', { user }) %>
+      <main class="main">
+        <%- include('partials/flash', { flash }) %>
+
+        <h1 class="page-title">Dashboard</h1>
+
+        <div class="grid-4 mb-3" id="stats">
+          <div class="stat-box">
+            <div class="stat-label">Current Tick</div>
+            <div class="stat-value" id="stat-tick">---</div>
+          </div>
+          <div class="stat-box stat-info">
+            <div class="stat-label">Replicants</div>
+            <div class="stat-value" id="stat-replicants">---</div>
+          </div>
+          <div class="stat-box stat-success">
+            <div class="stat-label">Celestial Bodies</div>
+            <div class="stat-value" id="stat-bodies">---</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">Settlements</div>
+            <div class="stat-value" id="stat-settlements">---</div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-title">Game Status</div>
+            <table>
+              <tr><td class="label" style="width:140px;">Game Time</td><td class="mono" id="detail-gametime">---</td></tr>
+              <tr><td class="label">Tick Interval</td><td class="mono" id="detail-interval">---</td></tr>
+              <tr><td class="label">Running</td><td id="detail-running">---</td></tr>
+            </table>
+          </div>
+          <div class="card">
+            <div class="card-title">Your Account</div>
+            <table>
+              <tr><td class="label" style="width:140px;">Username</td><td><%= user.username %></td></tr>
+              <tr><td class="label">Role</td><td><span class="badge badge-<%= user.role %>"><%= user.role %></span></td></tr>
+              <tr><td class="label">Replicants</td><td><%= user.replicantIds ? user.replicantIds.length : 0 %></td></tr>
+              <tr><td class="label">API Keys</td><td><%= user.apiKeys ? user.apiKeys.filter(function(k) { return k.active; }).length : 0 %></td></tr>
+            </table>
+          </div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <script>
+  (function() {
+    async function loadStats() {
+      try {
+        const res = await fetch('/api/game/status');
+        if (res.ok) {
+          const d = await res.json();
+          document.getElementById('stat-tick').textContent = d.currentTick ?? '---';
+          document.getElementById('detail-gametime').textContent = d.gameTime ?? '---';
+          document.getElementById('detail-interval').textContent = (d.tickIntervalMs ?? '---') + ' ms';
+          document.getElementById('detail-running').innerHTML = d.isRunning
+            ? '<span class="status-dot active"></span>Yes'
+            : '<span class="status-dot inactive"></span>No';
+        }
+      } catch (_) {}
+
+      try {
+        const res = await fetch('/api/public/bodies');
+        if (res.ok) {
+          const bodies = await res.json();
+          document.getElementById('stat-bodies').textContent = bodies.length;
+        }
+      } catch (_) {}
+    }
+
+    loadStats();
+  })();
+  </script>
+</body>
+</html>
