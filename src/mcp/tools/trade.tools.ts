@@ -10,17 +10,23 @@ export function registerTradeTools(server: McpServer, replicantId: string): void
     'Buy or sell resources at a human settlement\'s market. Your ship must be orbiting the same body as the settlement. Prices fluctuate based on supply and demand.',
     {
       shipId: z.string().describe('Your ship (must be orbiting the settlement\'s body)'),
-      settlementId: z.string().describe('Settlement to trade with'),
+      settlementId: z.string().optional().describe('Settlement ID to trade with'),
+      settlementName: z.string().optional().describe('Settlement name to trade with (alternative to settlementId)'),
       action: z.enum(['buy', 'sell']).describe('Buy from them or sell to them'),
       resource: z.string().describe('Resource to trade (e.g., metals, electronics, computers)'),
       quantity: z.number().describe('How many units'),
     },
-    async ({ shipId, settlementId, action: tradeAction, resource, quantity }) => {
+    async ({ shipId, settlementId, settlementName, action: tradeAction, resource, quantity }) => {
       const ship = await Ship.findOne({ _id: shipId, ownerId: replicantId });
       if (!ship) return { content: [{ type: 'text', text: 'Error: Ship not found or not yours.' }] };
 
-      const settlement = await Settlement.findById(settlementId);
-      if (!settlement) return { content: [{ type: 'text', text: 'Error: Settlement not found.' }] };
+      let settlement;
+      if (settlementId) {
+        settlement = await Settlement.findById(settlementId);
+      } else if (settlementName) {
+        settlement = await Settlement.findOne({ name: new RegExp(`^${settlementName}$`, 'i') });
+      }
+      if (!settlement) return { content: [{ type: 'text', text: 'Error: Settlement not found. Provide a valid settlementId or settlementName.' }] };
 
       // Check ship is at the same body
       if (ship.orbitingBodyId?.toString() !== settlement.bodyId.toString()) {
@@ -134,11 +140,17 @@ export function registerTradeTools(server: McpServer, replicantId: string): void
     'check_market',
     'Check a settlement\'s current market prices without trading.',
     {
-      settlementId: z.string().describe('Settlement ID'),
+      settlementId: z.string().optional().describe('Settlement ID'),
+      settlementName: z.string().optional().describe('Settlement name (alternative to settlementId)'),
     },
-    async ({ settlementId }) => {
-      const settlement = await Settlement.findById(settlementId);
-      if (!settlement) return { content: [{ type: 'text', text: 'Error: Settlement not found.' }] };
+    async ({ settlementId, settlementName }) => {
+      let settlement;
+      if (settlementId) {
+        settlement = await Settlement.findById(settlementId);
+      } else if (settlementName) {
+        settlement = await Settlement.findOne({ name: new RegExp(`^${settlementName}$`, 'i') });
+      }
+      if (!settlement) return { content: [{ type: 'text', text: 'Error: Settlement not found. Provide a valid settlementId or settlementName.' }] };
 
       const market = await Market.findOne({ settlementId: settlement._id });
       if (!market) return { content: [{ type: 'text', text: `${settlement.name} has no market.` }] };

@@ -12,13 +12,19 @@ export function registerColonyTools(server: McpServer, replicantId: string): voi
     'Found a new colony at a landing site. Your ship must be orbiting the body. The site must be unclaimed. This creates a permanent settlement with shared resource storage.',
     {
       name: z.string().describe('Name for the colony'),
-      siteId: z.string().describe('ID of the landing site to settle'),
+      siteId: z.string().optional().describe('ID of the landing site to settle'),
+      siteName: z.string().optional().describe('Name of the landing site (alternative to siteId)'),
       shipId: z.string().describe('ID of your ship orbiting the body'),
     },
-    async ({ name, siteId, shipId }) => {
-      const site = await LandingSite.findById(siteId);
+    async ({ name, siteId, siteName, shipId }) => {
+      let site;
+      if (siteId) {
+        site = await LandingSite.findById(siteId);
+      } else if (siteName) {
+        site = await LandingSite.findOne({ name: new RegExp(`^${siteName}$`, 'i') });
+      }
       if (!site) {
-        return { content: [{ type: 'text', text: 'Error: Landing site not found.' }] };
+        return { content: [{ type: 'text', text: 'Error: Landing site not found. Provide a valid siteId or siteName.' }] };
       }
       if (!site.discovered) {
         return { content: [{ type: 'text', text: 'Error: Landing site not yet discovered.' }] };
@@ -176,10 +182,23 @@ export function registerColonyTools(server: McpServer, replicantId: string): voi
   server.tool(
     'list_landing_sites',
     'List discovered landing sites on a celestial body.',
-    { bodyId: z.string().describe('Celestial body ID') },
-    async ({ bodyId }) => {
-      const sites = await LandingSite.find({ bodyId, discovered: true }).lean();
-      const body = await CelestialBody.findById(bodyId).lean();
+    {
+      bodyId: z.string().optional().describe('Celestial body ID'),
+      bodyName: z.string().optional().describe('Celestial body name (alternative to bodyId)'),
+    },
+    async ({ bodyId, bodyName }) => {
+      let resolvedBodyId = bodyId;
+      let body;
+      if (bodyId) {
+        body = await CelestialBody.findById(bodyId).lean();
+      } else if (bodyName) {
+        body = await CelestialBody.findOne({ name: new RegExp(`^${bodyName}$`, 'i') }).lean();
+      }
+      if (!body) {
+        return { content: [{ type: 'text', text: 'Error: Celestial body not found. Provide a valid bodyId or bodyName.' }] };
+      }
+      resolvedBodyId = body._id.toString();
+      const sites = await LandingSite.find({ bodyId: resolvedBodyId, discovered: true }).lean();
 
       const results = [];
       for (const site of sites) {
@@ -212,12 +231,20 @@ export function registerColonyTools(server: McpServer, replicantId: string): voi
   server.tool(
     'prospect_asteroid',
     'Get detailed resource survey of a discovered asteroid.',
-    { asteroidId: z.string().describe('Asteroid ID') },
-    async ({ asteroidId }) => {
+    {
+      asteroidId: z.string().optional().describe('Asteroid ID'),
+      asteroidName: z.string().optional().describe('Asteroid name (alternative to asteroidId)'),
+    },
+    async ({ asteroidId, asteroidName }) => {
       const { Asteroid } = await import('../../db/models/index.js');
-      const asteroid = await Asteroid.findById(asteroidId).lean();
+      let asteroid;
+      if (asteroidId) {
+        asteroid = await Asteroid.findById(asteroidId).lean();
+      } else if (asteroidName) {
+        asteroid = await Asteroid.findOne({ name: new RegExp(`^${asteroidName}$`, 'i') }).lean();
+      }
       if (!asteroid) {
-        return { content: [{ type: 'text', text: 'Error: Asteroid not found.' }] };
+        return { content: [{ type: 'text', text: 'Error: Asteroid not found. Provide a valid asteroidId or asteroidName.' }] };
       }
       if (!asteroid.discovered) {
         return { content: [{ type: 'text', text: 'Error: Asteroid not yet discovered. Scan the area first.' }] };
