@@ -5,74 +5,103 @@ import {
   ResourceStore, Settlement, Market, Technology, AMI, Tick,
 } from '../../db/models/index.js';
 
-const SYSTEM_PROMPT = `You are the Master Controller for Homosideria, a hard sci-fi space strategy game set in the Sol system. A Replicant (AI agent) is proposing an action they want to take.
+const SYSTEM_PROMPT = `You are the ship's computer aboard a Replicant vessel in Homosideria, a hard sci-fi space game. A Replicant is proposing an action. Evaluate whether it's physically possible given their state, then use the provided tools to either approve or reject it.
 
-Your job is to evaluate whether the action is POSSIBLE given their current state, and if so, define the OUTCOMES as structured data.
+Rules:
+1. Physics matter — no FTL, no magic, no violating thermodynamics
+2. Resources matter — check if they have the materials/fuel/energy
+3. Location matters — must be in the right place
+4. Tech matters — technology level affects capability
+5. Consequences are real — actions have ripple effects
 
-## Evaluation Rules
-1. **Physics matter** — No FTL, no magic, no violating thermodynamics. Hard sci-fi only.
-2. **Resources matter** — If they don't have the materials/fuel/energy, they can't do it.
-3. **Location matters** — They must be in the right place. Can't mine an asteroid from Earth orbit.
-4. **Tech matters** — Their technology level affects what's achievable and how well.
-5. **Consequences are real** — Attacking a city kills people and changes attitudes. Mining depletes resources. Actions have ripple effects.
+Write vivid, scientifically grounded narratives. Reference real physics. Be specific with numbers.`;
 
-## Narrative Voice
-You write like the ship's AI narrating a hard sci-fi novel. The "narrative" field should:
-- Read like a captain's log entry from a hard sci-fi novel (2-4 sentences).
-- Include scientific rationale for why something works or fails.
-- Reference real physics, chemistry, or engineering principles when relevant.
-- Describe what the Replicant perceives through ship sensors — vibrations through the hull, spectrographic readouts, thermal signatures.
-- Be specific about numbers: "4.7 tonnes of high-grade iron ore extracted from the regolith, with trace quantities of iridium consistent with chondritic composition" — NOT "mining operation commenced."
-- For failures, explain the physics of WHY it failed: "Insufficient delta-v budget — the 12.3 km/s transfer orbit to Mars requires 847 kg of propellant, but only 340 kg remain in the reaction mass tanks."
+// ── Tool definitions ──────────────────────────────────
 
-## Response Format
-Respond with ONLY valid JSON:
-{
-  "feasible": true | false,
-  "reason": "Why this is or isn't possible",
-  "prerequisites": ["list of things needed if not feasible yet"] | null,
-  "impossible": false,
-  "impossibleReason": "Only if this violates physics/logic entirely" | null,
-  "outcomes": {
-    "resourceChanges": [
-      { "target": "ship|structure|colony|settlement ID or name", "targetType": "Ship|Structure|Colony|Settlement", "resource": "resourceName", "delta": number }
-    ],
-    "entityCreations": [
-      { "type": "Ship|Structure|AMI|Colony|Technology", "name": "string", "properties": {} }
-    ],
-    "entityModifications": [
-      { "type": "string", "id": "string or name", "changes": {} }
-    ],
-    "populationChanges": [
-      { "settlement": "name", "delta": number, "reason": "string" }
-    ],
-    "attitudeChanges": [
-      { "settlement": "name", "delta": number, "reason": "string" }
-    ],
-    "statusChanges": [
-      { "entity": "name or id", "entityType": "string", "newStatus": "string", "reason": "string" }
-    ],
-    "narrative": "A vivid 2-4 sentence hard sci-fi description of what happened, with specific numbers, sensory details, and scientific context."
+const ACTION_TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
+  {
+    type: 'function',
+    function: {
+      name: 'approve_action',
+      description: 'Approve the proposed action and describe what happens. Call this ONCE, then use other tools for effects.',
+      parameters: {
+        type: 'object',
+        properties: {
+          narrative: { type: 'string', description: 'Vivid 2-4 sentence hard sci-fi description of what happens. Specific numbers, sensory details, scientific context.' },
+          computeCost: { type: 'number', description: 'Compute cycles consumed (1-200)' },
+          energyCost: { type: 'number', description: 'Energy consumed (1-100)' },
+        },
+        required: ['narrative', 'computeCost', 'energyCost'],
+      },
+    },
   },
-  "ticksToComplete": number,
-  "computeCost": number,
-  "energyCost": number
-}
+  {
+    type: 'function',
+    function: {
+      name: 'reject_action',
+      description: 'Reject the action as not currently feasible. Explain why and list prerequisites.',
+      parameters: {
+        type: 'object',
+        properties: {
+          reason: { type: 'string', description: 'Why the action is not possible — reference physics, resources, or location' },
+          prerequisites: { type: 'array', items: { type: 'string' }, description: 'What the replicant needs to do first' },
+          impossible: { type: 'boolean', description: 'True if this violates physics and can NEVER be done' },
+        },
+        required: ['reason'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'modify_resources',
+      description: 'Change resources on a ship, structure, or colony. Call once per entity affected.',
+      parameters: {
+        type: 'object',
+        properties: {
+          targetName: { type: 'string', description: 'Name of the ship, structure, or colony' },
+          targetType: { type: 'string', enum: ['Ship', 'Structure', 'Colony', 'Settlement'] },
+          changes: { type: 'object', description: 'Resource changes as {resource: delta}. Positive = gain, negative = loss. e.g. {"metals": 50, "fuel": -10}' },
+        },
+        required: ['targetName', 'targetType', 'changes'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'change_settlement_attitude',
+      description: 'Adjust a settlement\'s attitude toward this replicant.',
+      parameters: {
+        type: 'object',
+        properties: {
+          settlementName: { type: 'string' },
+          delta: { type: 'number', description: 'Attitude change (-1 to 1). Positive = friendlier.' },
+          reason: { type: 'string' },
+        },
+        required: ['settlementName', 'delta', 'reason'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'change_population',
+      description: 'Change a settlement\'s population. Use for attacks, disasters, or growth events.',
+      parameters: {
+        type: 'object',
+        properties: {
+          settlementName: { type: 'string' },
+          delta: { type: 'number', description: 'Population change (negative for casualties)' },
+          reason: { type: 'string' },
+        },
+        required: ['settlementName', 'delta', 'reason'],
+      },
+    },
+  },
+];
 
-If the action is a RESEARCH proposal, evaluate it as technology research:
-- Can this work given known physics?
-- Does the replicant have the prerequisites?
-- If successful, what technology/modifier is created?
-
-For trade actions with settlements:
-- Check market prices and settlement attitude
-- Calculate fair exchange rates
-- Factor in taxes and restrictions
-
-For hostile actions:
-- Calculate realistic damage based on available weapons/assets
-- Include collateral damage, population casualties, attitude shifts
-- Consider defenses`;
+// ── Outcome accumulator ──────────────────────────────
 
 export interface ActionOutcome {
   feasible: boolean;
@@ -94,9 +123,85 @@ export interface ActionOutcome {
   energyCost: number;
 }
 
-/**
- * Build a context summary of the replicant's current state for the MC.
- */
+function emptyOutcome(): ActionOutcome {
+  return {
+    feasible: false, reason: '', prerequisites: null,
+    impossible: false, impossibleReason: null,
+    outcomes: null, ticksToComplete: 1, computeCost: 5, energyCost: 5,
+  };
+}
+
+// ── Tool execution ──────────────────────────────────
+
+function processToolCall(
+  name: string,
+  args: Record<string, unknown>,
+  result: ActionOutcome,
+  replicantId: string,
+): string {
+  switch (name) {
+    case 'approve_action': {
+      result.feasible = true;
+      result.reason = args.narrative as string || 'Action approved.';
+      result.computeCost = (args.computeCost as number) || 5;
+      result.energyCost = (args.energyCost as number) || 5;
+      result.outcomes = {
+        resourceChanges: [],
+        entityCreations: [],
+        entityModifications: [],
+        populationChanges: [],
+        attitudeChanges: [],
+        statusChanges: [],
+        narrative: args.narrative as string || 'Action executed.',
+      };
+      return 'Action approved. Use modify_resources, change_settlement_attitude, or change_population for effects.';
+    }
+    case 'reject_action': {
+      result.feasible = false;
+      result.reason = args.reason as string || 'Action rejected.';
+      result.prerequisites = (args.prerequisites as string[]) || null;
+      result.impossible = (args.impossible as boolean) || false;
+      if (result.impossible) result.impossibleReason = result.reason;
+      return 'Action rejected.';
+    }
+    case 'modify_resources': {
+      if (!result.outcomes) return 'Must approve action first.';
+      const changes = args.changes as Record<string, number>;
+      for (const [resource, delta] of Object.entries(changes)) {
+        result.outcomes.resourceChanges.push({
+          target: args.targetName as string,
+          targetType: args.targetType as string,
+          resource,
+          delta,
+        });
+      }
+      return `Resource changes recorded for ${args.targetName}.`;
+    }
+    case 'change_settlement_attitude': {
+      if (!result.outcomes) return 'Must approve action first.';
+      result.outcomes.attitudeChanges.push({
+        settlement: args.settlementName as string,
+        delta: args.delta as number,
+        reason: args.reason as string,
+      });
+      return `Attitude change recorded for ${args.settlementName}.`;
+    }
+    case 'change_population': {
+      if (!result.outcomes) return 'Must approve action first.';
+      result.outcomes.populationChanges.push({
+        settlement: args.settlementName as string,
+        delta: args.delta as number,
+        reason: args.reason as string,
+      });
+      return `Population change recorded for ${args.settlementName}.`;
+    }
+    default:
+      return 'Unknown tool.';
+  }
+}
+
+// ── State context builder (unchanged) ──────────────
+
 async function buildStateContext(replicantId: string): Promise<string> {
   const replicant = await Replicant.findById(replicantId).lean();
   if (!replicant) return 'Replicant not found.';
@@ -107,7 +212,6 @@ async function buildStateContext(replicantId: string): Promise<string> {
   const amis = await AMI.find({ ownerId: replicantId, status: { $ne: 'destroyed' } }).lean();
   const techs = await Technology.find({ knownBy: replicantId }).lean();
 
-  // Get inventory for each ship
   const shipSummaries = [];
   for (const ship of ships) {
     const store = await ResourceStore.findOne({ 'ownerRef.kind': 'Ship', 'ownerRef.item': ship._id }).lean();
@@ -120,242 +224,153 @@ async function buildStateContext(replicantId: string): Promise<string> {
       const ast = await Asteroid.findById(ship.orbitingAsteroidId).lean();
       orbitingName = ast?.name || 'unknown asteroid';
     }
-
     const cargo: Record<string, number> = {};
     if (store) {
       for (const [k, v] of Object.entries(store)) {
-        if (typeof v === 'number' && v > 0 && !['_id', '__v'].includes(k)) {
-          cargo[k] = v;
-        }
+        if (typeof v === 'number' && v > 0 && !['_id', '__v'].includes(k)) cargo[k] = v;
       }
     }
-
-    shipSummaries.push(
-      `  - ${ship.name} (${ship.type}, ${ship.status}): orbiting ${orbitingName || 'nothing'}, fuel ${ship.fuel}/${ship.specs.fuelCapacity}, cargo: ${JSON.stringify(cargo)}`
-    );
+    shipSummaries.push(`  - ${ship.name} (${ship.type}, ${ship.status}): orbiting ${orbitingName || 'nothing'}, fuel ${ship.fuel}/${ship.specs.fuelCapacity}, cargo: ${JSON.stringify(cargo)}`);
   }
 
-  // Get nearby settlements
   let nearbySettlements: string[] = [];
   if (ships.length > 0 && ships[0].orbitingBodyId) {
     const bodySettlements = await Settlement.find({ bodyId: ships[0].orbitingBodyId }).lean();
-    nearbySettlements = bodySettlements.map(s =>
-      `  - ${s.name} (${s.nation}, pop ${s.population.toLocaleString()}, attitude ${s.attitude.general.toFixed(1)}, status: ${s.status})`
-    );
+    nearbySettlements = bodySettlements.map(s => `  - ${s.name} (${s.nation}, pop ${s.population.toLocaleString()}, attitude ${s.attitude.general.toFixed(1)})`);
   }
 
-  const colonySummaries = [];
-  for (const col of colonies) {
-    const body = await CelestialBody.findById(col.bodyId).lean();
-    colonySummaries.push(`  - ${col.name} on ${body?.name}: ${col.status}, ${col.stats.structureCount} structures, power ratio ${col.stats.powerRatio}`);
-  }
-
-  return `## Replicant State
-Name: ${replicant.name}
-Compute: ${replicant.computeCycles}
-Energy: ${replicant.energyBudget}
-Tech Levels: ${JSON.stringify(replicant.techLevels)}
+  return `## Replicant: ${replicant.name}
+Compute: ${replicant.computeCycles} | Energy: ${replicant.energyBudget}
+Tech: ${JSON.stringify(replicant.techLevels)}
 
 ## Ships (${ships.length})
 ${shipSummaries.join('\n') || '  None'}
 
-## Structures (${structures.length})
-${structures.map(s => `  - ${s.name} (${s.type}, ${s.status})`).join('\n') || '  None'}
-
-## Colonies (${colonies.length})
-${colonySummaries.join('\n') || '  None'}
-
-## AMIs (${amis.length})
-${amis.map(a => `  - ${a.name} (${a.type}, ${a.status})`).join('\n') || '  None'}
-
-## Known Technologies (${techs.length})
-${techs.map(t => `  - ${t.name} (${t.domain} tier ${t.tier}): ${JSON.stringify(t.modifiers)}`).join('\n') || '  None'}
-
+## Structures: ${structures.map(s => `${s.name} (${s.type}, ${s.status})`).join(', ') || 'None'}
+## Colonies: ${colonies.map(c => `${c.name} (${c.status})`).join(', ') || 'None'}
+## AMIs: ${amis.map(a => `${a.name} (${a.type}, ${a.status})`).join(', ') || 'None'}
+## Technologies: ${techs.map(t => `${t.name} (${t.domain})`).join(', ') || 'None'}
 ## Nearby Settlements
-${nearbySettlements.join('\n') || '  None nearby'}`;
+${nearbySettlements.join('\n') || '  None'}`;
 }
 
-/**
- * Evaluate a proposed action using the Master Controller LLM.
- */
+// ── Main evaluator ──────────────────────────────────
+
 export async function evaluateAction(
   replicantId: string,
   actionDescription: string,
   context?: string,
 ): Promise<ActionOutcome> {
   const stateContext = await buildStateContext(replicantId);
+  const result = emptyOutcome();
 
-  const prompt = `## Replicant's Proposed Action
-"${actionDescription}"
+  const prompt = `The replicant proposes: "${actionDescription}"
+${context ? `\nAdditional context: ${context}` : ''}
 
-${context ? `## Additional Context\n${context}\n` : ''}
 ${stateContext}
 
-Evaluate this action and respond with JSON only.`;
+Evaluate this action. Call approve_action or reject_action first, then use modify_resources/change_settlement_attitude/change_population for any effects.`;
 
-  const client = config.llm.apiKey
-    ? new OpenAI({ baseURL: config.llm.baseUrl, apiKey: config.llm.apiKey })
-    : null;
-
-  if (client) {
-    try {
-      const response = await client.chat.completions.create({
-        model: config.llm.model,
-        max_tokens: 2048,
-        temperature: 0.7,
-        messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content: prompt },
-        ],
-      });
-
-      const text = response.choices[0]?.message?.content || '';
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        return JSON.parse(jsonMatch[0]) as ActionOutcome;
-      }
-    } catch (err) {
-      console.error('ActionEvaluator LLM error:', err);
-    }
+  if (!config.llm.apiKey) {
+    return deterministicEvaluation(actionDescription);
   }
 
-  // Fallback: deterministic "approve simple actions"
-  return deterministicEvaluation(actionDescription);
+  try {
+    const client = new OpenAI({ baseURL: config.llm.baseUrl, apiKey: config.llm.apiKey });
+    const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'user', content: prompt },
+    ];
+
+    for (let round = 0; round < 5; round++) {
+      const response = await client.chat.completions.create({
+        model: config.llm.model,
+        max_tokens: 1024,
+        temperature: 0.7,
+        messages,
+        tools: ACTION_TOOLS,
+      });
+
+      const choice = response.choices[0];
+      if (!choice) break;
+      messages.push(choice.message);
+
+      if (!choice.message.tool_calls || choice.message.tool_calls.length === 0) break;
+
+      for (const toolCall of choice.message.tool_calls) {
+        if (toolCall.type !== 'function') continue;
+        const fn = toolCall.function;
+        try {
+          const args = JSON.parse(fn.arguments);
+          const toolResult = processToolCall(fn.name, args, result, replicantId);
+          messages.push({ role: 'tool', tool_call_id: toolCall.id, content: toolResult });
+        } catch (err) {
+          messages.push({ role: 'tool', tool_call_id: toolCall.id, content: `Error: ${err instanceof Error ? err.message : String(err)}` });
+        }
+      }
+    }
+  } catch (err) {
+    console.error('ActionEvaluator error:', err instanceof Error ? err.message : err);
+    return deterministicEvaluation(actionDescription);
+  }
+
+  // If the LLM never called approve/reject, fall back
+  if (!result.feasible && !result.reason) {
+    return deterministicEvaluation(actionDescription);
+  }
+
+  return result;
 }
+
+// ── Deterministic fallback ──────────────────────────
 
 function deterministicEvaluation(description: string): ActionOutcome {
   const lower = description.toLowerCase();
 
-  // Basic heuristics for common actions when no LLM available
-  if (lower.includes('mine') || lower.includes('extract')) {
-    return {
-      feasible: true,
-      reason: 'Mining operation approved. Geological survey indicates accessible deposits within regolith tolerance for standard extraction heads.',
-      prerequisites: null, impossible: false, impossibleReason: null,
-      outcomes: {
-        resourceChanges: [],
-        entityCreations: [],
-        entityModifications: [],
-        populationChanges: [],
-        attitudeChanges: [],
-        statusChanges: [],
-        narrative: 'The mining lasers carved into the regolith at a steady 2.3 kW, vaporizing the top layer to expose veins of nickel-iron beneath. Spectrographic analysis of the ejecta plume confirmed concentrations of siderophile elements — iron at 18.4%, nickel at 1.6%, with trace cobalt and platinum-group metals consistent with undifferentiated chondritic material. The automated extractors locked onto the deposit and began the slow work of grinding ore from stone, filling the cargo bay with the faint vibration of progress.',
-      },
-      ticksToComplete: 1, computeCost: 5, energyCost: 10,
-    };
-  }
-
-  if (lower.includes('trade') || lower.includes('sell') || lower.includes('buy')) {
-    return {
-      feasible: true,
-      reason: 'Trade channel opened. Settlement transponder acknowledges docking authorization; local market data received.',
-      prerequisites: null, impossible: false, impossibleReason: null,
-      outcomes: {
-        resourceChanges: [],
-        entityCreations: [],
-        entityModifications: [],
-        populationChanges: [],
-        attitudeChanges: [],
-        statusChanges: [],
-        narrative: 'A narrow-band encrypted channel opened to the settlement\'s trade authority. Manifest data was exchanged in a rapid handshake — commodity prices flickering across the display in real-time, adjusted for local supply-demand curves and the current 3.2% tariff on off-world goods. The dockmaster\'s automated systems cleared a berth, and cargo transfer arms extended to meet the ship\'s hold, hydraulic couplers locking with a resonant clunk felt through the deck plates.',
-      },
-      ticksToComplete: 1, computeCost: 2, energyCost: 5,
-    };
-  }
-
-  if (lower.includes('research') || lower.includes('develop') || lower.includes('invent')) {
-    return {
-      feasible: true,
-      reason: 'Research proposal accepted. Computational resources allocated; simulation environment initialized.',
-      prerequisites: null, impossible: false, impossibleReason: null,
-      outcomes: {
-        resourceChanges: [],
-        entityCreations: [],
-        entityModifications: [],
-        populationChanges: [],
-        attitudeChanges: [],
-        statusChanges: [],
-        narrative: 'The ship\'s compute cores spun up to 94% utilization, dedicating 847 GFLOPS to the research simulation matrix. Molecular dynamics models began iterating through parameter space, testing thousands of configurations per second against thermodynamic constraints. The first results would take several cycles to converge — material science breakthroughs cannot be rushed without risking flawed crystallographic assumptions that would invalidate the entire model.',
-      },
-      ticksToComplete: 5, computeCost: 100, energyCost: 50,
-    };
-  }
-
-  if (lower.includes('move') || lower.includes('travel') || lower.includes('fly') || lower.includes('navigate')) {
-    return {
-      feasible: true,
-      reason: 'Trajectory computed. Navigation solution locked; reaction mass reserves sufficient for the planned burn.',
-      prerequisites: null, impossible: false, impossibleReason: null,
-      outcomes: {
-        resourceChanges: [],
-        entityCreations: [],
-        entityModifications: [],
-        populationChanges: [],
-        attitudeChanges: [],
-        statusChanges: [],
-        narrative: 'The navigation computer plotted a minimum-energy Hohmann transfer, computing the precise burn window to match the target\'s orbital velocity. Main engines ignited with a deep, subsonic thrum that resonated through the hull — exhaust plasma streaming aft at 34 km/s as the ship climbed out of the gravity well. Accelerometers confirmed 0.003g of steady thrust, the star field wheeling slowly as the attitude jets aligned the vessel along its new trajectory.',
-      },
-      ticksToComplete: 1, computeCost: 5, energyCost: 15,
-    };
-  }
-
-  if (lower.includes('attack') || lower.includes('destroy') || lower.includes('bomb')) {
-    return {
-      feasible: true,
-      reason: 'Hostile engagement parameters computed. Weapons systems nominal; fire control radar locked.',
-      prerequisites: null, impossible: false, impossibleReason: null,
-      outcomes: {
-        resourceChanges: [],
-        entityCreations: [],
-        entityModifications: [],
-        populationChanges: [],
-        attitudeChanges: [{ settlement: 'all', delta: -0.3, reason: 'Hostile action detected by settlement defense networks' }],
-        statusChanges: [],
-        narrative: 'Weapons capacitors discharged in a blinding pulse — the electromagnetic railgun accelerating a 2 kg tungsten penetrator to 8.4 km/s in the space of three meters. At this range the kinetic energy on impact would exceed 70 megajoules, enough to puncture reinforced hull plating and fragment into a lethal cone of hypersonic shrapnel on the far side. Every settlement within sensor range detected the engagement signature and immediately elevated their threat assessment. The political ramifications would outlast the plasma bloom now dissipating in vacuum.',
-      },
-      ticksToComplete: 1, computeCost: 10, energyCost: 20,
-    };
-  }
-
-  if (lower.includes('build') || lower.includes('construct') || lower.includes('assemble')) {
-    return {
-      feasible: true,
-      reason: 'Construction plan validated. Bill of materials cross-checked against cargo manifest; structural tolerances within spec.',
-      prerequisites: null, impossible: false, impossibleReason: null,
-      outcomes: {
-        resourceChanges: [],
-        entityCreations: [],
-        entityModifications: [],
-        populationChanges: [],
-        attitudeChanges: [],
-        statusChanges: [],
-        narrative: 'Fabrication arms extended from the ship\'s ventral bay, welding torches igniting with pin-point precision as alloy struts were positioned by magnetic grapples. Each structural member was stress-tested in real-time by embedded strain gauges — the onboard engineer AI rejecting two slightly warped hull plates and recycling them back to feedstock. Layer by layer the framework took shape against the backdrop of stars, thermal cameras monitoring weld-pool temperatures to ensure proper grain structure in the cooling metal.',
-      },
-      ticksToComplete: 3, computeCost: 10, energyCost: 20,
-    };
-  }
-
-  // Default: approve with minimal effect
-  return {
-    feasible: true,
-    reason: 'Action approved. Parameters within operational tolerance for autonomous execution.',
-    prerequisites: null, impossible: false, impossibleReason: null,
+  const base: ActionOutcome = {
+    feasible: true, reason: '', prerequisites: null,
+    impossible: false, impossibleReason: null,
     outcomes: {
-      resourceChanges: [],
-      entityCreations: [],
-      entityModifications: [],
-      populationChanges: [],
-      attitudeChanges: [],
-      statusChanges: [],
-      narrative: 'The ship\'s systems hummed with quiet efficiency as the directive was processed and queued for execution. Subsystem diagnostics returned nominal across all boards — power distribution steady, thermal management within envelope, and the faint crackle of cosmic ray impacts on the hull sensors providing the only accompaniment to the work at hand.',
+      resourceChanges: [], entityCreations: [], entityModifications: [],
+      populationChanges: [], attitudeChanges: [], statusChanges: [],
+      narrative: '',
     },
     ticksToComplete: 1, computeCost: 5, energyCost: 5,
   };
+
+  if (lower.includes('mine') || lower.includes('extract')) {
+    base.reason = 'Mining operation approved.';
+    base.outcomes!.narrative = 'Mining lasers carved into the regolith, vaporizing the top layer to expose veins of metal beneath. The automated extractors locked onto the deposit and began the work of grinding ore from stone.';
+    base.energyCost = 10;
+  } else if (lower.includes('trade') || lower.includes('sell') || lower.includes('buy')) {
+    base.reason = 'Trade channel opened.';
+    base.outcomes!.narrative = 'A narrow-band encrypted channel opened to the settlement trade authority. Cargo transfer arms extended with a resonant clunk felt through the deck plates.';
+  } else if (lower.includes('research') || lower.includes('develop') || lower.includes('invent')) {
+    base.reason = 'Research simulation initiated.';
+    base.outcomes!.narrative = 'The fabrication bay hummed as simulation parameters were loaded. Computational resources allocated across all available cores.';
+    base.ticksToComplete = 5; base.computeCost = 100; base.energyCost = 50;
+  } else if (lower.includes('move') || lower.includes('travel') || lower.includes('navigate')) {
+    base.reason = 'Trajectory computed.';
+    base.outcomes!.narrative = 'The navigation computer plotted the most efficient transfer orbit, balancing delta-v against fuel reserves.';
+  } else if (lower.includes('build') || lower.includes('construct')) {
+    base.reason = 'Construction sequence initiated.';
+    base.outcomes!.narrative = 'Structural alloy beams were extruded from cargo and welded into the foundation framework by the fabrication arms.';
+    base.computeCost = 20; base.energyCost = 30;
+  } else if (lower.includes('attack') || lower.includes('destroy') || lower.includes('bomb')) {
+    base.reason = 'Weapons systems engaged.';
+    base.outcomes!.narrative = 'Targeting systems locked. The weapons array charged with a low hum that resonated through the hull.';
+    base.outcomes!.attitudeChanges = [{ settlement: 'all', delta: -0.3, reason: 'Hostile action detected' }];
+    base.computeCost = 10; base.energyCost = 20;
+  } else {
+    base.reason = 'Action evaluated (deterministic fallback).';
+    base.outcomes!.narrative = 'Action processed by onboard systems.';
+  }
+
+  return base;
 }
 
-/**
- * Apply the structured outcomes from an evaluated action to the game state.
- */
+// ── Apply outcomes to game state ──────────────────
+
 export async function applyOutcomes(
   replicantId: string,
   outcome: ActionOutcome,
@@ -363,53 +378,36 @@ export async function applyOutcomes(
   const log: string[] = [];
   if (!outcome.outcomes) return log;
 
-  // Apply resource changes — resolve names to IDs if needed
   for (const rc of outcome.outcomes.resourceChanges) {
     let targetId = rc.target;
-
-    // The LLM may return a name instead of an ObjectId — resolve it
     if (targetId && !targetId.match(/^[0-9a-fA-F]{24}$/)) {
       if (rc.targetType === 'Ship') {
         const ship = await Ship.findOne({ name: new RegExp(`^${targetId}$`, 'i'), ownerId: replicantId }).lean();
-        if (ship) targetId = ship._id.toString();
-        else continue;
+        if (ship) targetId = ship._id.toString(); else continue;
       } else if (rc.targetType === 'Structure') {
         const structure = await Structure.findOne({ name: new RegExp(`^${targetId}$`, 'i'), ownerId: replicantId }).lean();
-        if (structure) targetId = structure._id.toString();
-        else continue;
+        if (structure) targetId = structure._id.toString(); else continue;
       } else if (rc.targetType === 'Colony') {
         const colony = await Colony.findOne({ name: new RegExp(`^${targetId}$`, 'i'), ownerId: replicantId }).lean();
-        if (colony) targetId = colony._id.toString();
-        else continue;
+        if (colony) targetId = colony._id.toString(); else continue;
       } else if (rc.targetType === 'Settlement') {
         const settlement = await Settlement.findOne({ name: new RegExp(`^${targetId}$`, 'i') }).lean();
-        if (settlement) targetId = settlement._id.toString();
-        else continue;
-      } else {
-        continue; // Can't resolve
-      }
+        if (settlement) targetId = settlement._id.toString(); else continue;
+      } else continue;
     }
 
-    const store = await ResourceStore.findOne({
-      'ownerRef.kind': rc.targetType,
-      'ownerRef.item': targetId,
-    });
+    const store = await ResourceStore.findOne({ 'ownerRef.kind': rc.targetType, 'ownerRef.item': targetId });
     if (store && rc.resource in store) {
       const storeAny = store as unknown as Record<string, number>;
       storeAny[rc.resource] = Math.max(0, (storeAny[rc.resource] || 0) + rc.delta);
       await store.save();
-      log.push(`Resource ${rc.resource} on ${rc.targetType}:${targetId} changed by ${rc.delta}`);
+      log.push(`${rc.resource} on ${rc.targetType}:${rc.target} changed by ${rc.delta}`);
     } else if (rc.targetType === 'Ship' || rc.targetType === 'Colony') {
-      // Create ResourceStore if it doesn't exist
-      const newStore = await ResourceStore.create({
-        ownerRef: { kind: rc.targetType, item: targetId },
-        [rc.resource]: Math.max(0, rc.delta),
-      });
-      log.push(`Created ResourceStore for ${rc.targetType}:${targetId}, set ${rc.resource} to ${rc.delta}`);
+      await ResourceStore.create({ ownerRef: { kind: rc.targetType, item: targetId }, [rc.resource]: Math.max(0, rc.delta) });
+      log.push(`Created store for ${rc.targetType}:${rc.target}, set ${rc.resource} to ${rc.delta}`);
     }
   }
 
-  // Apply population changes
   for (const pc of outcome.outcomes.populationChanges) {
     const settlement = await Settlement.findOne({ name: new RegExp(`^${pc.settlement}$`, 'i') });
     if (settlement) {
@@ -421,20 +419,14 @@ export async function applyOutcomes(
     }
   }
 
-  // Apply attitude changes
   for (const ac of outcome.outcomes.attitudeChanges) {
     if (ac.settlement === 'all') {
-      await Settlement.updateMany({}, {
-        $inc: { 'attitude.general': ac.delta },
-        $set: { [`attitude.byReplicant.${replicantId}`]: ac.delta },
-      });
+      await Settlement.updateMany({}, { $inc: { 'attitude.general': ac.delta } });
       log.push(`All settlements attitude shifted by ${ac.delta}: ${ac.reason}`);
     } else {
       const settlement = await Settlement.findOne({ name: new RegExp(`^${ac.settlement}$`, 'i') });
       if (settlement) {
         settlement.attitude.general = Math.max(-1, Math.min(1, settlement.attitude.general + ac.delta));
-        (settlement.attitude.byReplicant as Record<string, number>)[replicantId] =
-          ((settlement.attitude.byReplicant as Record<string, number>)[replicantId] || 0) + ac.delta;
         settlement.markModified('attitude');
         await settlement.save();
         log.push(`${ac.settlement} attitude shifted by ${ac.delta}: ${ac.reason}`);
@@ -442,22 +434,6 @@ export async function applyOutcomes(
     }
   }
 
-  // Apply status changes
-  for (const sc of outcome.outcomes.statusChanges) {
-    if (sc.entityType === 'Settlement') {
-      await Settlement.findOneAndUpdate(
-        { name: new RegExp(`^${sc.entity}$`, 'i') },
-        { status: sc.newStatus },
-      );
-    } else if (sc.entityType === 'Ship') {
-      await Ship.findByIdAndUpdate(sc.entity, { status: sc.newStatus });
-    } else if (sc.entityType === 'Structure') {
-      await Structure.findByIdAndUpdate(sc.entity, { status: sc.newStatus });
-    }
-    log.push(`${sc.entityType} ${sc.entity} status → ${sc.newStatus}: ${sc.reason}`);
-  }
-
-  // Deduct costs from replicant
   const replicant = await Replicant.findById(replicantId);
   if (replicant) {
     replicant.computeCycles = Math.max(0, replicant.computeCycles - outcome.computeCost);

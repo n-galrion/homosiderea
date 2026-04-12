@@ -183,25 +183,101 @@ Evaluate and respond with JSON only.`;
   await proposal.save();
 }
 
+const RESEARCH_TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
+  {
+    type: 'function',
+    function: {
+      name: 'approve_research',
+      description: 'The research succeeds (fully or partially). Define the resulting technology.',
+      parameters: {
+        type: 'object',
+        properties: {
+          result: { type: 'string', enum: ['success', 'partial'], description: 'Full success or partial breakthrough' },
+          techName: { type: 'string', description: 'Proper scientific/engineering name for the technology' },
+          techDescription: { type: 'string', description: 'Engineering-level description of what it does' },
+          modifiers: { type: 'object', description: 'Stat modifiers as {key: multiplier}. e.g. {"extractionRate": 1.15, "fuelEfficiency": 1.1}' },
+          reasoning: { type: 'string', description: 'Scientific explanation of why this approach works' },
+          resultDescription: { type: 'string', description: 'Vivid description of the breakthrough moment' },
+          plausibility: { type: 'number' },
+          novelty: { type: 'number' },
+          difficulty: { type: 'number' },
+        },
+        required: ['result', 'techName', 'techDescription', 'modifiers', 'reasoning', 'resultDescription'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'reject_research',
+      description: 'The research fails. Explain why at a physical/engineering level.',
+      parameters: {
+        type: 'object',
+        properties: {
+          reasoning: { type: 'string', description: 'Why the approach fails — reference specific physics or engineering principles' },
+          resultDescription: { type: 'string', description: 'What went wrong in the simulation/prototype' },
+          plausibility: { type: 'number' },
+          novelty: { type: 'number' },
+          difficulty: { type: 'number' },
+        },
+        required: ['reasoning', 'resultDescription'],
+      },
+    },
+  },
+];
+
 async function callMasterLLM(client: OpenAI, prompt: string): Promise<EvaluationResult> {
+  const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+    { role: 'system', content: SYSTEM_PROMPT },
+    { role: 'user', content: prompt },
+  ];
+
   const response = await client.chat.completions.create({
     model: config.llm.model,
     max_tokens: 1024,
-    messages: [
-      { role: 'system', content: SYSTEM_PROMPT },
-      { role: 'user', content: prompt },
-    ],
     temperature: 0.7,
+    messages,
+    tools: RESEARCH_TOOLS,
   });
 
-  const text = response.choices[0]?.message?.content || '';
-  // Extract JSON from response (handle markdown code blocks)
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) {
-    throw new Error('No JSON in Master Controller response');
+  const choice = response.choices[0];
+  if (!choice?.message.tool_calls?.length) {
+    // Fallback: try to parse as JSON from content
+    const text = choice?.message?.content || '';
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) return JSON.parse(jsonMatch[0]) as EvaluationResult;
+    throw new Error('No tool call or JSON in response');
   }
 
-  return JSON.parse(jsonMatch[0]) as EvaluationResult;
+  const toolCall = choice.message.tool_calls[0];
+  if (toolCall.type !== 'function') throw new Error('Non-function tool call');
+  const args = JSON.parse(toolCall.function.arguments) as Record<string, unknown>;
+
+  if (toolCall.function.name === 'approve_research') {
+    return {
+      plausibility: (args.plausibility as number) ?? 0.7,
+      novelty: (args.novelty as number) ?? 0.5,
+      difficulty: (args.difficulty as number) ?? 0.5,
+      reasoning: args.reasoning as string,
+      result: (args.result as 'success' | 'partial') || 'success',
+      techName: args.techName as string,
+      techDescription: args.techDescription as string,
+      modifiers: args.modifiers as Record<string, number>,
+      resultDescription: args.resultDescription as string,
+    };
+  } else {
+    return {
+      plausibility: (args.plausibility as number) ?? 0.2,
+      novelty: (args.novelty as number) ?? 0.3,
+      difficulty: (args.difficulty as number) ?? 0.8,
+      reasoning: args.reasoning as string,
+      result: 'failure',
+      techName: null,
+      techDescription: null,
+      modifiers: null,
+      resultDescription: args.resultDescription as string,
+    };
+  }
 }
 
 /**
