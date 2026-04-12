@@ -19,6 +19,8 @@ RUN npm ci --omit=dev
 COPY --from=builder /app/dist/ dist/
 COPY public/ public/
 COPY data/ data/
+COPY src/web/views/ dist/web/views/
+COPY src/web/public/ dist/web/public/
 
 ENV NODE_ENV=production
 ENV PORT=3001
