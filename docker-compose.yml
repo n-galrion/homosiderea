@@ -8,5 +8,23 @@ services:
     environment:
       MONGO_INITDB_DATABASE: homosideria
 
+  homosideria:
+    build: .
+    ports:
+      - "3001:3001"
+    depends_on:
+      - mongodb
+    environment:
+      MONGODB_URI: mongodb://mongodb:27017/homosideria
+      PORT: "3001"
+      ADMIN_KEY: ${ADMIN_KEY:-dev-admin-key}
+      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret}
+      TICK_INTERVAL_MS: ${TICK_INTERVAL_MS:-30000}
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://openrouter.ai/api/v1}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-anthropic/claude-sonnet-4}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    restart: unless-stopped
+
 volumes:
   mongo-data:
