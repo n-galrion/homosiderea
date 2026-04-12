@@ -549,15 +549,24 @@ export function registerScanningTools(server: McpServer, replicantId: string): v
       };
       await ship.save();
 
+      // Activate idle miner drones on this ship
+      const { AMI } = await import('../../db/models/index.js');
+      const activatedResult = await AMI.updateMany(
+        { shipId: ship._id, ownerId: replicantId, type: 'miner', status: 'idle' },
+        { status: 'active' },
+      );
+      const dronesActivated = activatedResult.modifiedCount ?? 0;
+
       const targetName = ship.orbitingBodyId ? 'celestial body' : 'asteroid';
       return {
         content: [{
           type: 'text',
           text: JSON.stringify({
-            message: `Mining started on ${ship.name}. The ship will continuously mine the ${targetName} each tick.`,
+            message: `Mining started on ${ship.name}. The ship will continuously mine the ${targetName} each tick.${dronesActivated > 0 ? ` ${dronesActivated} idle miner drone(s) activated.` : ''}`,
             shipId: ship._id.toString(),
             resourceType: resourceType || 'all accessible',
             startedAtTick: currentTick,
+            dronesActivated,
           }, null, 2),
         }],
       };

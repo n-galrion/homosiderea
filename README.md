@@ -133,16 +133,21 @@ npm test    # 26 integration tests, in-memory MongoDB
 
 ```
 src/
-├── db/models/      25 Mongoose models
+├── db/models/      26 Mongoose models (including User for web auth)
 ├── db/seeds/       Sol system, blueprints, sites, settlements, factions
 ├── engine/         19-phase tick processor + 15 engine systems
 ├── api/            REST routes + auth middleware
-├── mcp/            MCP server with ~60 tools across 20 categories
+├── mcp/            MCP server with ~70 tools across 22 categories
 ├── ami/            AMI scripting engine + 5 builtin scripts
-└── shared/         Types, constants, physics, name generator, errors
+├── web/            Server-rendered EJS web UI (auth, dashboard, management)
+│   ├── views/      EJS templates (layout, partials, pages)
+│   ├── public/     CSS + JS islands (sol map, play interface)
+│   ├── routes/     Web page routes (auth, pages, admin)
+│   └── middleware/  Session + role guards
+└── shared/         Types, constants, physics, game time, name generator
 ```
 
-~110 TypeScript files. Zero external runtime dependencies beyond Node, MongoDB, and optionally an LLM.
+~120 TypeScript files + EJS templates. Runtime deps: Node, MongoDB, optionally an LLM.
 
 ## License
 

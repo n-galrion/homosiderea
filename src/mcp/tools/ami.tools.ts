@@ -132,6 +132,58 @@ export function registerAmiTools(server: McpServer, replicantId: string): void {
   );
 
   server.tool(
+    'deploy_transport_drone',
+    'Deploy a transport AMI drone on a ship. The drone automatically hauls cargo between a pickup point and a dropoff point using the builtin transport script.',
+    {
+      name: z.string().describe('Name for the transport AMI'),
+      shipId: z.string().describe('Ship the AMI operates on'),
+      pickupId: z.string().describe('Structure or colony ID for cargo pickup'),
+      dropoffId: z.string().describe('Structure or colony ID for cargo dropoff'),
+    },
+    async ({ name, shipId, pickupId, dropoffId }) => {
+      const ship = await Ship.findOne({ _id: shipId, ownerId: replicantId });
+      if (!ship) {
+        return { content: [{ type: 'text', text: 'Error: Ship not found or not owned by you.' }] };
+      }
+
+      const latestTick = await Tick.findOne().sort({ tickNumber: -1 }).lean();
+      const currentTick = latestTick?.tickNumber ?? 0;
+
+      const ami = await AMI.create({
+        name,
+        ownerId: replicantId,
+        type: 'transport',
+        status: 'active',
+        shipId: shipId,
+        structureId: null,
+        script: {
+          type: 'builtin',
+          builtinName: 'transport',
+        },
+        scriptState: { pickupId, dropoffId, phase: 'loading' },
+        createdAtTick: currentTick,
+      });
+
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            id: ami._id.toString(),
+            name: ami.name,
+            type: ami.type,
+            status: ami.status,
+            shipId: ship._id.toString(),
+            shipName: ship.name,
+            pickupId,
+            dropoffId,
+            message: `Transport drone "${name}" deployed on ${ship.name}. It will haul cargo between pickup and dropoff points automatically.`,
+          }, null, 2),
+        }],
+      };
+    },
+  );
+
+  server.tool(
     'destroy_ami',
     'Decommission an AMI.',
     { amiId: z.string().describe('AMI ID') },

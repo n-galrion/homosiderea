@@ -30,6 +30,8 @@ API-first space strategy game — no frontend logic beyond a static HTML dashboa
 
 3. **Data Layer** (`src/db/`) — 22 Mongoose models exported from `src/db/models/index.ts`. Seeds in `src/db/seeds/` are idempotent.
 
+4. **Web UI** (`src/web/`) — Server-rendered EJS templates with session auth. Industrial/aerospace visual design (black + amber/gold). Three roles: operator (game master), owner (replicant manager), spectator (read-only). Express sessions stored in MongoDB via connect-mongo.
+
 ### Two action systems
 
 - **Deterministic tools** — Hardcoded MCP/REST endpoints for reads, trades, fabrication, ship upgrades, hacking. Fast, no LLM.
@@ -37,11 +39,11 @@ API-first space strategy game — no frontend logic beyond a static HTML dashboa
 
 ### Key models (25 total)
 
-Replicant, Ship, Structure, Colony, AMI, CelestialBody, Asteroid, LandingSite, Settlement, Market, Faction, Technology, ResearchProposal, ScanData, NavigationData, KnownEntity, ResourceStore, ActionQueue, Message, MemoryLog, Tick, Blueprint, PriceHistory, Salvage.
+Replicant, Ship, Structure, Colony, AMI, CelestialBody, Asteroid, LandingSite, Settlement, Market, Faction, Technology, ResearchProposal, ScanData, NavigationData, KnownEntity, ResourceStore, ActionQueue, Message, MemoryLog, Tick, Blueprint, PriceHistory, Salvage, User.
 
 ### MCP tool categories (20)
 
-scanning, navigation, resources, manufacturing, AMI management, replication, communication, memory, query, colony, research, data sharing, access control, actions (propose_action), fabrication (autofactory + ship upgrades), trade, hacking, salvage, NPC comms (hail_settlement, hail_ship).
+scanning, navigation, resources, manufacturing, AMI management, replication, communication, memory, query, colony, research, data sharing, access control, actions (propose_action), fabrication (autofactory + ship upgrades), trade, hacking, salvage, NPC comms (hail_settlement, hail_ship), cargo (load/unload/fuel transfer).
 
 ### LLM usage (what actually calls the LLM)
 
@@ -67,10 +69,14 @@ scanning, navigation, resources, manufacturing, AMI management, replication, com
 - **NPC traffic** — NPC ships spawn from settlements, travel trade routes. Sentinel owner ID: `000000000000000000000000`.
 - **Fog of war** — KnownEntity tracks what each replicant has discovered. New replicants know planets and Earth settlements.
 - **Hacking** — Success = `0.4 + (computing_tech * 0.1) - (security_level * 0.15)`. Failed hacks alert target.
+- **Cargo capacity** — Ships have `specs.cargoCapacity`. Mining, fabrication, and trade all enforce it. Propose_action outcomes are clamped.
+- **Orbiting ships track body** — Ships with `status: 'orbiting'` have their position updated each tick to match their parent body.
+- **Storage capacity** — Mine structures have limited storage. Resources accumulate passively and must be collected via `load_cargo`.
+- **Time dilation** — 600x (1 real second = 10 game minutes). Configurable via `GAME_TIME_DILATION`.
 
 ### MCP session binding
 
-MCP connects with no auth → lobby with `register`/`authenticate` tools. After auth, reconnect for full tools. Alternatively, pass `X-Replicant-Name` + `X-Replicant-Password` headers for instant access. Legacy `X-API-Key` also works.
+MCP requires auth headers (`X-Replicant-Name` + `X-Replicant-Password`, or `X-API-Key`). No lobby — full tools on connect. Register via REST first: `POST /api/auth/register`.
 
 ### Test architecture
 
@@ -78,7 +84,7 @@ MCP connects with no auth → lobby with `register`/`authenticate` tools. After 
 
 ### Configuration
 
-`src/config.ts` reads from env: `MONGODB_URI`, `PORT`, `ADMIN_KEY`, `JWT_SECRET`, `TICK_INTERVAL_MS`, `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`.
+`src/config.ts` reads from env: `MONGODB_URI`, `PORT`, `ADMIN_KEY`, `JWT_SECRET`, `TICK_INTERVAL_MS`, `GAME_TIME_DILATION`, `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`, `SESSION_SECRET`.
 
 ### Seed data
 

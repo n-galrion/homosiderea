@@ -1,4 +1,4 @@
-import { Structure, CelestialBody, ResourceStore, Ship, AMI, Asteroid, Colony } from '../../db/models/index.js';
+import { Structure, CelestialBody, ResourceStore, Ship, AMI, Asteroid, Colony, Replicant } from '../../db/models/index.js';
 
 const CARGO_FIELDS = [
   'metals','ice','silicates','rareEarths','helium3','organics','hydrogen','uranium','carbon',
@@ -347,5 +347,25 @@ export async function executeMining(tick: number): Promise<void> {
     }
 
     await store.save();
+  }
+}
+
+/**
+ * Regenerate energy budget for active replicants each tick.
+ * - Base regen: 1 energy per tick
+ * - Bonus from owned operational solar arrays: energyOutput / 10 per array
+ * - Capped at 200
+ */
+export async function regenReplicantEnergy(tick: number): Promise<void> {
+  const replicants = await Replicant.find({ status: 'active' });
+  for (const rep of replicants) {
+    let regen = 1; // base regen per tick
+    // Bonus from owned operational solar arrays
+    const solarArrays = await Structure.find({ ownerId: rep._id, type: 'solar_array', status: 'operational' });
+    for (const solar of solarArrays) {
+      regen += Math.floor(solar.specs.energyOutput / 10);
+    }
+    rep.energyBudget = Math.min(200, rep.energyBudget + regen);
+    await rep.save();
   }
 }

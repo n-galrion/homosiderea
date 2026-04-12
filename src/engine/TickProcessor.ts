@@ -1,7 +1,7 @@
 import { Tick } from '../db/models/index.js';
 import type { TickResult } from '../shared/types.js';
 import { updateAllPositions } from './systems/OrbitalMechanics.js';
-import { generateEnergy, executeMining } from './systems/ResourceProduction.js';
+import { generateEnergy, executeMining, regenReplicantEnergy } from './systems/ResourceProduction.js';
 import { resolveAll } from './systems/ActionResolver.js';
 import { advanceAll } from './systems/Movement.js';
 import { advanceConstruction, processManufacturing } from './systems/Manufacturing.js';
