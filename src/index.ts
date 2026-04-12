@@ -1,7 +1,7 @@
 import { config } from './config.js';
 import { connectDB } from './db/connection.js';
 import { createApp } from './api/server.js';
-import { handleMcpPost, handleMcpGet, handleMcpDelete } from './mcp/server.js';
+import { handleMcpPost, handleMcpGet, handleMcpDelete, handleSSEGet, handleSSEPost } from './mcp/server.js';
 import { GameLoop } from './engine/GameLoop.js';
 import { setGameLoopRef } from './api/routes/admin.routes.js';
 import { seedSolSystem } from './db/seeds/solSystem.js';
@@ -49,6 +49,10 @@ async function main() {
   app.post('/mcp', handleMcpPost);
   app.get('/mcp', handleMcpGet);
   app.delete('/mcp', handleMcpDelete);
+
+  // Legacy SSE transport (for Claude Code and older MCP clients)
+  app.get('/sse', handleSSEGet);
+  app.post('/sse/message', handleSSEPost);
 
   // 5. Initialize game loop
   const gameLoop = new GameLoop();

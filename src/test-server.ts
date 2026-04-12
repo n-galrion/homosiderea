@@ -5,7 +5,7 @@
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import mongoose from 'mongoose';
 import { createApp } from './api/server.js';
-import { handleMcpPost, handleMcpGet, handleMcpDelete } from './mcp/server.js';
+import { handleMcpPost, handleMcpGet, handleMcpDelete, handleSSEGet, handleSSEPost } from './mcp/server.js';
 import { GameLoop } from './engine/GameLoop.js';
 import { setGameLoopRef } from './api/routes/admin.routes.js';
 import { seedSolSystem } from './db/seeds/solSystem.js';
@@ -43,6 +43,8 @@ async function main() {
   app.post('/mcp', handleMcpPost);
   app.get('/mcp', handleMcpGet);
   app.delete('/mcp', handleMcpDelete);
+  app.get('/sse', handleSSEGet);
+  app.post('/sse/message', handleSSEPost);
 
   // 4. Game loop (60s ticks for testing)
   const gameLoop = new GameLoop();

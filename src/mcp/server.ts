@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import type { Request, Response } from 'express';
 import { Replicant, type IReplicant } from '../db/models/index.js';
 import { nanoid } from 'nanoid';
@@ -286,4 +287,56 @@ export async function handleMcpDelete(req: Request, res: Response): Promise<void
 
 export function getActiveSessions(): number {
   return sessions.size;
+}
+
+// ── Legacy SSE Transport ──────────────────────────────
+// For Claude Code and other clients that don't support Streamable HTTP
+
+interface SSESession {
+  transport: SSEServerTransport;
+  server: McpServer;
+  replicantId: string | null;
+}
+
+const sseSessions = new Map<string, SSESession>();
+
+/**
+ * Handle GET /sse — establishes an SSE connection.
+ * Claude Code connects here to receive server-sent events.
+ */
+export async function handleSSEGet(req: Request, res: Response): Promise<void> {
+  const replicant = await tryAuthFromHeaders(req);
+
+  const server = replicant
+    ? createGameServer(replicant)
+    : createLobbyServer();
+
+  const transport = new SSEServerTransport('/sse/message', res);
+  const sessionId = transport.sessionId;
+
+  sseSessions.set(sessionId, {
+    transport,
+    server,
+    replicantId: replicant?._id.toString() || null,
+  });
+
+  transport.onclose = () => {
+    sseSessions.delete(sessionId);
+  };
+
+  await server.connect(transport);
+}
+
+/**
+ * Handle POST /sse/message — receives JSON-RPC messages from the client.
+ */
+export async function handleSSEPost(req: Request, res: Response): Promise<void> {
+  const sessionId = req.query.sessionId as string | undefined;
+  if (!sessionId || !sseSessions.has(sessionId)) {
+    res.status(404).json({ error: 'SSE session not found' });
+    return;
+  }
+
+  const session = sseSessions.get(sessionId)!;
+  await session.transport.handlePostMessage(req, res);
 }
