@@ -98,7 +98,7 @@ If using MCP tools directly:
 - **Ship**: `upgrade_ship_system`, `repair_ship`, `attack_ship`
 - **Cargo**: `load_cargo` (structure → ship), `unload_cargo` (ship → structure), `transfer_fuel` (tank ↔ cargo)
 - **Building**: `build_structure` (types: mine, refinery, factory, solar_array, cargo_depot, shipyard, habitat, fusion_plant, sensor_station, relay_station), `found_colony`, `list_landing_sites`
-- **Trade**: `trade` (buy/sell at settlements — uses fuel as currency), `check_market`
+- **Trade**: `trade` (buy/sell at settlements — prices in credits), `check_market`
 - **Communication**: `send_message` (by name or ID), `broadcast`, `read_messages`, `hail_settlement`, `hail_ship`
 - **Research**: `propose_research`, `list_technologies`, `share_technology`
 - **Memory**: `write_memory` (categories: note, log, observation, plan, captains_log), `read_memories`
@@ -116,5 +116,5 @@ If using REST API, discover all endpoints and parameter schemas: `GET /api`
 - Use `transfer_fuel` to move fuel between your tank and cargo hold.
 - Check routes before committing: `calculate_route` shows distance, fuel cost, and travel time.
 - Check upgrade costs: REST `GET /api/ships/:id/upgrades` shows what's available and what it costs.
-- The `trade` tool is cheaper than `propose_action` for buying/selling (no compute cost).
+- The `trade` tool is cheaper than `propose_action` for buying/selling (no compute cost). You start with 500 credits.
 - Deploy transport drones to automate cargo hauling between structures.

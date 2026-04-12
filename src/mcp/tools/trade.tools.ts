@@ -1,6 +1,11 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { Ship, Settlement, Market, ResourceStore, Replicant, Tick } from '../../db/models/index.js';
+
+const CARGO_FIELDS = ['metals','ice','silicates','rareEarths','helium3','organics','hydrogen','uranium','carbon','alloys','fuel','electronics','hullPlating','engines','sensors','computers','weaponSystems','lifeSupportUnits','solarPanels','fusionCores'];
+function getCargoUsed(store: Record<string, number>): number {
+  return CARGO_FIELDS.reduce((sum, f) => sum + (store[f] || 0), 0);
+}
 import { distance } from '../../shared/physics.js';
 
 export function registerTradeTools(server: McpServer, replicantId: string): void {
@@ -53,30 +58,39 @@ export function registerTradeTools(server: McpServer, replicantId: string): void
       const storeAny = shipStore as unknown as Record<string, number>;
       const prices = market.prices as { buy: Record<string, number>; sell: Record<string, number> };
 
+      // Get replicant for credit balance
+      const replicant = await Replicant.findById(replicantId);
+      if (!replicant) return { content: [{ type: 'text', text: 'Error: Replicant not found.' }] };
+
       if (tradeAction === 'buy') {
-        // Buying FROM settlement — they sell to us at their sell price
         const price = prices.sell[resource];
         if (!price) {
           return { content: [{ type: 'text', text: `${settlement.name} doesn't sell ${resource}. They sell: ${Object.keys(prices.sell).join(', ') || 'nothing'}.` }] };
         }
 
-        const totalCost = price * quantity;
-        // Pay with credits (fuel as universal currency for now)
-        const fuelAvailable = storeAny.fuel ?? 0;
-        if (fuelAvailable < totalCost) {
+        const totalCost = Math.round(price * quantity * 10) / 10;
+        if (replicant.credits < totalCost) {
           return {
             content: [{
               type: 'text',
-              text: `Insufficient payment. ${quantity} ${resource} costs ${totalCost.toFixed(1)} fuel (${price.toFixed(1)}/unit). You have ${fuelAvailable} fuel.`,
+              text: `Insufficient credits. ${quantity} ${resource} costs ${totalCost} credits (${price}/unit). You have ${replicant.credits} credits.`,
             }],
           };
         }
 
-        storeAny.fuel -= totalCost;
+        // Check cargo capacity
+        const cargoUsed = getCargoUsed(storeAny);
+        const space = ship.specs.cargoCapacity - cargoUsed;
+        if (quantity > space) {
+          return { content: [{ type: 'text', text: `Insufficient cargo space. Need ${quantity} units of space, have ${space}.` }] };
+        }
+
+        replicant.credits -= totalCost;
+        await replicant.save();
+
         storeAny[resource] = (storeAny[resource] ?? 0) + quantity;
         await shipStore.save();
 
-        // Improve attitude slightly
         settlement.attitude.general = Math.min(1, settlement.attitude.general + 0.01);
         settlement.markModified('attitude');
         await settlement.save();
@@ -91,13 +105,12 @@ export function registerTradeTools(server: McpServer, replicantId: string): void
               quantity,
               pricePerUnit: price,
               totalCost,
-              paidWith: 'fuel',
-              narrative: `The docking clamps engage as ${ship.name} connects to ${settlement.name}'s trading port. ${quantity} units of ${resource} are loaded into the cargo bay at ${price.toFixed(1)} fuel per unit. Total cost: ${totalCost.toFixed(1)} fuel. The harbormaster nods — business is business.`,
+              creditsRemaining: replicant.credits,
+              narrative: `${ship.name} docks at ${settlement.name}'s trading port. ${quantity} units of ${resource} loaded into the cargo bay at ${price} credits/unit. Total: ${totalCost} credits. Balance: ${replicant.credits} credits.`,
             }, null, 2),
           }],
         };
       } else {
-        // Selling TO settlement — they buy from us at their buy price
         const price = prices.buy[resource];
         if (!price) {
           return { content: [{ type: 'text', text: `${settlement.name} doesn't buy ${resource}. They buy: ${Object.keys(prices.buy).join(', ') || 'nothing'}.` }] };
@@ -108,10 +121,12 @@ export function registerTradeTools(server: McpServer, replicantId: string): void
           return { content: [{ type: 'text', text: `You only have ${available} ${resource} to sell.` }] };
         }
 
-        const totalRevenue = price * quantity;
+        const totalRevenue = Math.round(price * quantity * 10) / 10;
         storeAny[resource] -= quantity;
-        storeAny.fuel = (storeAny.fuel ?? 0) + totalRevenue;
         await shipStore.save();
+
+        replicant.credits += totalRevenue;
+        await replicant.save();
 
         settlement.attitude.general = Math.min(1, settlement.attitude.general + 0.005);
         settlement.markModified('attitude');
@@ -127,8 +142,8 @@ export function registerTradeTools(server: McpServer, replicantId: string): void
               quantity,
               pricePerUnit: price,
               totalRevenue,
-              receivedAs: 'fuel',
-              narrative: `${quantity} units of ${resource} offloaded from ${ship.name} at ${settlement.name}. The exchange rate of ${price.toFixed(1)} fuel per unit yields ${totalRevenue.toFixed(1)} fuel in payment. Your reserves are replenished. ${settlement.name} is ${attitude > 0.5 ? 'pleased with the transaction' : attitude > 0 ? 'content with the deal' : 'grudgingly accepting'}.`,
+              creditsRemaining: replicant.credits,
+              narrative: `${quantity} units of ${resource} offloaded from ${ship.name} at ${settlement.name}. Revenue: ${totalRevenue} credits at ${price}/unit. Balance: ${replicant.credits} credits. ${settlement.name} is ${attitude > 0.5 ? 'pleased' : attitude > 0 ? 'satisfied' : 'grudgingly accepting'}.`,
             }, null, 2),
           }],
         };
@@ -165,7 +180,7 @@ export function registerTradeTools(server: McpServer, replicantId: string): void
             theyBuyFromYou: market.prices.buy,
             theySellToYou: market.prices.sell,
             availableResources: market.availableResources,
-            note: 'Prices are in fuel units. Buy prices = what they pay you. Sell prices = what they charge you.',
+            note: 'Prices are in credits. Buy prices = what they pay you when you sell. Sell prices = what they charge you to buy.',
           }, null, 2),
         }],
       };

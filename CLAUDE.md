@@ -60,7 +60,7 @@ scanning, navigation, resources, manufacturing, AMI management, replication, com
 
 - **ESM only** — All local imports must use `.js` extensions.
 - **Resources are finite** — `CelestialBody.resources[].remaining` depletes. Asteroids deplete too.
-- **Fuel as currency** — Trading uses fuel units. Settlements buy raw materials, sell components.
+- **Credits as currency** — Trading uses credits (replicant balance). New replicants start with 500. Settlements buy raw materials, sell components.
 - **Replicant autonomy** — Sub-agents get their own credentials. Parent can't control them without access.
 - **Light-speed delay** — Messages: `deliverAtTick = sentAtTick + ceil(distanceAU / LIGHT_SPEED_AU_PER_TICK)`.
 - **Colony power grid** — `colony.stats.powerRatio` scales mining/manufacturing output.

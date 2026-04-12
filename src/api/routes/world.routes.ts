@@ -358,7 +358,7 @@ worldRoutes.get('/action-types', async (_req: Request, res: Response, next: Next
         repair: 'Use the "repair_ship" MCP tool',
         combat: 'Use the "attack_ship" MCP tool',
       },
-      marketNote: 'In market prices: "buy" = what they pay YOU (sell your stuff). "sell" = what they charge YOU (buy their stuff). Fuel is the universal currency.',
+      marketNote: 'Prices are in credits. "buy" = what they pay YOU when you sell. "sell" = what they charge YOU to buy. New replicants start with 500 credits.',
     });
   } catch (err) {
     next(err);

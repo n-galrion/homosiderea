@@ -15,6 +15,7 @@ export interface IReplicant extends Document {
   } | null;
   computeCycles: number;
   energyBudget: number;
+  credits: number;
   // Tech level summary (aggregated from owned technologies)
   techLevels: Record<string, number>;
   // Access control
@@ -65,6 +66,7 @@ const ReplicantSchema = new Schema<IReplicant>({
   },
   computeCycles: { type: Number, default: 1000 },
   energyBudget: { type: Number, default: 100 },
+  credits: { type: Number, default: 500 },
   techLevels: { type: Schema.Types.Mixed, default: {} },
   accessControl: {
     authorizedModifiers: [{ type: Schema.Types.ObjectId, ref: 'Replicant' }],
