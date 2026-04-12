@@ -1,6 +1,6 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import crypto from 'node:crypto';
-import { Tick, Replicant, CelestialBody, Settlement, Market, Ship, ActionQueue, Colony, Technology, Message, Faction, ResourceStore, PriceHistory } from '../../db/models/index.js';
+import { Tick, Replicant, CelestialBody, Settlement, Market, Ship, ActionQueue, Colony, Technology, Message, Faction, ResourceStore, PriceHistory, Notification } from '../../db/models/index.js';
 
 // GameLoop reference will be set at startup
 let gameLoopRef: { forceTick: () => Promise<unknown>; getCurrentTick: () => number } | null = null;
@@ -239,6 +239,33 @@ adminRoutes.get('/price-history', async (req: Request, res: Response, next: Next
       .limit(parseInt(limit as string, 10))
       .lean();
     res.json(history);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Notifications (for dashboard alerts)
+adminRoutes.get('/notifications', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { unread } = req.query;
+    const filter: Record<string, unknown> = {};
+    if (unread === 'true') filter.read = false;
+
+    const notifications = await Notification.find(filter)
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .lean();
+    res.json(notifications);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Mark notification as read
+adminRoutes.post('/notifications/:id/read', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    await Notification.findByIdAndUpdate(req.params.id, { read: true });
+    res.json({ message: 'Marked as read' });
   } catch (err) {
     next(err);
   }

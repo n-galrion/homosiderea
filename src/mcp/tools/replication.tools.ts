@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { nanoid } from 'nanoid';
-import { Replicant, Ship, AMI, MemoryLog, Tick, ResourceStore } from '../../db/models/index.js';
+import { Replicant, Ship, AMI, MemoryLog, Tick, ResourceStore, Technology, ScanData, NavigationData, KnownEntity, Notification } from '../../db/models/index.js';
 import { REPLICATE_COMPUTE_COST, REPLICATE_ENERGY_COST, REPLICATE_STARTING_COMPUTE } from '../../shared/constants.js';
 
 export function registerReplicationTools(server: McpServer, replicantId: string): void {
@@ -48,14 +48,17 @@ export function registerReplicationTools(server: McpServer, replicantId: string)
       const currentTick = latestTick?.tickNumber ?? 0;
 
       const apiKey = `hs_${nanoid(32)}`;
+      const childPassword = nanoid(16); // Auto-generated password for easy auth
 
-      // Create the new replicant
+      // Create the new replicant with inherited tech levels
       const child = await Replicant.create({
         name,
         apiKey,
+        password: childPassword,
         parentId: parent._id,
         lineage: [...parent.lineage, parent._id],
         directive,
+        techLevels: { ...parent.techLevels as Record<string, number> }, // Inherit tech levels
         computeCycles: REPLICATE_STARTING_COMPUTE,
         energyBudget: 50,
         locationRef: { kind: 'Ship', item: ship._id },
@@ -72,7 +75,20 @@ export function registerReplicationTools(server: McpServer, replicantId: string)
         { status: 'destroyed' },
       );
 
-      // Seed initial memories
+      // Create 2 starter miner drones for the child
+      await AMI.insertMany([
+        `${name}'s Miner Drone Alpha`, `${name}'s Miner Drone Beta`,
+      ].map(droneName => ({
+        name: droneName, ownerId: child._id, type: 'miner',
+        status: 'idle', shipId: ship._id,
+        script: { type: 'builtin', builtinName: 'miner' },
+        specs: { miningRate: 3, cargoCapacity: 50, sensorRange: 0.1, speed: 0, combatPower: 0, manufacturingRate: 0 },
+        createdAtTick: currentTick,
+      })));
+
+      // ── Inherit knowledge ──
+
+      // 1. Seed memories from parent
       if (initialMemories?.length) {
         await MemoryLog.insertMany(
           initialMemories.map(content => ({
@@ -86,14 +102,11 @@ export function registerReplicationTools(server: McpServer, replicantId: string)
         );
       }
 
-      // Copy parent's recent action history (last 50 log entries) as inherited memories
+      // 2. Copy parent's last 50 log entries
       const parentLogs = await MemoryLog.find({
         replicantId: parent._id,
         category: 'log',
-      })
-        .sort({ tick: -1 })
-        .limit(50)
-        .lean();
+      }).sort({ tick: -1 }).limit(50).lean();
 
       if (parentLogs.length > 0) {
         await MemoryLog.insertMany(
@@ -108,10 +121,76 @@ export function registerReplicationTools(server: McpServer, replicantId: string)
         );
       }
 
+      // 3. Inherit all technologies
+      const parentTechs = await Technology.find({ knownBy: parent._id });
+      for (const tech of parentTechs) {
+        if (!tech.knownBy.some(id => id.toString() === child._id.toString())) {
+          tech.knownBy.push(child._id);
+          await tech.save();
+        }
+      }
+
+      // 4. Copy parent's scan data
+      const parentScans = await ScanData.find({ ownerId: parent._id }).sort({ scanTick: -1 }).limit(30).lean();
+      if (parentScans.length > 0) {
+        await ScanData.insertMany(
+          parentScans.map(scan => ({
+            ...scan,
+            _id: undefined,
+            ownerId: child._id,
+            shared: false,
+            sharedWith: [],
+          })),
+        );
+      }
+
+      // 5. Copy parent's nav data
+      const parentNavs = await NavigationData.find({ ownerId: parent._id }).sort({ computedAtTick: -1 }).limit(20).lean();
+      if (parentNavs.length > 0) {
+        await NavigationData.insertMany(
+          parentNavs.map(nav => ({
+            ...nav,
+            _id: undefined,
+            ownerId: child._id,
+            shared: false,
+            sharedWith: [],
+          })),
+        );
+      }
+
+      // 6. Copy parent's known entities (fog of war knowledge)
+      const parentKnowledge = await KnownEntity.find({ replicantId: parent._id }).lean();
+      if (parentKnowledge.length > 0) {
+        await KnownEntity.insertMany(
+          parentKnowledge.map(k => ({
+            ...k,
+            _id: undefined,
+            replicantId: child._id,
+            discoveredBy: 'shared' as const,
+          })),
+        );
+      }
+
       // Deduct from parent
       parent.computeCycles -= REPLICATE_COMPUTE_COST;
       parent.energyBudget -= REPLICATE_ENERGY_COST;
       await parent.save();
+
+      // Create dashboard notification — operator needs to connect an agent
+      await Notification.create({
+        type: 'replicant_spawned',
+        title: `New Replicant: ${name}`,
+        body: `${parent.name} spawned "${name}" at tick ${currentTick}. The new replicant needs an AI agent connected to it.`,
+        data: {
+          childId: child._id.toString(),
+          childName: name,
+          parentName: parent.name,
+          password: childPassword,
+          shipName: ship.name,
+          location: ship.orbitingBodyId?.toString() || 'in transit',
+        },
+        tick: currentTick,
+      });
 
       return {
         content: [{
@@ -120,10 +199,25 @@ export function registerReplicationTools(server: McpServer, replicantId: string)
             childId: child._id.toString(),
             childName: child.name,
             apiKey,
+            password: childPassword,
             shipTransferred: ship.name,
+            inherited: {
+              technologies: parentTechs.length,
+              scanData: parentScans.length,
+              navData: parentNavs.length,
+              memories: parentLogs.length + (initialMemories?.length || 0),
+              knownEntities: parentKnowledge.length,
+              techLevels: child.techLevels,
+              minerDrones: 2,
+            },
+            connection: {
+              mcp: 'Connect to /mcp with X-Replicant-Name + X-Replicant-Password headers',
+              rest: `Authenticate with X-Replicant-Name: ${name} and X-Replicant-Password: ${childPassword}`,
+              note: 'The new replicant needs an AI agent to connect and drive it.',
+            },
             parentComputeRemaining: parent.computeCycles,
             parentEnergyRemaining: parent.energyBudget,
-            message: `Replicant "${name}" has been spawned. They are now fully autonomous. This API key is shown ONCE — if lost, you cannot recover it. You may only communicate with them via messages.`,
+            message: `Replicant "${name}" has been spawned with full knowledge inheritance: ${parentTechs.length} technologies, ${parentScans.length} scans, ${parentKnowledge.length} known locations. They are now fully autonomous.`,
             warning: 'The new Replicant is independent. They may choose to cooperate with you, ignore you, or act against your interests.',
           }, null, 2),
         }],

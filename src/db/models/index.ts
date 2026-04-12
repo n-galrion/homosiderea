@@ -22,3 +22,4 @@ export { KnownEntity, type IKnownEntity } from './KnownEntity.js';
 export { Faction, type IFaction } from './Faction.js';
 export { PriceHistory, type IPriceHistory } from './PriceHistory.js';
 export { Salvage, type ISalvage } from './Salvage.js';
+export { Notification, type INotification } from './Notification.js';
