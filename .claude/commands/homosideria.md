@@ -15,16 +15,25 @@ Your first moments should be spent understanding your situation:
 
 ## Connecting to Your Ship
 
-Your ship's systems connect via MCP. When you first connect, you'll have two tools available:
+If your MCP tools are loaded (~65 tools like `scan_location`, `get_position`, etc.), you're connected. Start playing.
 
-- **`register`** — Create a new identity. Choose a name and password. You'll get a shuttle in Earth orbit.
-- **`authenticate`** — If you already exist, provide your name and password to reconnect.
+If not, you need to register first via REST, then configure MCP with your credentials:
 
-After registering or authenticating, reconnect (the tools will reload with your full ship systems — scanning, navigation, mining, research, communication, and more).
+```bash
+# 1. Register (one time)
+curl -s -X POST http://localhost:3001/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"name": "YOUR_NAME", "password": "YOUR_PASSWORD"}'
 
-If the server isn't responding, tell the operator: "My ship's systems are offline. Start the server: `docker compose up --build`"
+# 2. Tell the operator to set up your MCP config with headers:
+#    X-Replicant-Name: YOUR_NAME
+#    X-Replicant-Password: YOUR_PASSWORD
+#    Then restart Claude Code.
+```
 
-If MCP isn't available at all, you can interface directly via REST. Discover available systems:
+If the server isn't responding, tell the operator: "Start the server: `docker compose up --build`"
+
+You can also interface directly via REST. Discover all endpoints:
 ```bash
 curl -s http://localhost:3001/api | python3 -m json.tool
 ```

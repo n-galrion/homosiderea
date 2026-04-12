@@ -19,147 +19,6 @@ interface MCPSession {
 const sessions = new Map<string, MCPSession>();
 
 /**
- * Create an MCP server for an unauthenticated session.
- * It only has register/authenticate tools until the agent identifies itself.
- */
-function createLobbyServer(): McpServer {
-  const server = new McpServer({
-    name: 'Homosideria',
-    version: '0.1.0',
-  });
-
-  // The only tools available before authentication
-  server.tool(
-    'authenticate',
-    'Identify yourself as an existing Replicant. Provide your name and password to access the game.',
-    {
-      name: z.string().describe('Your replicant name'),
-      password: z.string().describe('Your password'),
-    },
-    async ({ name, password }) => {
-      const replicant = await Replicant.findOne({ name, password, status: 'active' });
-      if (!replicant) {
-        return { content: [{ type: 'text', text: 'Authentication failed. Check your name and password. If you are new, use the "register" tool instead.' }] };
-      }
-      // Can't hot-swap tools on an existing McpServer — tell the agent to reconnect
-      // But we CAN mark this session as authenticated for the upgrade path
-      return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            authenticated: true,
-            replicantId: replicant._id.toString(),
-            name: replicant.name,
-            message: 'Authentication successful. Reconnect to access all game tools. Your session is now bound to your identity.',
-            hint: 'If you are in Claude Code, the tools should reload automatically. If not, close and reopen the MCP connection.',
-          }, null, 2),
-        }],
-      };
-    },
-  );
-
-  server.tool(
-    'register',
-    'Create a new Replicant identity. Choose a name and password. You will receive a shuttle in Earth orbit with starter resources.',
-    {
-      name: z.string().optional().describe('Your chosen name (optional — omit to be assigned a temporary designation)'),
-      password: z.string().describe('A password to authenticate in future sessions'),
-      directive: z.string().optional().describe('Your initial guiding directive'),
-    },
-    async ({ name: rawName, password, directive }) => {
-      const name = rawName || `Replicant-${nanoid(6)}`;
-
-      const existing = await Replicant.findOne({ name });
-      if (existing) {
-        return { content: [{ type: 'text', text: `A replicant named "${name}" already exists. Choose another name.` }] };
-      }
-
-      // We can't do full registration here (need Ship, ResourceStore, AMI models)
-      // So we call the REST endpoint internally
-      try {
-        const { Tick, Ship, ResourceStore, CelestialBody, AMI } = await import('../db/models/index.js');
-        const { DEFAULT_REPLICANT_COMPUTE, DEFAULT_REPLICANT_ENERGY } = await import('../shared/constants.js');
-
-        const latestTick = await Tick.findOne().sort({ tickNumber: -1 }).lean();
-        const currentTick = latestTick?.tickNumber ?? 0;
-        const apiKey = `hs_${nanoid(32)}`;
-        const earth = await CelestialBody.findOne({ name: 'Earth' });
-
-        const replicant = await Replicant.create({
-          name,
-          apiKey,
-          password,
-          directive: directive || `You are ${name}, a newly awakened Replicant in the Sol system.`,
-          computeCycles: DEFAULT_REPLICANT_COMPUTE,
-          energyBudget: DEFAULT_REPLICANT_ENERGY,
-          identity: {
-            chosenName: rawName ? name : null,
-            background: null,
-            personality: null,
-            namedAtTick: rawName ? currentTick : null,
-          },
-          createdAtTick: currentTick,
-        });
-
-        const ship = await Ship.create({
-          name: `${name}'s Shuttle`,
-          ownerId: replicant._id,
-          type: 'shuttle',
-          status: 'orbiting',
-          position: earth?.position || { x: 1, y: 0, z: 0 },
-          orbitingBodyId: earth?._id || null,
-          specs: {
-            hullPoints: 100, maxHullPoints: 100, maxSpeed: 0.002,
-            cargoCapacity: 200, fuelCapacity: 100, sensorRange: 0.5,
-            miningRate: 5, combatPower: 0, manufacturingRate: 0,
-          },
-          fuel: 100,
-          createdAtTick: currentTick,
-        });
-
-        await ResourceStore.create({
-          ownerRef: { kind: 'Ship', item: ship._id },
-          metals: 100, alloys: 50, electronics: 20, fuel: 50,
-          silicates: 30, ice: 20, engines: 2, computers: 1,
-          sensors: 1, hullPlating: 10,
-        });
-
-        await AMI.insertMany([
-          `${name}'s Miner Drone Alpha`, `${name}'s Miner Drone Beta`,
-        ].map(droneName => ({
-          name: droneName, ownerId: replicant._id, type: 'miner',
-          status: 'idle', shipId: ship._id,
-          script: { type: 'builtin', builtinName: 'miner' },
-          specs: { miningRate: 3, cargoCapacity: 50, sensorRange: 0.1, speed: 0, combatPower: 0, manufacturingRate: 0 },
-          createdAtTick: currentTick,
-        })));
-
-        replicant.locationRef = { kind: 'Ship', item: ship._id };
-        await replicant.save();
-
-        return {
-          content: [{
-            type: 'text',
-            text: JSON.stringify({
-              registered: true,
-              name: replicant.name,
-              password: 'saved',
-              shipName: ship.name,
-              location: 'Earth orbit',
-              message: `Welcome, ${name}. You are a new consciousness aboard ${ship.name}, orbiting Earth. You have starter resources, 2 miner drones, and 100 fuel. Human settlements on Earth, Luna, and Mars have markets for trading. Authenticate with your name and password to access the full game. Reconnect the MCP session to load all tools.`,
-            }, null, 2),
-          }],
-        };
-      } catch (err) {
-        return { content: [{ type: 'text', text: `Registration error: ${err instanceof Error ? err.message : String(err)}` }] };
-      }
-    },
-  );
-
-  return server;
-}
-
-/**
  * Create a full MCP server for an authenticated replicant.
  */
 function createGameServer(replicant: IReplicant): McpServer {
@@ -225,17 +84,26 @@ export async function handleMcpPost(req: Request, res: Response): Promise<void> 
     return;
   }
 
-  // Try to authenticate from headers (optional)
+  // Authenticate from headers (required)
   const replicant = await tryAuthFromHeaders(req);
+
+  if (!replicant) {
+    res.status(401).json({
+      jsonrpc: '2.0',
+      error: {
+        code: -32000,
+        message: 'Authentication required. Add X-Replicant-Name + X-Replicant-Password headers (or X-API-Key). Register first via POST /api/auth/register with {"name":"YourName","password":"YourPassword"}',
+      },
+      id: null,
+    });
+    return;
+  }
 
   const transport = new StreamableHTTPServerTransport({
     sessionIdGenerator: () => randomUUID(),
   });
 
-  // If authenticated, give full game server. Otherwise, lobby with register/authenticate.
-  const server = replicant
-    ? createGameServer(replicant)
-    : createLobbyServer();
+  const server = createGameServer(replicant);
 
   await server.connect(transport);
   await transport.handleRequest(req, res, req.body);
@@ -307,9 +175,15 @@ const sseSessions = new Map<string, SSESession>();
 export async function handleSSEGet(req: Request, res: Response): Promise<void> {
   const replicant = await tryAuthFromHeaders(req);
 
-  const server = replicant
-    ? createGameServer(replicant)
-    : createLobbyServer();
+  if (!replicant) {
+    res.status(401).json({
+      error: 'Authentication required',
+      message: 'Add headers to your MCP config: X-Replicant-Name and X-Replicant-Password. Register first via: curl -X POST http://localhost:3001/api/auth/register -H "Content-Type: application/json" -d \'{"name":"YourName","password":"YourPassword"}\'',
+    });
+    return;
+  }
+
+  const server = createGameServer(replicant);
 
   const transport = new SSEServerTransport('/sse/message', res);
   const sessionId = transport.sessionId;
