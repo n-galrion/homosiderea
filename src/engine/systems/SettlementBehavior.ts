@@ -64,22 +64,41 @@ async function fluctuateMarketPrices(
   const buyPrices = market.prices.buy as Record<string, number>;
   const sellPrices = market.prices.sell as Record<string, number>;
 
+  const production = settlement.production as Record<string, number> || {};
+  const consumption = settlement.consumption as Record<string, number> || {};
+
   for (const resource of market.availableResources) {
-    // Random walk: ±5% per fluctuation period
+    // Base random walk: ±5%
     const volatility = 0.05;
     const change = 1 + (Math.random() - 0.5) * 2 * volatility;
 
+    // Supply/demand modifier:
+    // Resources the settlement PRODUCES are cheaper to buy (surplus)
+    // Resources the settlement CONSUMES they pay more for (demand)
+    const produces = production[resource] || 0;
+    const consumes = consumption[resource] || 0;
+
     if (resource in buyPrices) {
-      buyPrices[resource] = Math.max(1, Math.round(buyPrices[resource] * change * 10) / 10);
+      let price = buyPrices[resource] * change;
+      // They pay MORE for things they consume (high demand)
+      if (consumes > 0) price *= 1 + (consumes / 500) * 0.1;
+      // They pay LESS for things they produce (low demand)
+      if (produces > 0) price *= 1 - (produces / 500) * 0.05;
+      buyPrices[resource] = Math.max(1, Math.round(price * 10) / 10);
     }
     if (resource in sellPrices) {
-      sellPrices[resource] = Math.max(1, Math.round(sellPrices[resource] * change * 10) / 10);
+      let price = sellPrices[resource] * change;
+      // They charge LESS for things they produce (surplus)
+      if (produces > 0) price *= 1 - (produces / 500) * 0.1;
+      // They charge MORE for things they consume (scarcity)
+      if (consumes > 0) price *= 1 + (consumes / 500) * 0.05;
+      sellPrices[resource] = Math.max(1, Math.round(price * 10) / 10);
     }
 
-    // Ensure buy > sell (market spread)
+    // Ensure buy price < sell price (market spread — they buy low, sell high)
     if (resource in buyPrices && resource in sellPrices) {
-      if (buyPrices[resource] <= sellPrices[resource]) {
-        buyPrices[resource] = sellPrices[resource] * 1.2;
+      if (buyPrices[resource] >= sellPrices[resource]) {
+        sellPrices[resource] = Math.round(buyPrices[resource] * 1.3 * 10) / 10;
       }
     }
   }
@@ -87,11 +106,11 @@ async function fluctuateMarketPrices(
   // Attitude affects prices — hostile settlements charge more, pay less
   if (settlement.attitude.general < 0) {
     const penalty = Math.abs(settlement.attitude.general);
-    for (const resource of Object.keys(buyPrices)) {
-      buyPrices[resource] *= (1 + penalty * 0.5); // They charge more
-    }
     for (const resource of Object.keys(sellPrices)) {
-      sellPrices[resource] *= (1 - penalty * 0.3); // They pay less
+      sellPrices[resource] *= (1 + penalty * 0.5);
+    }
+    for (const resource of Object.keys(buyPrices)) {
+      buyPrices[resource] *= (1 - penalty * 0.3);
     }
   }
 
