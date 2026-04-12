@@ -9,12 +9,20 @@ services:
       MONGO_INITDB_DATABASE: homosideria
     command: mongod --setParameter diagnosticDataCollectionEnabled=false --quiet
 
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+
   homosideria:
     build: .
     ports:
       - "3001:3001"
     depends_on:
       - mongodb
+      - redis
     environment:
       MONGODB_URI: mongodb://mongodb:27017/homosideria
       PORT: "3001"
@@ -25,7 +33,24 @@ services:
       LLM_API_KEY: ${LLM_API_KEY:-}
       LLM_MODEL: ${LLM_MODEL:-anthropic/claude-sonnet-4}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      REDIS_URL: redis://redis:6379
+      AGENT_ENCRYPTION_KEY: ${AGENT_ENCRYPTION_KEY:-0000000000000000000000000000000000000000000000000000000000000000}
+    restart: unless-stopped
+
+  agent-worker:
+    build: .
+    command: ["node", "dist/worker/index.js"]
+    depends_on:
+      - mongodb
+      - redis
+      - homosideria
+    environment:
+      MONGODB_URI: mongodb://mongodb:27017/homosideria
+      REDIS_URL: redis://redis:6379
+      GAME_API_URL: http://homosideria:3001
+      AGENT_ENCRYPTION_KEY: ${AGENT_ENCRYPTION_KEY:-0000000000000000000000000000000000000000000000000000000000000000}
     restart: unless-stopped
 
 volumes:
   mongo-data:
+  redis-data:
