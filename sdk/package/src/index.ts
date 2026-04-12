@@ -33,7 +33,15 @@ export interface GameState {
   game: string;
   currentTick: number;
   tickIntervalMs: number;
-  gameTimePerTick: string;
+  timeDilation: {
+    factor: number;
+    description: string;
+    gameHoursPerTick: number;
+  };
+  gameTime: {
+    hours: number;
+    display: string;
+  };
   activeReplicants: number;
   lastTickAt: string | null;
   lastTickDurationMs: number | null;

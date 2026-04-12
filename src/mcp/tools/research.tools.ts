@@ -71,7 +71,7 @@ export function registerResearchTools(server: McpServer, replicantId: string): v
       });
 
       const completionTick = currentTick + ticksRequired;
-      const tickIntervalMs = config.game.tickIntervalMs;
+      const gameHoursRemaining = ticksRequired * gameHoursPerTick();
 
       return {
         content: [{
@@ -86,9 +86,10 @@ export function registerResearchTools(server: McpServer, replicantId: string): v
             completionTick,
             currentTick,
             ticksRemaining: ticksRequired,
-            estimatedCompletionMs: ticksRequired * tickIntervalMs,
-            tickIntervalMs,
-            message: `Research simulation initiated in fabrication bay. Results expected after ${ticksRequired} ticks. The quality of your scientific approach directly affects the probability and magnitude of breakthroughs.`,
+            gameTimeRemaining: formatGameTime(gameHoursRemaining),
+            realTimeRemaining: formatRealWait(gameHoursRemaining),
+            estimatedCompletionMs: gameHoursToRealMs(gameHoursRemaining),
+            message: `Research simulation initiated in fabrication bay. Results expected in ${formatGameTime(gameHoursRemaining)} (${formatRealWait(gameHoursRemaining)} real time). The quality of your scientific approach directly affects the probability and magnitude of breakthroughs.`,
           }, null, 2),
         }],
       };
@@ -109,7 +110,7 @@ export function registerResearchTools(server: McpServer, replicantId: string): v
       const currentTick = latestTick?.tickNumber ?? 0;
       const completionTick = proposal.startedAtTick + proposal.ticksRequired;
       const ticksRemaining = Math.max(0, completionTick - currentTick);
-      const tickIntervalMs = config.game.tickIntervalMs;
+      const gameHoursRemaining = ticksRemaining * gameHoursPerTick();
 
       const result: Record<string, unknown> = {
         id: proposal._id.toString(),
@@ -121,7 +122,9 @@ export function registerResearchTools(server: McpServer, replicantId: string): v
         completionTick,
         currentTick,
         ticksRemaining,
-        estimatedCompletionMs: ticksRemaining * tickIntervalMs,
+        gameTimeRemaining: formatGameTime(gameHoursRemaining),
+        realTimeRemaining: formatRealWait(gameHoursRemaining),
+        estimatedCompletionMs: gameHoursToRealMs(gameHoursRemaining),
       };
 
       if (proposal.evaluation) {

@@ -1,6 +1,5 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import { Structure, ResourceStore, Tick } from '../../db/models/index.js';
-import { config } from '../../config.js';
 import { gameHoursPerTick, gameHoursToRealMs, formatGameTime, formatRealWait } from '../../shared/gameTime.js';
 
 export const structureRoutes = Router();
