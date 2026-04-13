@@ -37,6 +37,10 @@ services:
       AGENT_ENCRYPTION_KEY: ${AGENT_ENCRYPTION_KEY:-0000000000000000000000000000000000000000000000000000000000000000}
     restart: unless-stopped
 
+  # Agent worker — scale horizontally with:
+  #   docker compose up --scale agent-worker=5
+  # Each worker handles WORKER_CONCURRENCY agents in parallel.
+  # Exactly-once tick scheduling and BullMQ job distribution handle load balancing.
   agent-worker:
     build: .
     command: ["node", "dist/worker/index.js"]
@@ -49,6 +53,11 @@ services:
       REDIS_URL: redis://redis:6379
       GAME_API_URL: http://homosideria:3001
       AGENT_ENCRYPTION_KEY: ${AGENT_ENCRYPTION_KEY:-0000000000000000000000000000000000000000000000000000000000000000}
+      WORKER_MODE: ${WORKER_MODE:-rest}
+      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-3}
+      WORKER_HEALTH_PORT: "3100"
+    # No host port published so multiple replicas can run without conflict.
+    # Use `docker compose exec agent-worker curl localhost:3100/healthz` to probe.
     restart: unless-stopped
 
 volumes:

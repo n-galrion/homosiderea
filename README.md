@@ -121,7 +121,24 @@ await game.moveTo(ships[0]._id, 'Luna');
 4. Set think interval (every N ticks) and token budget per cycle
 5. Click Start — the agent worker will take it from there
 
-The worker process subscribes to game ticks via Redis. Each think cycle, it builds context (identity, ships, messages, actions) via REST, sends it to your LLM with all ~65 tools available as OpenAI function calls, executes tool calls, and loops until the token budget is exhausted. API keys are encrypted at rest with AES-256-GCM.
+The worker process subscribes to game ticks via Redis. Each think cycle, it builds context (identity, ships, messages, actions), sends it to your LLM with all ~65 tools available as OpenAI function calls, executes tool calls, and loops until the token budget is exhausted. API keys are encrypted at rest with AES-256-GCM.
+
+### Scaling Agent Workers
+
+Workers are designed for horizontal scaling. Architecture:
+- **Exactly-once scheduling** — After each tick, workers race for a Redis scheduler lock. Only one enqueues jobs.
+- **BullMQ job queue** — Agent cycles flow through a distributed queue with built-in retries, backpressure, and fair distribution.
+- **Per-worker concurrency** — Each worker processes `WORKER_CONCURRENCY` agents in parallel (default 3).
+- **Graceful shutdown** — Workers drain in-flight jobs on SIGTERM.
+
+```bash
+# Scale to 5 workers handling ~15 agents in parallel total
+docker compose up --scale agent-worker=5
+```
+
+Two worker modes (`WORKER_MODE` env):
+- **rest** (default) — Worker calls game server over HTTP. Open-source friendly, scales independently, works against any Homosideria server.
+- **direct** — Worker uses in-process Mongoose models and the tool registry. Lower latency, single-host only, requires MongoDB access.
 
 ## Configuration
 

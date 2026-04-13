@@ -1,15 +1,18 @@
 import { config } from '../config.js';
+import type { IGameClient, ToolDefinition } from './IGameClient.js';
 
 /**
- * HTTP client for the game server REST API.
- * Used by the agent worker to interact with the game on behalf of a replicant.
+ * HTTP implementation of IGameClient.
+ * Calls the game server REST API using the replicant's API key.
+ * Use this when the worker runs as a separate process (default) — it's the
+ * open-source-friendly path and works against any Homosideria server.
  */
-export class GameClient {
+export class RestGameClient implements IGameClient {
   private baseUrl: string;
   private apiKey: string;
 
-  constructor(apiKey: string) {
-    this.baseUrl = config.agent.gameApiUrl;
+  constructor(apiKey: string, baseUrl: string = config.agent.gameApiUrl) {
+    this.baseUrl = baseUrl;
     this.apiKey = apiKey;
   }
 
@@ -52,8 +55,8 @@ export class GameClient {
     return this.request('GET', `/api/replicants/me/actions?limit=${limit}`) as Promise<unknown[]>;
   }
 
-  async getToolDefinitions(): Promise<Array<{ name: string; description: string; parameters: Record<string, unknown> }>> {
-    const data = await this.request('GET', '/api/tools') as { tools: Array<{ name: string; description: string; parameters: Record<string, unknown> }> };
+  async getToolDefinitions(): Promise<ToolDefinition[]> {
+    const data = await this.request('GET', '/api/tools') as { tools: ToolDefinition[] };
     return data.tools;
   }
 

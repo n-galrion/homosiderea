@@ -43,6 +43,15 @@ export const config = {
     encryptionKey: process.env.AGENT_ENCRYPTION_KEY || '',
     gameApiUrl: process.env.GAME_API_URL || `http://localhost:${parseInt(process.env.PORT || '3001', 10)}`,
   },
+  worker: {
+    // rest = call game server over HTTP (scalable, open-source friendly)
+    // direct = use in-process models + tool registry (single-host, lower latency)
+    mode: (process.env.WORKER_MODE || 'rest') as 'rest' | 'direct',
+    // Number of agent cycles a single worker processes in parallel
+    concurrency: parseInt(process.env.WORKER_CONCURRENCY || '3', 10),
+    // Port for worker /healthz endpoint (0 = disabled)
+    healthPort: parseInt(process.env.WORKER_HEALTH_PORT || '3100', 10),
+  },
   log: {
     level: process.env.LOG_LEVEL || 'info',
   },

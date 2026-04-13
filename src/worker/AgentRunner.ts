@@ -1,22 +1,27 @@
 import OpenAI from 'openai';
 import { AgentSession } from '../db/models/index.js';
-import { GameClient } from './GameClient.js';
 import { decrypt } from '../shared/crypto.js';
 import { config } from '../config.js';
 import type { IAgentConfig } from '../db/models/AgentConfig.js';
 import type { IReplicant } from '../db/models/Replicant.js';
+import type { IGameClient } from './IGameClient.js';
 
 export class AgentRunner {
   private agentConfig: IAgentConfig;
   private replicant: IReplicant;
-  private client: GameClient;
+  private client: IGameClient;
   private tick: number;
 
-  constructor(agentConfig: IAgentConfig, replicant: IReplicant, tick: number) {
+  /**
+   * @param client - Any IGameClient implementation (REST or direct).
+   *   The caller decides how the agent reaches the game — this class only
+   *   cares that the interface is satisfied.
+   */
+  constructor(agentConfig: IAgentConfig, replicant: IReplicant, tick: number, client: IGameClient) {
     this.agentConfig = agentConfig;
     this.replicant = replicant;
     this.tick = tick;
-    this.client = new GameClient(replicant.apiKey);
+    this.client = client;
   }
 
   async run(): Promise<void> {
@@ -114,7 +119,7 @@ export class AgentRunner {
     const parts: string[] = [];
 
     try {
-      const me = await this.client.getMe();
+      const me = await this.client.getMe() as Record<string, unknown>;
       parts.push(`## Identity\nName: ${me.name}\nStatus: ${me.status}\nCompute: ${me.computeCycles}\nEnergy: ${me.energyBudget}\nCredits: ${me.credits}`);
     } catch { parts.push('## Identity\n(could not load)'); }
 
