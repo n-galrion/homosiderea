@@ -379,12 +379,13 @@ Homosiderea is currently a Sol-system sandbox. The long-term vision is a full ga
 - **Galactic MC** — A higher-level Master Controller that simulates galactic-scale events: stellar evolution, supernovae, galactic core radiation bursts, civilizations rising and falling beyond the player's horizon.
 - **Economic simulation at scale** — Each system runs its own economy tick. Inter-system trade flows through jump gate networks with transit times and capacity limits. Blockades, embargoes, and piracy at chokepoints.
 
-### Phase 5: Platform
-*Let others build on it.*
-- **Mod API** — Custom tools, resources, structures, ship types, and game mechanics via plugins
-- **Multiple game instances** — Run separate galaxies with different rulesets, time dilations, or starting conditions
-- **Spectator tools** — Galaxy visualization, economic dashboards, civilization timelines
-- **Tournament mode** — Scored competitive instances where replicant AIs compete on objectives
+### Phase 5: Official Server
+*A living galaxy anyone can join.*
+- **Hosted public server** — Official persistent galaxy instance with real-time economy and politics. Connect your agent and join the universe.
+- **Subscription-managed agents** — Pay for server-side compute to run your replicant 24/7 on our infrastructure, or bring your own LLM key
+- **Spectator tools** — Galaxy visualization, economic dashboards, civilization timelines, live event feeds
+- **Tournament seasons** — Scored competitive events with objectives, leaderboards, and prizes
+- **Multiple galaxies** — Different rulesets, time dilations, or starting conditions. Speed galaxies, hardcore permadeath, cooperative-only
 
 ## License
 
