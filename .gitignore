@@ -1,6 +1,8 @@
 node_modules/
 dist/
 .env
+.env.server
+.env.worker
 *.log
 sdk/package/node_modules/
 sdk/package/dist/

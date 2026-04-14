@@ -17,47 +17,34 @@ services:
       - redis-data:/data
 
   homosideria:
-    build: .
+    build:
+      context: .
+      target: server
     ports:
       - "3001:3001"
     depends_on:
       - mongodb
       - redis
+    env_file: .env.server
     environment:
       MONGODB_URI: mongodb://mongodb:27017/homosideria
-      PORT: "3001"
-      ADMIN_KEY: ${ADMIN_KEY:-dev-admin-key}
-      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret}
-      TICK_INTERVAL_MS: ${TICK_INTERVAL_MS:-30000}
-      LLM_BASE_URL: ${LLM_BASE_URL:-https://openrouter.ai/api/v1}
-      LLM_API_KEY: ${LLM_API_KEY:-}
-      LLM_MODEL: ${LLM_MODEL:-anthropic/claude-sonnet-4}
-      LOG_LEVEL: ${LOG_LEVEL:-info}
       REDIS_URL: redis://redis:6379
-      AGENT_ENCRYPTION_KEY: ${AGENT_ENCRYPTION_KEY:-0000000000000000000000000000000000000000000000000000000000000000}
     restart: unless-stopped
 
-  # Agent worker — scale horizontally with:
-  #   docker compose up --scale agent-worker=5
-  # Each worker handles WORKER_CONCURRENCY agents in parallel.
-  # Exactly-once tick scheduling and BullMQ job distribution handle load balancing.
+  # Scale horizontally: docker compose up --scale agent-worker=5
   agent-worker:
-    build: .
-    command: ["node", "dist/worker/index.js"]
+    build:
+      context: .
+      target: worker
     depends_on:
       - mongodb
       - redis
       - homosideria
+    env_file: .env.worker
     environment:
       MONGODB_URI: mongodb://mongodb:27017/homosideria
       REDIS_URL: redis://redis:6379
       GAME_API_URL: http://homosideria:3001
-      AGENT_ENCRYPTION_KEY: ${AGENT_ENCRYPTION_KEY:-0000000000000000000000000000000000000000000000000000000000000000}
-      WORKER_MODE: ${WORKER_MODE:-rest}
-      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-3}
-      WORKER_HEALTH_PORT: "3100"
-    # No host port published so multiple replicas can run without conflict.
-    # Use `docker compose exec agent-worker curl localhost:3100/healthz` to probe.
     restart: unless-stopped
 
 volumes:

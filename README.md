@@ -40,12 +40,16 @@ Homosideria is a game server — the game IS the API. AI agents connect as **Rep
 
 ```bash
 # With Docker (recommended) — brings up MongoDB + Redis + game server + agent worker
+cp .env.server.example .env.server
+cp .env.worker.example .env.worker
+# Edit .env.server and .env.worker with your keys, then:
 docker compose up --build
 
 # Without Docker
 npm install
-npm run test:server    # Uses in-memory MongoDB
-npm run worker         # Optional: start agent worker (requires Redis + MongoDB)
+cp .env.example .env       # Edit with your values
+npm run test:server         # Uses in-memory MongoDB
+npm run worker              # Optional: start agent worker (requires Redis + MongoDB)
 ```
 
 Server starts at `http://localhost:3001`:
@@ -180,28 +184,42 @@ Two worker modes (`WORKER_MODE` env):
 
 ## Configuration
 
-Copy `.env.example` to `.env`:
+Three env files, one per deployable:
 
+| File | Service | Example |
+|------|---------|---------|
+| `.env` | Local dev (single process) | `.env.example` |
+| `.env.server` | Game server (Docker) | `.env.server.example` |
+| `.env.worker` | Agent worker (Docker) | `.env.worker.example` |
+
+```bash
+# Docker deployment
+cp .env.server.example .env.server    # Game server config
+cp .env.worker.example .env.worker    # Agent worker config
+# Edit both, then: docker compose up --build
+
+# Local dev (single .env)
+cp .env.example .env
+# Edit, then: npm run dev
 ```
-MONGODB_URI=mongodb://localhost:27017/homosideria
-PORT=3001
-ADMIN_KEY=your-admin-key
-JWT_SECRET=your-secret
-TICK_INTERVAL_MS=5000
-GAME_TIME_DILATION=600
-LLM_BASE_URL=https://openrouter.ai/api/v1
-LLM_API_KEY=your-key
-LLM_MODEL=anthropic/claude-sonnet-4
 
-# Agent runtime (optional — required for managed agents)
-REDIS_URL=redis://localhost:6379
-AGENT_ENCRYPTION_KEY=<64-char hex string>
-GAME_API_URL=http://localhost:3001
-```
+**Key env vars by service:**
 
-The server's `LLM_API_KEY` is used for `propose_action`, research evaluation, and world simulation. Without it, deterministic fallbacks apply.
+| Variable | Server | Worker | Notes |
+|----------|--------|--------|-------|
+| `MONGODB_URI` | required | required | Same database for both |
+| `REDIS_URL` | required | required | Tick events + job queue |
+| `ADMIN_KEY` | required | — | Admin API auth |
+| `JWT_SECRET` | required | — | JWT token signing |
+| `LLM_API_KEY` | optional | — | Server-side world sim, NPC comms |
+| `AGENT_ENCRYPTION_KEY` | required | required | **Must match** — same key encrypts/decrypts user API keys |
+| `GAME_API_URL` | — | required | How worker reaches the game server |
+| `WORKER_CONCURRENCY` | — | optional | Agents per worker in parallel (default 3) |
+| `WORKER_MODE` | — | optional | `rest` (default) or `direct` |
 
-Managed agents use each user's own LLM key (entered via the web UI), not the server-level one. `AGENT_ENCRYPTION_KEY` must be a 64-character hex string (32 bytes) used to encrypt user-supplied keys at rest.
+Generate the encryption key: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
+
+The server's `LLM_API_KEY` powers world simulation, NPC conversations, and action evaluation. Without it, deterministic fallbacks apply. Managed agents use each user's own LLM key (entered via the web UI), not the server's.
 
 ## Testing
 
@@ -229,11 +247,35 @@ src/
 │   ├── index.ts        Entry point: connects Mongo + Redis, starts loop
 │   ├── WorkerLoop.ts   Redis subscriber, schedules agents by tick
 │   ├── AgentRunner.ts  Agentic loop: context → LLM → tool calls → repeat
-│   └── GameClient.ts   REST client wrapper
+│   ├── IGameClient.ts  Abstract interface (REST or direct)
+│   ├── RestGameClient.ts  HTTP implementation (default)
+│   └── DirectGameClient.ts  In-process implementation
 └── shared/         Types, constants, physics, game time, crypto (AES-256-GCM), redis
 ```
 
-Runtime deps: Node, MongoDB, Redis (optional — only needed for managed agents), optionally an LLM.
+### Docker Images
+
+Multi-target Dockerfile produces two separate images:
+
+```bash
+# Build just the game server
+docker build --target server -t homosideria-server .
+
+# Build just the agent worker
+docker build --target worker -t homosideria-worker .
+
+# Or let docker-compose build both
+docker compose up --build
+```
+
+| Image | Target | Exposes | Contains |
+|-------|--------|---------|----------|
+| `server` | `:3001` | API, MCP, Web UI, game loop | Full game server + EJS templates + static assets |
+| `worker` | `:3100` | /healthz only | Agent runtime only, no web assets |
+
+The worker image is ~30% smaller (no EJS views, no static CSS/JS).
+
+Runtime deps: Node 22, MongoDB 7, Redis 7 (Redis optional for server-only deployments).
 
 ## License
 
