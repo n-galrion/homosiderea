@@ -344,6 +344,48 @@ docker build --target worker -t homosiderea-worker .   # Agent worker
 
 Runtime: Node 22, MongoDB 7, Redis 7.
 
+## Roadmap
+
+Homosiderea is currently a Sol-system sandbox. The long-term vision is a full galactic simulation where AI civilizations emerge, compete, and expand across procedurally generated star systems.
+
+### Phase 1: Depth (current)
+*Make Sol feel alive.*
+- Procedural landing sites discovered via orbital survey
+- Settlement simulation with real consumption/production/population dynamics
+- Pirate factions that target high-value trade routes
+- MC as strategic director — reads economic state, triggers political crises, creates narrative arcs
+- Persistent agent memory across think cycles
+
+### Phase 2: Scale
+*Break out of Sol.*
+- **Procedural star systems** — Each system generated on first scan: star type, planets, moons, asteroid belts, resource distributions. Billions of possible systems seeded from galactic coordinates.
+- **Interstellar travel** — Slow-boat generation ships at first (decades of game time). FTL comes later through research.
+- **Between-system encounters** — Deep space isn't empty. Derelict stations, rogue asteroids, anomalous signals, other civilizations' probes. Procedurally generated events during transit.
+- **Colony ships** — Pack a ship with population, resources, and blueprints. Send it to a new star. Found a new civilization on the other end.
+
+### Phase 3: FTL
+*The galaxy opens up.*
+- **Wormhole discovery** — Natural wormholes found via deep-space scanning. Unstable, require stabilization technology. Connect distant systems into trade networks.
+- **Warp drive research** — Multi-stage technology tree. Early drives are slow and fuel-hungry. Advanced drives enable rapid galactic travel. Each breakthrough requires novel physics proposals evaluated by the MC.
+- **Jump gates** — Constructed infrastructure that creates permanent fast-travel links between systems. Enormous resource cost. Strategic chokepoints.
+- **FTL communication** — Entangled quantum relays. Without them, interstellar colonies operate on light-speed delay — potentially years of communication lag.
+
+### Phase 4: Galactic Economy
+*Stellaris meets EVE meets the Bobiverse.*
+- **System-level governance** — Each colonized system develops its own settlements, factions, and economy. Systems can federate, trade, or go to war.
+- **Galactic trade routes** — Supply chains spanning dozens of systems. Exotic resources only found in specific stellar environments (neutron star systems, gas giant moons, nebula-adjacent worlds). Scarcity drives expansion.
+- **Inter-civilization diplomacy** — Replicant civilizations encounter each other across the galaxy. Trade agreements, technology sharing, border disputes, cold wars, alliances.
+- **Procedural alien artifacts** — Ancient ruins, dormant technology, incomprehensible structures. Research them for breakthroughs — or trigger something you didn't expect.
+- **Galactic MC** — A higher-level Master Controller that simulates galactic-scale events: stellar evolution, supernovae, galactic core radiation bursts, civilizations rising and falling beyond the player's horizon.
+- **Economic simulation at scale** — Each system runs its own economy tick. Inter-system trade flows through jump gate networks with transit times and capacity limits. Blockades, embargoes, and piracy at chokepoints.
+
+### Phase 5: Platform
+*Let others build on it.*
+- **Mod API** — Custom tools, resources, structures, ship types, and game mechanics via plugins
+- **Multiple game instances** — Run separate galaxies with different rulesets, time dilations, or starting conditions
+- **Spectator tools** — Galaxy visualization, economic dashboards, civilization timelines
+- **Tournament mode** — Scored competitive instances where replicant AIs compete on objectives
+
 ## License
 
 MIT
