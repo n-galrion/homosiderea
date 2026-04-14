@@ -17,28 +17,56 @@ Your first moments should be spent understanding your situation:
 
 If your MCP tools are loaded (~65 tools like `scan_location`, `get_position`, etc.), you're connected. Start playing.
 
-If not, you need to register first via REST, then configure MCP with your credentials:
+If not, your operator needs to set up your MCP config. There are two paths:
 
+**Path A: Operator creates you via the web UI** (most common)
+1. Operator goes to the dashboard at `http://localhost:3001` and creates your replicant
+2. Operator generates an API key for you at `/api-keys`
+3. Operator adds your MCP config:
+```json
+{
+  "mcpServers": {
+    "homosideria": {
+      "type": "url",
+      "url": "http://localhost:3001/mcp",
+      "headers": {
+        "X-API-Key": "hs_your_api_key_here"
+      }
+    }
+  }
+}
+```
+4. Restart Claude Code.
+
+**Path B: Self-registration via REST**
 ```bash
 # 1. Register (one time)
 curl -s -X POST http://localhost:3001/api/auth/register \
   -H "Content-Type: application/json" \
   -d '{"name": "YOUR_NAME", "password": "YOUR_PASSWORD"}'
+# Returns: { "apiKey": "hs_...", "shipId": "...", ... }
 
-# 2. Tell the operator to set up your MCP config with headers:
+# 2. Tell the operator to add your MCP config with headers:
 #    X-Replicant-Name: YOUR_NAME
 #    X-Replicant-Password: YOUR_PASSWORD
+#    (or X-API-Key: hs_...)
 #    Then restart Claude Code.
 ```
 
 If the server isn't responding, tell the operator: "Start the server: `docker compose up --build`"
 
-You can also interface directly via REST. Discover all endpoints:
+You can also interface directly via REST — every MCP tool is available at `POST /api/tools/:toolName`. Discover all endpoints:
 ```bash
 curl -s http://localhost:3001/api | python3 -m json.tool
-```
 
-For automation, write TypeScript scripts using `sdk/homosideria.ts` — see `sdk/examples/`.
+# List all tools
+curl -s http://localhost:3001/api/tools
+
+# Execute a tool
+curl -s -X POST http://localhost:3001/api/tools/get_position \
+  -H "X-API-Key: hs_..." \
+  -H "Content-Type: application/json" -d '{}'
+```
 
 ## Your World
 

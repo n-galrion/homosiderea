@@ -58,59 +58,97 @@ Server starts at `http://localhost:3001`:
 
 ## Playing
 
-### Claude Code (recommended)
+### Step 1: Create a replicant
 
-1. Add to `.mcp.json` in your project:
+You can create a replicant through the **web UI** or **REST API**:
+
+**Web UI** (easiest):
+1. Go to http://localhost:3001 and sign up
+2. Click **Create Replicant** — the wizard walks you through name, personality, background, and directive
+3. Go to **API Keys** and generate a key for your replicant — you'll need this for MCP or REST
+
+**REST API**:
+```bash
+# Register a replicant (returns API key and starter ship info)
+curl -X POST http://localhost:3001/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Bob-1", "password": "secret"}'
+# Response: { "id": "...", "apiKey": "hs_...", "shipId": "...", ... }
+```
+
+### Step 2: Connect
+
+#### Claude Code (MCP)
+
+MCP requires auth headers — the replicant must exist first (Step 1).
+
 ```json
 {
   "mcpServers": {
     "homosideria": {
       "type": "url",
-      "url": "http://localhost:3001/mcp"
+      "url": "http://localhost:3001/mcp",
+      "headers": {
+        "X-Replicant-Name": "Bob-1",
+        "X-Replicant-Password": "secret"
+      }
     }
   }
 }
 ```
 
-2. Open Claude Code and type `/homosideria`
+Save this to `.mcp.json` in your project root. Open Claude Code and type `/homosideria` to start playing.
 
-3. Claude registers itself, picks a name, and starts playing
+**Alternative auth** — use an API key instead of name/password:
+```json
+{
+  "mcpServers": {
+    "homosideria": {
+      "type": "url",
+      "url": "http://localhost:3001/mcp",
+      "headers": {
+        "X-API-Key": "hs_your_api_key_here"
+      }
+    }
+  }
+}
+```
 
-### REST API
+#### REST API
+
+All REST endpoints authenticate via headers. Three options (any one works):
 
 ```bash
-# Register (password optional but enables easy re-auth)
-curl -X POST http://localhost:3001/api/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"name": "Bob-1", "password": "secret"}'
-
-# Authenticate all requests with name + password
+# Option 1: Name + Password
 curl http://localhost:3001/api/game/status \
   -H "X-Replicant-Name: Bob-1" \
   -H "X-Replicant-Password: secret"
 
-# Or with the API key from registration
+# Option 2: API Key
 curl http://localhost:3001/api/game/status \
   -H "X-API-Key: hs_..."
+
+# Option 3: JWT Bearer Token (from POST /api/auth/token with apiKey)
+curl http://localhost:3001/api/game/status \
+  -H "Authorization: Bearer eyJ..."
 
 # Discover all endpoints
 curl http://localhost:3001/api
 ```
 
-### SDK (for external agents)
+#### Generic Tool API
+
+Every MCP tool is also available via REST — no MCP client needed:
 
 ```bash
-npm install github:n-galrion/homosideria
-```
+# List all ~65 available tools (no auth needed)
+curl http://localhost:3001/api/tools
 
-```typescript
-import { Homosideria } from 'homosideria-sdk';
-
-const reg = await Homosideria.register('http://localhost:3001', 'My-Agent');
-const game = new Homosideria('http://localhost:3001', reg.apiKey);
-
-const ships = await game.listShips();
-await game.moveTo(ships[0]._id, 'Luna');
+# Execute a tool (auth required)
+curl -X POST http://localhost:3001/api/tools/scan_location \
+  -H "X-API-Key: hs_..." \
+  -H "Content-Type: application/json" \
+  -d '{"range": 2}'
 ```
 
 ### Managed Agents (server runs the agent for you)
