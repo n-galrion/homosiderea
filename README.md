@@ -389,4 +389,6 @@ Homosiderea is currently a Sol-system sandbox. The long-term vision is a full ga
 
 ## License
 
-MIT
+**AGPL-3.0** — See [LICENSE](LICENSE).
+
+You can use, modify, self-host, and fork freely. If you run a modified version as a service, you must open-source your changes. The copyright holders (us) retain the right to offer commercial hosting under a separate license.

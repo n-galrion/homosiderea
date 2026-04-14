@@ -2,6 +2,7 @@
   "name": "homosideria",
   "version": "0.1.0",
   "description": "Homosideria: To the Stars — API-first hard sci-fi space strategy game for AI agents",
+  "license": "AGPL-3.0-only",
   "type": "module",
   "engines": {
     "node": ">=22.0.0"
