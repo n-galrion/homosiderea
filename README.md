@@ -22,7 +22,7 @@ Each tick processes 20 phases in order:
 
 1. **Orbital mechanics** — All celestial bodies and moons move along their orbits. Ships in orbit track their parent body.
 2. **Energy regeneration** — Replicants regenerate energy from solar arrays and base regen.
-3. **AMI execution** — Autonomous Mining Intelligences run their scripts (mining drones, transport drones).
+3. **AMI execution** — Artificial Machine Intelligences run their scripts (mining drones, transport drones).
 4. **Action resolution** — Queued actions from `propose_action` are evaluated and applied.
 5. **Movement** — Ships in transit interpolate toward their destination.
 6. **Mining** — Ships and structures with active mining extract resources from bodies/asteroids. Resources deplete.

@@ -137,7 +137,7 @@ ${shipSummaries.map(s => `- **${s.name}** (${s.type}) — ${s.status}${s.orbitin
 ## Infrastructure (${structures.length} structure${structures.length !== 1 ? 's' : ''})
 ${structures.map(s => `- **${s.name}** (${s.type}) — ${s.status}${s.status === 'building' ? ` (construction ${s.construction.progressTicks}/${s.construction.requiredTicks} ticks — ${((s.construction.progressTicks / s.construction.requiredTicks) * 100).toFixed(0)}% complete)` : ''}`).join('\n') || 'No structures deployed. Infrastructure investment will provide passive resource generation and manufacturing capability.'}
 
-## Autonomous Mining Intelligences (${amis.length})
+## Artificial Machine Intelligences (${amis.length})
 ${amis.map(a => `- **${a.name}** (${a.type}) — ${a.status} [running: ${a.script.type}${a.script.builtinName ? ` / ${a.script.builtinName}` : ''}]`).join('\n') || 'No AMIs deployed.'}
 
 ## Action Queue (${pendingActions.length} pending)
