@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { setupTestServer, teardownTestServer, registerReplicant } from './setup.js';
 import { Ship, ActionQueue, Asteroid, CelestialBody, Salvage } from '../src/db/models/index.js';
+import { handleMove } from '../src/engine/actions/MoveAction.js';
 import { buildToolRegistry } from '../src/tools/registry.js';
 
 describe('Ship.navigation.destinationAsteroidId', () => {
@@ -84,6 +85,36 @@ describe('move_ship destinations', () => {
     const reg = buildToolRegistry(rep.id);
     const out = (await reg.get('move_ship')!.handler({ shipId: rep.shipId, asteroidId: '64b9f0000000000000000fff' })).content[0].text;
     expect(out.toLowerCase()).toContain('not found');
+  });
+});
+
+describe('handleMove with a position destination', () => {
+  let rep: { id: string; apiKey: string; shipId: string };
+  beforeAll(async () => { await setupTestServer(); rep = await registerReplicant('HandleMoveTester'); }, 60000);
+  afterAll(async () => { await teardownTestServer(); });
+
+  it('moves to raw coordinates without requiring a body', async () => {
+    const fakeAction = {
+      replicantId: rep.id,
+      params: { shipId: rep.shipId, destinationPos: { x: 1.1, y: 0.2, z: 0 } },
+    } as never;
+    const result = await handleMove(fakeAction, 10);
+    expect(result.shipId).toBe(rep.shipId);
+    const ship = await Ship.findById(rep.shipId);
+    expect(ship!.status).toBe('in_transit');
+    expect(ship!.navigation.destinationPos).toMatchObject({ x: 1.1, y: 0.2, z: 0 });
+    expect(ship!.navigation.destinationBodyId).toBeNull();
+  });
+
+  it('carries destinationAsteroidId into navigation', async () => {
+    const rep2 = await registerReplicant('HandleMoveAsteroid');
+    const action = {
+      replicantId: rep2.id,
+      params: { shipId: rep2.shipId, destinationPos: { x: 2.5, y: 0, z: 0 }, destinationAsteroidId: '64b9f0000000000000000abc' },
+    } as never;
+    await handleMove(action, 10);
+    const ship = await Ship.findById(rep2.shipId);
+    expect(ship!.navigation.destinationAsteroidId!.toString()).toBe('64b9f0000000000000000abc');
   });
 });
 
