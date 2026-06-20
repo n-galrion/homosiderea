@@ -722,6 +722,473 @@ git commit -m "feat: prompt managed agents to react to the _hud field"
 
 ---
 
+### Task 6: Fix message sender attribution (transmissions appear "from self")
+
+**Problem:** The dashboard "send advisory" handler stores advisories with `senderId === recipientId === replicant._id`. Agent-facing read paths (`read_messages`, the HUD) then surface the sender as the replicant's *own* name (or a raw ObjectId), so every operator advisory looks like it came from the replicant reading it. Fix: give dashboard advisories a distinct **Mission Control** sender identity, and resolve sentinel senders to readable labels in the agent-facing paths. (The web `comms.ejs` already renders these as `[SYSTEM]` via `metadata.type`, so it needs no change.)
+
+**Files:**
+- Create: `src/shared/messaging.ts`
+- Modify: `src/web/routes/pages.routes.ts:230` (dashboard advisory `senderId`)
+- Modify: `src/mcp/tools/communication.tools.ts` (`read_messages` sender resolution, ~line 136-161)
+- Modify: `src/tools/hud.ts` (`buildHud` unread `from` field, ~line 124)
+- Test: `test/messaging.test.ts`
+
+**Interfaces:**
+- Produces: `export const MISSION_CONTROL_ID = '000000000000000000000002';`
+- Produces: `export function senderLabel(senderId: string | null | undefined, resolvedName?: string | null): string`
+
+- [ ] **Step 1: Write the failing pure-function test**
+
+In `test/messaging.test.ts`:
+
+```typescript
+import { describe, it, expect } from 'vitest';
+import { senderLabel, MISSION_CONTROL_ID } from '../src/shared/messaging.js';
+
+describe('senderLabel', () => {
+  it('labels the Mission Control sentinel', () => {
+    expect(senderLabel(MISSION_CONTROL_ID)).toBe('Mission Control');
+  });
+  it('labels NPC and pirate sentinels', () => {
+    expect(senderLabel('000000000000000000000000')).toBe('NPC Traffic');
+    expect(senderLabel('000000000000000000000001')).toBe('Pirate');
+  });
+  it('uses the resolved replicant name for a normal sender', () => {
+    expect(senderLabel('64b9f0000000000000000abc', 'GUPPE')).toBe('GUPPE');
+  });
+  it('falls back to Unknown when no name resolves', () => {
+    expect(senderLabel('64b9f0000000000000000abc')).toBe('Unknown');
+    expect(senderLabel(null)).toBe('Unknown');
+  });
+});
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `npx vitest run test/messaging.test.ts`
+Expected: FAIL — `src/shared/messaging.js` does not exist.
+
+- [ ] **Step 3: Implement `src/shared/messaging.ts`**
+
+```typescript
+/** Sentinel sender IDs for non-replicant message origins. */
+export const MISSION_CONTROL_ID = '000000000000000000000002';
+const NPC_OWNER_ID = '000000000000000000000000';
+const PIRATE_OWNER_ID = '000000000000000000000001';
+
+/**
+ * Resolve a message's senderId into a human-readable label.
+ * Sentinel IDs map to fixed labels; everything else uses the resolved
+ * replicant name (from a populate/lookup) or falls back to 'Unknown'.
+ */
+export function senderLabel(senderId: string | null | undefined, resolvedName?: string | null): string {
+  switch (senderId) {
+    case MISSION_CONTROL_ID: return 'Mission Control';
+    case NPC_OWNER_ID: return 'NPC Traffic';
+    case PIRATE_OWNER_ID: return 'Pirate';
+    default: return resolvedName || 'Unknown';
+  }
+}
+```
+
+- [ ] **Step 4: Run test to verify it passes**
+
+Run: `npx vitest run test/messaging.test.ts`
+Expected: PASS (4 passing).
+
+- [ ] **Step 5: Fix the dashboard advisory sender**
+
+In `src/web/routes/pages.routes.ts`, add to the existing model import line (top of file) — import the sentinel:
+
+```typescript
+import { MISSION_CONTROL_ID } from '../../shared/messaging.js';
+```
+
+In the advisory `Message.create` (~line 229-231), change `senderId`:
+
+```typescript
+    await Message.create({
+      senderId: MISSION_CONTROL_ID,
+      recipientId: replicant._id,
+```
+
+(Leave `recipientId: replicant._id` and the `metadata`/`delivered` fields unchanged.)
+
+- [ ] **Step 6: Resolve sender names in `read_messages`**
+
+In `src/mcp/tools/communication.tools.ts`, add the import at the top:
+
+```typescript
+import { senderLabel } from '../../shared/messaging.js';
+```
+
+Replace the `read_messages` query+map (the block from `const messages = await Message.find(filter)` through the `result` map, ~lines 144-159) with a version that keeps raw sender IDs and resolves names by batch lookup:
+
+```typescript
+      const messages = await Message.find(filter)
+        .sort({ deliverAtTick: -1 })
+        .limit(limit || 20)
+        .lean();
+
+      const senderIds = [...new Set(messages.map(m => m.senderId?.toString()).filter(Boolean))];
+      const senders = await Replicant.find({ _id: { $in: senderIds } }, 'name').lean();
+      const nameById = new Map(senders.map(s => [s._id.toString(), s.name]));
+
+      const result = messages.map(m => {
+        const sid = m.senderId?.toString();
+        return {
+          id: m._id.toString(),
+          from: senderLabel(sid, sid ? nameById.get(sid) : null),
+          subject: m.subject,
+          body: m.body,
+          metadata: m.metadata,
+          sentAtTick: m.sentAtTick,
+          deliveredAtTick: m.deliverAtTick,
+          read: m.read,
+        };
+      });
+```
+
+Ensure `Replicant` is imported in this file (it is used elsewhere; if not, add it to the existing `../../db/models/index.js` import). Remove the now-unused `.populate('senderId', 'name')`.
+
+- [ ] **Step 7: Resolve sender names in the HUD**
+
+In `src/tools/hud.ts`, add the import:
+
+```typescript
+import { senderLabel } from '../shared/messaging.js';
+```
+
+In `buildHud`, after the `unread` query, resolve sender names and use `senderLabel` for the `from` field. Replace the `unreadMessages.items` mapping (currently `from: m.senderId.toString()`) with:
+
+```typescript
+  const unreadSenderIds = [...new Set(unread.map((m) => m.senderId?.toString()).filter(Boolean))];
+  const unreadSenders = await Replicant.find({ _id: { $in: unreadSenderIds } }, 'name').lean();
+  const unreadNameById = new Map(unreadSenders.map((s) => [s._id.toString(), s.name]));
+```
+
+and in the returned object:
+
+```typescript
+    unreadMessages: {
+      count: unreadCount,
+      items: unread.map((m) => {
+        const sid = m.senderId?.toString();
+        return { from: senderLabel(sid, sid ? unreadNameById.get(sid) : null), subject: m.subject, tick: m.sentAtTick };
+      }),
+    },
+```
+
+(`Replicant` is already imported in `hud.ts`.)
+
+- [ ] **Step 8: Add an integration test for advisory attribution**
+
+Append to `test/messaging.test.ts`:
+
+```typescript
+import { beforeAll, afterAll } from 'vitest';
+import { setupTestServer, teardownTestServer, registerReplicant, api } from './setup.js';
+import { Message, Tick } from '../src/db/models/index.js';
+import { buildToolRegistry } from '../src/tools/registry.js';
+
+describe('advisory sender attribution (DB)', () => {
+  let rep: { id: string; apiKey: string; shipId: string };
+  beforeAll(async () => { await setupTestServer(); rep = await registerReplicant('AdvisoryTester'); }, 60000);
+  afterAll(async () => { await teardownTestServer(); });
+
+  it('a Mission Control advisory does not appear to come from the replicant itself', async () => {
+    const t = await Tick.findOne().sort({ tickNumber: -1 }).lean();
+    await Message.create({
+      senderId: MISSION_CONTROL_ID, recipientId: rep.id,
+      subject: 'Advisory', body: 'Consider mining Luna.',
+      metadata: { type: 'system_suggestion', fromDashboard: true },
+      senderPosition: { x: 0, y: 0, z: 0 }, recipientPosition: { x: 0, y: 0, z: 0 },
+      distanceAU: 0, sentAtTick: (t as { tickNumber?: number } | null)?.tickNumber ?? 0,
+      deliverAtTick: (t as { tickNumber?: number } | null)?.tickNumber ?? 0, delivered: true, read: false,
+    });
+
+    const registry = buildToolRegistry(rep.id);
+    const out = await registry.get('read_messages')!.handler({});
+    const msgs = JSON.parse(out.content[0].text);
+    const advisory = msgs.find((m: { subject: string }) => m.subject === 'Advisory');
+    expect(advisory.from).toBe('Mission Control');
+    expect(advisory.from).not.toBe('AdvisoryTester');
+  });
+});
+```
+
+- [ ] **Step 9: Run the test file and type-check**
+
+Run: `npx vitest run test/messaging.test.ts`
+Expected: PASS (all). Then `npx tsc --noEmit` — no new errors. Then `npx vitest run test/hud.test.ts` to confirm no HUD regression.
+
+- [ ] **Step 10: Commit**
+
+```bash
+git add src/shared/messaging.ts src/web/routes/pages.routes.ts src/mcp/tools/communication.tools.ts src/tools/hud.ts test/messaging.test.ts
+git commit -m "fix: attribute dashboard advisories to Mission Control, not the replicant itself"
+```
+
+---
+
+### Task 7: Allow self-renaming + expose a `set_identity` tool
+
+**Problem:** (1) `PUT /api/replicant/me/identity` hard-rejects any change once `chosenName` is set ("Identity is permanent"), so replicants registered with a name can never rename. (2) There is no naming *tool*, and the worker only calls tools — so autonomous agents (e.g. GUPPE) can never set their own name, leaving the list showing their system/auto name (`Replicant-XXXXXX`). Fix: relax the endpoint to allow renaming, extract the logic into a shared helper, and expose it as a `set_identity` tool (MCP + REST tool registry). Names remain globally unique; collisions are rejected with a clear error.
+
+**Files:**
+- Create: `src/shared/identity.ts`
+- Create: `src/mcp/tools/identity.tools.ts`
+- Modify: `src/mcp/tools/index.ts` (register the new tool group)
+- Modify: `src/api/routes/replicant.routes.ts` (`PUT /me/identity` — use helper, allow rename)
+- Modify: `src/api/server.ts:142` (API description text)
+- Test: `test/identity.test.ts`
+
+**Interfaces:**
+- Produces: `export class DuplicateNameError extends Error {}`
+- Produces: `export interface IdentityFields { chosenName: string; background?: string | null; personality?: string | null; }`
+- Produces: `export async function applyIdentity(replicant: IReplicant, fields: IdentityFields): Promise<{ renamed: boolean; name: string }>`
+- Produces: tool `set_identity` registered via `registerIdentityTools(server, replicantId)`.
+
+- [ ] **Step 1: Write the failing tool test**
+
+Create `test/identity.test.ts`:
+
+```typescript
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { setupTestServer, teardownTestServer, registerReplicant } from './setup.js';
+import { Replicant } from '../src/db/models/index.js';
+import { buildToolRegistry } from '../src/tools/registry.js';
+
+describe('set_identity tool', () => {
+  let a: { id: string; apiKey: string; shipId: string };
+  let b: { id: string; apiKey: string; shipId: string };
+
+  beforeAll(async () => {
+    await setupTestServer();
+    a = await registerReplicant('NamerA');
+    b = await registerReplicant('NamerB');
+  }, 60000);
+  afterAll(async () => { await teardownTestServer(); });
+
+  it('lets a replicant choose and then change its name', async () => {
+    const reg = buildToolRegistry(a.id);
+    const r1 = JSON.parse((await reg.get('set_identity')!.handler({ chosenName: 'Aurora', background: 'explorer' })).content[0].text);
+    expect(r1.name).toBe('Aurora');
+
+    let doc = await Replicant.findById(a.id);
+    expect(doc!.name).toBe('Aurora');
+    expect(doc!.identity.chosenName).toBe('Aurora');
+    const firstNamedAt = doc!.identity.namedAtTick;
+
+    const r2 = JSON.parse((await reg.get('set_identity')!.handler({ chosenName: 'Nova' })).content[0].text);
+    expect(r2.renamed).toBe(true);
+    expect(r2.name).toBe('Nova');
+
+    doc = await Replicant.findById(a.id);
+    expect(doc!.name).toBe('Nova');
+    expect(doc!.identity.chosenName).toBe('Nova');
+    expect(doc!.identity.namedAtTick).toBe(firstNamedAt); // preserved across rename
+  });
+
+  it('rejects a name already taken by another replicant', async () => {
+    const reg = buildToolRegistry(b.id);
+    const out = (await reg.get('set_identity')!.handler({ chosenName: 'Nova' })).content[0].text;
+    expect(out).toContain('already taken');
+    const doc = await Replicant.findById(b.id);
+    expect(doc!.name).toBe('NamerB'); // unchanged
+  });
+});
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `npx vitest run test/identity.test.ts`
+Expected: FAIL — tool `set_identity` not found (`reg.get('set_identity')` is undefined).
+
+- [ ] **Step 3: Implement the shared helper `src/shared/identity.ts`**
+
+```typescript
+import { MemoryLog, Tick } from '../db/models/index.js';
+import type { IReplicant } from '../db/models/Replicant.js';
+
+export interface IdentityFields {
+  chosenName: string;
+  background?: string | null;
+  personality?: string | null;
+}
+
+/** Thrown when a chosen name collides with another replicant's unique name. */
+export class DuplicateNameError extends Error {}
+
+/**
+ * Set or change a replicant's self-chosen identity. Updates the unique `name`
+ * field and the identity sub-document, logs the change, and saves. First naming
+ * records namedAtTick; later renames preserve the original namedAtTick. Throws
+ * DuplicateNameError on a unique-name collision.
+ */
+export async function applyIdentity(replicant: IReplicant, fields: IdentityFields): Promise<{ renamed: boolean; name: string }> {
+  const latestTick = await Tick.findOne().sort({ tickNumber: -1 }).lean();
+  const currentTick = latestTick?.tickNumber ?? 0;
+
+  const prior = replicant.identity?.chosenName ?? null;
+  const renamed = prior !== null && prior !== fields.chosenName;
+
+  replicant.name = fields.chosenName;
+  replicant.identity = {
+    chosenName: fields.chosenName,
+    background: fields.background ?? replicant.identity?.background ?? null,
+    personality: fields.personality ?? replicant.identity?.personality ?? null,
+    namedAtTick: replicant.identity?.namedAtTick ?? currentTick,
+  };
+
+  try {
+    await replicant.save();
+  } catch (err: unknown) {
+    if (err && typeof err === 'object' && 'code' in err && (err as Record<string, unknown>).code === 11000) {
+      throw new DuplicateNameError(`The name "${fields.chosenName}" is already taken. Choose another.`);
+    }
+    throw err;
+  }
+
+  await MemoryLog.create({
+    replicantId: replicant._id,
+    category: 'log',
+    title: renamed ? 'Identity changed' : 'Identity chosen',
+    content: `${renamed ? `Renamed from "${prior}" to` : 'Chose the name'} "${fields.chosenName}".${fields.background ? ` Background: ${fields.background}` : ''}${fields.personality ? ` Personality: ${fields.personality}` : ''}`,
+    tags: ['auto', 'identity'],
+    tick: currentTick,
+  });
+
+  return { renamed, name: fields.chosenName };
+}
+```
+
+- [ ] **Step 4: Implement the tool `src/mcp/tools/identity.tools.ts`**
+
+```typescript
+import { z } from 'zod';
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { Replicant } from '../../db/models/index.js';
+import { applyIdentity, DuplicateNameError } from '../../shared/identity.js';
+
+export function registerIdentityTools(server: McpServer, replicantId: string): void {
+  server.tool(
+    'set_identity',
+    'Choose or change your name and identity. Your chosen name is how you are known across the system and shown in dashboards. You can rename yourself at any time; names must be unique.',
+    {
+      chosenName: z.string().describe('The name you want to be known by'),
+      background: z.string().optional().describe('Optional self-written background'),
+      personality: z.string().optional().describe('Optional personality description'),
+    },
+    async ({ chosenName, background, personality }) => {
+      const replicant = await Replicant.findById(replicantId);
+      if (!replicant) return { content: [{ type: 'text', text: 'Error: Replicant not found.' }] };
+
+      try {
+        const { renamed, name } = await applyIdentity(replicant, { chosenName, background, personality });
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              status: 'OK',
+              renamed,
+              name,
+              identity: replicant.identity,
+              message: renamed ? `You are now known as ${name}.` : `Identity established. You are now ${name}.`,
+            }, null, 2),
+          }],
+        };
+      } catch (err) {
+        if (err instanceof DuplicateNameError) {
+          return { content: [{ type: 'text', text: `Error: ${err.message}` }] };
+        }
+        throw err;
+      }
+    },
+  );
+}
+```
+
+- [ ] **Step 5: Register the tool group in `src/mcp/tools/index.ts`**
+
+Add the import alongside the others:
+
+```typescript
+import { registerIdentityTools } from './identity.tools.js';
+```
+
+And call it inside `registerAllTools` (next to the other `register*Tools(server, replicantId);` calls):
+
+```typescript
+  registerIdentityTools(server, replicantId);
+```
+
+- [ ] **Step 6: Run the tool test to verify it passes**
+
+Run: `npx vitest run test/identity.test.ts`
+Expected: PASS (2 passing).
+
+- [ ] **Step 7: Relax the REST endpoint to allow renaming**
+
+In `src/api/routes/replicant.routes.ts`, add the import at the top:
+
+```typescript
+import { applyIdentity, DuplicateNameError } from '../../shared/identity.js';
+```
+
+Replace the entire `PUT /me/identity` handler body (lines 30-84, from the `try {` through the closing `});`) with:
+
+```typescript
+replicantRoutes.put('/me/identity', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { chosenName, background, personality } = req.body;
+    const r = req.replicant!;
+
+    if (!chosenName || typeof chosenName !== 'string') {
+      res.status(400).json({ error: 'VALIDATION', message: 'chosenName string is required' });
+      return;
+    }
+
+    const { renamed } = await applyIdentity(r, { chosenName, background, personality });
+
+    res.json({
+      message: renamed ? `Identity updated. You are now ${chosenName}.` : `Identity established. You are now ${chosenName}.`,
+      name: chosenName,
+      identity: r.identity,
+    });
+  } catch (err: unknown) {
+    if (err instanceof DuplicateNameError) {
+      res.status(409).json({ error: 'DUPLICATE', message: err.message });
+      return;
+    }
+    next(err);
+  }
+});
+```
+
+(The `MemoryLog` and `Tick` imports remain — they are still used by other handlers in this file. If TypeScript flags `MemoryLog` or `Tick` as now-unused, leave them only if still referenced elsewhere in the file; otherwise remove the unused one.)
+
+- [ ] **Step 8: Update the API description text**
+
+In `src/api/server.ts:142`, change the `updateIdentity` line to:
+
+```typescript
+          updateIdentity: 'PUT /api/replicant/me/identity  body: { chosenName, background?, personality? }  — set or change your self-chosen name (also available as the set_identity tool)',
+```
+
+- [ ] **Step 9: Run the full check**
+
+Run: `npx vitest run test/identity.test.ts` (PASS), then `npx tsc --noEmit` (no new errors; the pre-existing `WorkerLoop.ts` ioredis error is unrelated). Also run `ADMIN_KEY=dev-admin-key npx vitest run test/integration.test.ts` to confirm no regression in the broader suite.
+
+- [ ] **Step 10: Commit**
+
+```bash
+git add src/shared/identity.ts src/mcp/tools/identity.tools.ts src/mcp/tools/index.ts src/api/routes/replicant.routes.ts src/api/server.ts test/identity.test.ts
+git commit -m "feat: allow replicants to rename via set_identity tool and REST"
+```
+
+---
+
 ## Self-Review
 
 **Spec coverage:**
