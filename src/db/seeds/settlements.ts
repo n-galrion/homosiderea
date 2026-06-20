@@ -1,6 +1,6 @@
 import { CelestialBody, Settlement, Market, Faction, ResourceStore } from '../models/index.js';
 
-interface SettlementSeed {
+export interface SettlementSeed {
   name: string;
   bodyName: string;
   type: 'city' | 'outpost' | 'orbital_station' | 'colony';
@@ -39,7 +39,7 @@ interface SettlementSeed {
 // - Off-world outposts have tighter margins — trade matters more to them
 // ─────────────────────────────────────────────────────────────────────────
 
-const settlements: SettlementSeed[] = [
+export const settlements: SettlementSeed[] = [
   // ── Earth Cities ──────────────────────────────────────────
   // Earth cities are self-sustaining powerhouses. They produce manufactured goods
   // for the space economy and WANT exotic off-world materials for growth.
@@ -344,6 +344,7 @@ export async function seedSettlements(): Promise<void> {
         bodyId: body._id,
         name: `${seed.name} Exchange`,
         prices: { buy: seed.market.buy, sell: seed.market.sell },
+        basePrices: { buy: { ...seed.market.buy }, sell: { ...seed.market.sell } },
         supply: seed.production,
         demand: seed.consumption,
         availableResources: seed.market.resources,

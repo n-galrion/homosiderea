@@ -10,6 +10,11 @@ export interface IMarket extends Document {
     buy: Record<string, number>;
     sell: Record<string, number>;
   };
+  // Canonical anchor prices — current prices fluctuate around these, never drift from them
+  basePrices: {
+    buy: Record<string, number>;
+    sell: Record<string, number>;
+  };
   // Supply/demand drives price fluctuation
   supply: Record<string, number>;
   demand: Record<string, number>;
@@ -33,6 +38,10 @@ const MarketSchema = new Schema<IMarket>({
   bodyId: { type: Schema.Types.ObjectId, ref: 'CelestialBody', required: true },
   name: { type: String, required: true },
   prices: {
+    buy: { type: Schema.Types.Mixed, default: {} },
+    sell: { type: Schema.Types.Mixed, default: {} },
+  },
+  basePrices: {
     buy: { type: Schema.Types.Mixed, default: {} },
     sell: { type: Schema.Types.Mixed, default: {} },
   },
