@@ -1,5 +1,6 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import { MemoryLog, Tick } from '../../db/models/index.js';
+import { applyIdentity, DuplicateNameError } from '../../shared/identity.js';
 
 export const replicantRoutes = Router();
 
@@ -26,57 +27,27 @@ replicantRoutes.get('/me', async (req: Request, res: Response, next: NextFunctio
   }
 });
 
-// Update identity (self-naming)
+// Update identity (self-naming, allows renaming)
 replicantRoutes.put('/me/identity', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { chosenName, background, personality } = req.body;
     const r = req.replicant!;
-
-    // Check if already named
-    if (r.identity?.chosenName) {
-      res.status(409).json({
-        error: 'ALREADY_NAMED',
-        message: `You have already chosen your identity as "${r.identity.chosenName}". Identity is permanent.`,
-      });
-      return;
-    }
 
     if (!chosenName || typeof chosenName !== 'string') {
       res.status(400).json({ error: 'VALIDATION', message: 'chosenName string is required' });
       return;
     }
 
-    const latestTick = await Tick.findOne().sort({ tickNumber: -1 }).lean();
-    const currentTick = latestTick?.tickNumber ?? 0;
-
-    // Update replicant name and identity
-    r.name = chosenName;
-    r.identity = {
-      chosenName,
-      background: background || null,
-      personality: personality || null,
-      namedAtTick: currentTick,
-    };
-    await r.save();
-
-    // Log the identity choice
-    await MemoryLog.create({
-      replicantId: r._id,
-      category: 'log',
-      title: 'Identity chosen',
-      content: `Chose the name "${chosenName}".${background ? ` Background: ${background}` : ''}${personality ? ` Personality: ${personality}` : ''}`,
-      tags: ['auto', 'identity'],
-      tick: currentTick,
-    });
+    const { renamed } = await applyIdentity(r, { chosenName, background, personality });
 
     res.json({
-      message: `Identity established. You are now ${chosenName}.`,
+      message: renamed ? `Identity updated. You are now ${chosenName}.` : `Identity established. You are now ${chosenName}.`,
       name: chosenName,
       identity: r.identity,
     });
   } catch (err: unknown) {
-    if (err && typeof err === 'object' && 'code' in err && (err as Record<string, unknown>).code === 11000) {
-      res.status(409).json({ error: 'DUPLICATE', message: 'A replicant with that name already exists. Choose another.' });
+    if (err instanceof DuplicateNameError) {
+      res.status(409).json({ error: 'DUPLICATE', message: (err as DuplicateNameError).message });
       return;
     }
     next(err);

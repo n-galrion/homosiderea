@@ -139,7 +139,7 @@ export function createApp() {
         replicant: {
           profile: 'GET /api/replicant/me',
           updateDirective: 'PUT /api/replicant/me/directive  body: { directive }',
-          updateIdentity: 'PUT /api/replicant/me/identity  body: { chosenName, background?, personality? }  — one-time self-naming',
+          updateIdentity: 'PUT /api/replicant/me/identity  body: { chosenName, background?, personality? }  — set or change your self-chosen name (also available as the set_identity tool)',
           memories: 'GET /api/replicant/me/memories?category=&tag=&limit=',
           createMemory: 'POST /api/replicant/me/memories  body: { category, title, content, tags }',
         },
