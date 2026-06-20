@@ -6,3 +6,6 @@ dist/
 *.log
 sdk/package/node_modules/
 sdk/package/dist/
+
+# JetBrains IDE
+.idea/
