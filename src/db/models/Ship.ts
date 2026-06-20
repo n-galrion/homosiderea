@@ -12,6 +12,7 @@ export interface IShip extends Document {
   dockedAtId: Types.ObjectId | null;
   navigation: {
     destinationBodyId: Types.ObjectId | null;
+    destinationAsteroidId: Types.ObjectId | null;
     destinationPos: { x: number; y: number; z: number } | null;
     departurePos: { x: number; y: number; z: number } | null;
     departureTick: number | null;
@@ -70,6 +71,7 @@ const ShipSchema = new Schema<IShip>({
   dockedAtId: { type: Schema.Types.ObjectId, ref: 'Structure', default: null },
   navigation: {
     destinationBodyId: { type: Schema.Types.ObjectId, ref: 'CelestialBody', default: null },
+    destinationAsteroidId: { type: Schema.Types.ObjectId, ref: 'Asteroid', default: null },
     destinationPos: {
       type: { x: Number, y: Number, z: Number },
       default: null,
