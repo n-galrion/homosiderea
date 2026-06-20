@@ -79,10 +79,12 @@ export async function advanceAll(tick: number): Promise<void> {
 
       ship.status = 'orbiting';
       ship.orbitingBodyId = nav.destinationBodyId ?? null;
+      ship.orbitingAsteroidId = nav.destinationAsteroidId ?? null;
 
       // Clear navigation
       ship.navigation = {
         destinationBodyId: null,
+        destinationAsteroidId: null,
         destinationPos: null,
         departurePos: null,
         departureTick: null,

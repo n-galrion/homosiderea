@@ -3,6 +3,7 @@ import { setupTestServer, teardownTestServer, registerReplicant } from './setup.
 import { Ship, ActionQueue, Asteroid, CelestialBody, Salvage } from '../src/db/models/index.js';
 import { handleMove } from '../src/engine/actions/MoveAction.js';
 import { buildToolRegistry } from '../src/tools/registry.js';
+import { advanceAll } from '../src/engine/systems/Movement.js';
 
 describe('Ship.navigation.destinationAsteroidId', () => {
   let rep: { id: string; apiKey: string; shipId: string };
@@ -129,5 +130,44 @@ describe('calculate_route destinations', () => {
     expect(out.to).toContain('1.5');
     expect(typeof out.distanceAU).toBe('number');
     expect(typeof out.feasible).toBe('boolean');
+  });
+});
+
+describe('Movement arrival semantics', () => {
+  let rep: { id: string; apiKey: string; shipId: string };
+  beforeAll(async () => { await setupTestServer(); rep = await registerReplicant('ArrivalTester'); }, 60000);
+  afterAll(async () => { await teardownTestServer(); });
+
+  it('arriving at raw coordinates leaves both orbit refs null at the point', async () => {
+    const ship = await Ship.findById(rep.shipId);
+    ship!.status = 'in_transit';
+    ship!.navigation = {
+      destinationBodyId: null, destinationAsteroidId: null,
+      destinationPos: { x: 1.3, y: 0.4, z: 0 },
+      departurePos: { x: 1, y: 0, z: 0 }, departureTick: 1, arrivalTick: 5, speed: 0.002,
+    } as never;
+    await ship!.save();
+    await advanceAll(5);
+    const arrived = await Ship.findById(rep.shipId);
+    expect(arrived!.status).toBe('orbiting');
+    expect(arrived!.position).toEqual({ x: 1.3, y: 0.4, z: 0 });
+    expect(arrived!.orbitingBodyId).toBeNull();
+    expect(arrived!.orbitingAsteroidId).toBeNull();
+  });
+
+  it('arriving at an asteroid sets orbitingAsteroidId (so mining is valid)', async () => {
+    const rep2 = await registerReplicant('ArrivalAsteroid');
+    const fakeAst = '64b9f0000000000000000abc';
+    const ship = await Ship.findById(rep2.shipId);
+    ship!.status = 'in_transit';
+    ship!.navigation = {
+      destinationBodyId: null, destinationAsteroidId: fakeAst as never,
+      destinationPos: { x: 2.7, y: 0.1, z: 0 },
+      departurePos: { x: 1, y: 0, z: 0 }, departureTick: 1, arrivalTick: 5, speed: 0.002,
+    } as never;
+    await ship!.save();
+    await advanceAll(5);
+    const arrived = await Ship.findById(rep2.shipId);
+    expect(arrived!.orbitingAsteroidId!.toString()).toBe(fakeAst);
   });
 });
