@@ -128,24 +128,23 @@ export function registerNavigationTools(server: McpServer, replicantId: string):
 
   server.tool(
     'calculate_route',
-    'Preview a route without committing — see distance, travel time, and fuel cost.',
+    'Preview a trip: distance, fuel, and travel time to a destination. Provide exactly one of destinationBodyId, asteroidId, salvageId, or destinationPos {x,y,z}.',
     {
       shipId: z.string().describe('ID of the ship'),
-      destinationBodyId: z.string().describe('ID of the destination'),
+      destinationBodyId: z.string().optional(),
+      asteroidId: z.string().optional(),
+      salvageId: z.string().optional(),
+      destinationPos: z.object({ x: z.number(), y: z.number(), z: z.number() }).optional(),
     },
-    async ({ shipId, destinationBodyId }) => {
+    async ({ shipId, destinationBodyId, asteroidId, salvageId, destinationPos }) => {
       const ship = await Ship.findOne({ _id: shipId, ownerId: replicantId });
-      if (!ship) {
-        return { content: [{ type: 'text', text: 'Error: Ship not found or not owned by you.' }] };
-      }
+      if (!ship) return { content: [{ type: 'text', text: 'Error: Ship not found or not owned by you.' }] };
 
-      const destBody = await CelestialBody.findById(destinationBodyId);
-      if (!destBody) {
-        return { content: [{ type: 'text', text: 'Error: Destination body not found.' }] };
-      }
+      const dest = await resolveDestination({ destinationBodyId, asteroidId, salvageId, destinationPos });
+      if (!dest.ok) return { content: [{ type: 'text', text: `Error: ${dest.error}` }] };
 
-      const dist = distance(ship.position, destBody.position);
-      const travelTicks = travelTimeTicks(ship.position, destBody.position, ship.specs.maxSpeed);
+      const dist = distance(ship.position, dest.pos);
+      const travelTicks = travelTimeTicks(ship.position, dest.pos, ship.specs.maxSpeed);
       const fuel = fuelCost(dist);
 
       return {
@@ -153,7 +152,7 @@ export function registerNavigationTools(server: McpServer, replicantId: string):
           type: 'text',
           text: JSON.stringify({
             from: ship.name,
-            to: destBody.name,
+            to: dest.label,
             distanceAU: parseFloat(dist.toFixed(6)),
             travelTicks,
             fuelRequired: fuel,

@@ -86,3 +86,17 @@ describe('move_ship destinations', () => {
     expect(out.toLowerCase()).toContain('not found');
   });
 });
+
+describe('calculate_route destinations', () => {
+  let rep: { id: string; apiKey: string; shipId: string };
+  beforeAll(async () => { await setupTestServer(); rep = await registerReplicant('RouteTester'); }, 60000);
+  afterAll(async () => { await teardownTestServer(); });
+
+  it('computes a route to raw coordinates', async () => {
+    const reg = buildToolRegistry(rep.id);
+    const out = JSON.parse((await reg.get('calculate_route')!.handler({ shipId: rep.shipId, destinationPos: { x: 1.5, y: 0, z: 0 } })).content[0].text);
+    expect(out.to).toContain('1.5');
+    expect(typeof out.distanceAU).toBe('number');
+    expect(typeof out.feasible).toBe('boolean');
+  });
+});
