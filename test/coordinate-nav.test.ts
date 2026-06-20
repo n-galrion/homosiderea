@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { setupTestServer, teardownTestServer, registerReplicant } from './setup.js';
-import { Ship } from '../src/db/models/index.js';
+import { Ship, ActionQueue, Asteroid, CelestialBody } from '../src/db/models/index.js';
+import { buildToolRegistry } from '../src/tools/registry.js';
 
 describe('Ship.navigation.destinationAsteroidId', () => {
   let rep: { id: string; apiKey: string; shipId: string };
@@ -14,5 +15,50 @@ describe('Ship.navigation.destinationAsteroidId', () => {
     await ship!.save();
     const reloaded = await Ship.findById(rep.shipId);
     expect(reloaded!.navigation.destinationAsteroidId!.toString()).toBe(fakeId);
+  });
+});
+
+describe('move_ship destinations', () => {
+  let rep: { id: string; apiKey: string; shipId: string };
+  beforeAll(async () => { await setupTestServer(); rep = await registerReplicant('MoveTester'); }, 60000);
+  afterAll(async () => { await teardownTestServer(); });
+
+  it('queues a move to raw coordinates (no body)', async () => {
+    const reg = buildToolRegistry(rep.id);
+    const out = JSON.parse((await reg.get('move_ship')!.handler({ shipId: rep.shipId, destinationPos: { x: 1.2, y: 0.3, z: 0 } })).content[0].text);
+    expect(out.action).toBe('move');
+    const action = await ActionQueue.findById(out.actionId);
+    expect(action!.params.destinationPos).toEqual({ x: 1.2, y: 0.3, z: 0 });
+    expect(action!.params.destinationBodyId).toBeFalsy();
+  });
+
+  it('queues a move to an asteroid (carries destinationAsteroidId)', async () => {
+    const belt = await CelestialBody.findOne();
+    const asteroid = await Asteroid.create({
+      name: 'TestRock-1',
+      beltZoneId: belt!._id,
+      position: { x: 2.6, y: 0.1, z: 0 },
+      physical: { radius: 1, mass: 1e12, composition: 'metallic' },
+      orbit: { semiMajorAxis: 2.6, eccentricity: 0.1, inclination: 0, orbitalPeriod: 4.2 },
+    });
+    const reg = buildToolRegistry(rep.id);
+    const out = JSON.parse((await reg.get('move_ship')!.handler({ shipId: rep.shipId, asteroidId: asteroid._id.toString() })).content[0].text);
+    const action = await ActionQueue.findById(out.actionId);
+    expect(action!.params.destinationAsteroidId).toBe(asteroid._id.toString());
+    expect(action!.params.destinationPos).toEqual({ x: 2.6, y: 0.1, z: 0 });
+  });
+
+  it('rejects zero or multiple destination inputs', async () => {
+    const reg = buildToolRegistry(rep.id);
+    const none = (await reg.get('move_ship')!.handler({ shipId: rep.shipId })).content[0].text;
+    expect(none.toLowerCase()).toContain('destination');
+    const multi = (await reg.get('move_ship')!.handler({ shipId: rep.shipId, destinationBodyId: 'x', destinationPos: { x: 1, y: 0, z: 0 } })).content[0].text;
+    expect(multi.toLowerCase()).toContain('exactly one');
+  });
+
+  it('rejects an out-of-bounds position', async () => {
+    const reg = buildToolRegistry(rep.id);
+    const out = (await reg.get('move_ship')!.handler({ shipId: rep.shipId, destinationPos: { x: 9000, y: 0, z: 0 } })).content[0].text;
+    expect(out).toMatch(/60|range|bounds/i);
   });
 });
