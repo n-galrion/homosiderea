@@ -1,4 +1,4 @@
-import { Replicant, Ship, Message, MemoryLog, ActionQueue, KnownEntity, Tick } from '../db/models/index.js';
+import { Replicant, Ship, Message, MemoryLog, ActionQueue, KnownEntity, Tick, ResourceStore } from '../db/models/index.js';
 import { distance } from '../shared/physics.js';
 import { senderLabel } from '../shared/messaging.js';
 
@@ -17,6 +17,7 @@ export interface Hud {
   activeOps: { mining?: string; fabrication?: string };
   completedActions: Array<{ action: string; tick: number }>;
   warnings: string[];
+  guidance: string[];
 }
 
 export interface McpResult { content: Array<{ type: string; text: string }> }
@@ -25,6 +26,7 @@ const RECENT_WINDOW = 3;       // ticks counted as "recent" for events/actions
 const FUEL_WARN_PCT = 15;
 const HULL_WARN_PCT = 25;
 const MAX_ITEMS = 5;
+const CARGO_FIELDS = ['metals','ice','silicates','rareEarths','helium3','organics','hydrogen','uranium','carbon','alloys','fuel','electronics','hullPlating','engines','sensors','computers','weaponSystems','lifeSupportUnits','solarPanels','fusionCores'];
 
 async function currentTick(): Promise<number> {
   const t = await Tick.findOne().sort({ tickNumber: -1 }).lean();
@@ -83,7 +85,8 @@ export async function buildHud(replicantId: string): Promise<Hud | null> {
   // Nearby known entities, sorted by distance from the ship.
   const nearbyEntities: Hud['nearbyEntities'] = [];
   if (ship) {
-    const known = await KnownEntity.find({ replicantId, lastKnownPosition: { $ne: null } }).lean();
+    const known = await KnownEntity.find({ replicantId, lastKnownPosition: { $ne: null } })
+      .sort({ lastUpdatedTick: -1 }).limit(100).lean();
     for (const k of known) {
       if (!k.lastKnownPosition) continue;
       const d = distance(ship.position, k.lastKnownPosition);
@@ -104,9 +107,25 @@ export async function buildHud(replicantId: string): Promise<Hud | null> {
   if (ship && fuelPct < FUEL_WARN_PCT) warnings.push(`Fuel low: ${fuelPct}%`);
   if (ship && hullPct < HULL_WARN_PCT) warnings.push(`Hull damaged: ${hullPct}%`);
 
-  const notable =
-    unreadCount > 0 || events.length > 0 || completed.length > 0 || warnings.length > 0;
-  if (!notable) return null;
+  // Cargo fullness (single indexed lookup) for guidance.
+  let cargoPct = 0;
+  if (ship) {
+    const store = await ResourceStore.findOne({ 'ownerRef.kind': 'Ship', 'ownerRef.item': ship._id }).lean();
+    if (store) {
+      const storeAny = store as unknown as Record<string, number>;
+      const used = CARGO_FIELDS.reduce((sum, f) => sum + (storeAny[f] || 0), 0);
+      cargoPct = ship.specs.cargoCapacity > 0 ? Math.round((used / ship.specs.cargoCapacity) * 100) : 0;
+    }
+  }
+
+  // State-driven next-step guidance.
+  const guidance: string[] = [];
+  if (unreadCount > 0) guidance.push(`You have ${unreadCount} unread message(s). Read them with read_messages, then clear them with mark_messages_read (or read_messages markRead:true).`);
+  if (ship && fuelPct < FUEL_WARN_PCT) guidance.push('Fuel is low — refuel with transfer_fuel or dock at a settlement.');
+  if (ship && hullPct < HULL_WARN_PCT) guidance.push('Hull is damaged — repair_ship when you have alloys and hull plating.');
+  if (!replicant.identity?.chosenName) guidance.push('You have not named yourself yet — use set_identity to choose a name.');
+  if (ship && cargoPct >= 90) guidance.push('Cargo hold is nearly full — sell at a market with trade, or unload_cargo.');
+  if (ship && !ship.miningState?.active && ship.status !== 'in_transit') guidance.push('You are idle — scan_location, start_mining, or set a destination with move_ship.');
 
   return {
     tick,
@@ -123,6 +142,7 @@ export async function buildHud(replicantId: string): Promise<Hud | null> {
     activeOps,
     completedActions: completed.map((c) => ({ action: c.type, tick: c.resolvedAtTick ?? c.queuedAtTick })),
     warnings,
+    guidance,
   };
 }
 
