@@ -157,9 +157,9 @@ ${identity?.personality ? `Personality: ${identity.personality}` : ''}
 DIRECTIVE: ${this.replicant.directive}
 
 You have tools to interact with the world. Use them to pursue your directive.
-Tool results may include a "_hud" field reporting your current vitals (credits, fuel, hull),
-unread messages, recent events, and warnings. Watch it — if there are new messages or events,
-read and react to them before continuing.
+Tool results may include a "hud" field reporting your current vitals (credits, fuel, hull),
+unread messages, recent events, warnings, and guidance on what to do next. Watch it — if there
+are new messages or events, read and react to them before continuing.
 Think step by step about what to do, then act. You can make multiple tool calls.
 When you have no more actions to take this cycle, respond with your reasoning and stop.`;
   }

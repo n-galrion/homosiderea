@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { setupTestServer, teardownTestServer, registerReplicant } from './setup.js';
 import { Message, Replicant, Ship } from '../src/db/models/index.js';
-import { buildHud, attachHud } from '../src/tools/hud.js';
+import { buildHud, attachHud, extractHud } from '../src/tools/hud.js';
 
 describe('HUD', () => {
   let rep: { id: string; apiKey: string; shipId: string };
@@ -49,30 +49,34 @@ describe('HUD', () => {
     expect(msg!.read).toBe(false);
   });
 
-  it('attaches _hud to a JSON result', async () => {
+  it('leaves the JSON payload untouched and adds the HUD as its own block', async () => {
     const result = { content: [{ type: 'text', text: JSON.stringify({ ok: true }) }] };
     const out = await attachHud(result, rep.id);
+    // content[0] is byte-for-byte the original — still parses cleanly, no HUD mixed in.
     const parsed = JSON.parse(out.content[0].text);
     expect(parsed.ok).toBe(true);
-    expect(parsed._hud).toBeTruthy();
-    expect(parsed._hud.vitals.credits).toBe(500);
+    expect(parsed._hud).toBeUndefined();
+    const { hud } = extractHud(out);
+    expect((hud as any).vitals.credits).toBe(500);
   });
 
-  it('leaves a plain-text result intact but appends a HUD block', async () => {
+  it('leaves a plain-text result byte-for-byte intact, HUD in a separate block', async () => {
     const result = { content: [{ type: 'text', text: 'Error: nope.' }] };
     const out = await attachHud(result, rep.id);
-    expect(out.content[0].text).toContain('Error: nope.');
-    expect(out.content[0].text).toContain('--- HUD ---');
+    expect(out.content[0].text).toBe('Error: nope.');
+    const { hud } = extractHud(out);
+    expect(hud).toBeTruthy();
   });
 
-  it('REST tool responses include _hud', async () => {
+  it('REST registry tool result keeps a clean payload and carries the HUD', async () => {
     const { buildToolRegistry } = await import('../src/tools/registry.js');
     const registry = buildToolRegistry(rep.id);
     const getPosition = registry.get('get_position');
     expect(getPosition).toBeTruthy();
     const out = await getPosition!.handler({});
-    const parsed = JSON.parse(out.content[0].text);
-    expect(parsed._hud).toBeTruthy();
-    expect(parsed._hud.unreadMessages.count).toBeGreaterThanOrEqual(1);
+    const parsed = JSON.parse(out.content[0].text); // clean JSON, no HUD mixed in
+    expect(parsed._hud).toBeUndefined();
+    const { hud } = extractHud(out);
+    expect((hud as any).unreadMessages.count).toBeGreaterThanOrEqual(1);
   });
 });

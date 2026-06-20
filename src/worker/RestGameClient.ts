@@ -1,4 +1,5 @@
 import { config } from '../config.js';
+import { mergeHud } from '../tools/hud.js';
 import type { IGameClient, ToolDefinition } from './IGameClient.js';
 
 /**
@@ -61,7 +62,7 @@ export class RestGameClient implements IGameClient {
   }
 
   async executeTool(toolName: string, params: Record<string, unknown>): Promise<unknown> {
-    const data = await this.request('POST', `/api/tools/${toolName}`, params) as { result: unknown };
-    return data.result;
+    const data = await this.request('POST', `/api/tools/${toolName}`, params) as { result: unknown; hud?: unknown };
+    return mergeHud(data.result, data.hud);
   }
 }

@@ -1,5 +1,6 @@
 import { Replicant, Ship, Message, ActionQueue } from '../db/models/index.js';
 import { buildToolRegistry, getToolDefinitions } from '../tools/registry.js';
+import { extractHud, mergeHud } from '../tools/hud.js';
 import type { IGameClient, ToolDefinition } from './IGameClient.js';
 
 /**
@@ -62,11 +63,13 @@ export class DirectGameClient implements IGameClient {
     if (!tool) throw new Error(`Tool "${toolName}" not found`);
 
     const mcpResult = await tool.handler(params);
-    const textContent = mcpResult.content?.[0]?.text || '';
+    const { dataText, hud } = extractHud(mcpResult);
+    let data: unknown;
     try {
-      return JSON.parse(textContent);
+      data = JSON.parse(dataText);
     } catch {
-      return textContent;
+      data = dataText;
     }
+    return mergeHud(data, hud);
   }
 }

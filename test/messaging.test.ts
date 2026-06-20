@@ -41,10 +41,8 @@ describe('advisory sender attribution (DB)', () => {
 
     const registry = buildToolRegistry(rep.id);
     const out = await registry.get('read_messages')!.handler({});
-    // read_messages returns a JSON array; withHud may append a HUD block as text
-    const rawText = out.content[0].text;
-    const jsonPart = rawText.includes('\n\n--- HUD ---\n') ? rawText.split('\n\n--- HUD ---\n')[0] : rawText;
-    const msgs = JSON.parse(jsonPart);
+    // content[0] is the clean JSON array — the HUD rides in its own block.
+    const msgs = JSON.parse(out.content[0].text);
     const advisory = msgs.find((m: { subject: string }) => m.subject === 'Advisory');
     expect(advisory.from).toBe('Mission Control');
     expect(advisory.from).not.toBe('AdvisoryTester');

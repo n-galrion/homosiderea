@@ -146,27 +146,53 @@ export async function buildHud(replicantId: string): Promise<Hud | null> {
   };
 }
 
+/**
+ * Append the HUD as its OWN content block, leaving the tool's original
+ * content[0] byte-for-byte intact (no re-serialization, never corrupts the
+ * tool's JSON). The block's text is `{"hud": {...}}`. Use extractHud/mergeHud
+ * to read it back in flattening consumers (REST route, worker clients).
+ */
 export async function attachHud(result: McpResult, replicantId: string): Promise<McpResult> {
   try {
     const hud = await buildHud(replicantId);
     if (!hud) return result;
-
-    const first = result.content?.[0];
-    if (!first || first.type !== 'text') return result;
-
-    try {
-      const parsed = JSON.parse(first.text);
-      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-        parsed._hud = hud;
-        return { ...result, content: [{ ...first, text: JSON.stringify(parsed, null, 2) }, ...result.content.slice(1)] };
-      }
-    } catch { /* not JSON — fall through to text-append */ }
-
-    const text = `${first.text}\n\n--- HUD ---\n${JSON.stringify(hud, null, 2)}`;
-    return { ...result, content: [{ ...first, text }, ...result.content.slice(1)] };
+    return {
+      ...result,
+      content: [...result.content, { type: 'text', text: JSON.stringify({ hud }) }],
+    };
   } catch {
     return result; // HUD must never break a tool call
   }
+}
+
+/**
+ * Pull the original tool text and the HUD back out of a result produced by
+ * attachHud. content[0] is the tool's untouched payload; the HUD lives in a
+ * later `{"hud": ...}` block.
+ */
+export function extractHud(result: McpResult): { dataText: string; hud: unknown } {
+  const content = result.content || [];
+  const dataText = content[0]?.text ?? '';
+  let hud: unknown;
+  for (let i = content.length - 1; i >= 1; i--) {
+    try {
+      const parsed = JSON.parse(content[i].text);
+      if (parsed && typeof parsed === 'object' && 'hud' in parsed) {
+        hud = (parsed as Record<string, unknown>).hud;
+        break;
+      }
+    } catch { /* not the HUD block */ }
+  }
+  return { dataText, hud };
+}
+
+/** Combine parsed tool data with an optional HUD into one clean agent-facing value. */
+export function mergeHud(data: unknown, hud: unknown): unknown {
+  if (hud === undefined || hud === null) return data;
+  if (data && typeof data === 'object' && !Array.isArray(data)) {
+    return { ...(data as Record<string, unknown>), hud };
+  }
+  return { result: data, hud };
 }
 
 export function withHud<T extends { tool: (...args: any[]) => void }>(target: T, replicantId: string): T {

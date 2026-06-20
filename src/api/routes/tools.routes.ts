@@ -1,5 +1,6 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import { buildToolRegistry, getToolDefinitions } from '../../tools/registry.js';
+import { extractHud } from '../../tools/hud.js';
 import { authMiddleware } from '../middleware/auth.js';
 
 export const toolsRoutes = Router();
@@ -44,16 +45,16 @@ toolsRoutes.post('/:toolName', authMiddleware, async (req: Request, res: Respons
 
     const mcpResult = await tool.handler(req.body || {});
 
-    // Parse MCP format: { content: [{ type: 'text', text: '...' }] }
-    const textContent = mcpResult.content?.[0]?.text || '';
+    // content[0] is the tool's untouched payload; the HUD rides in its own block.
+    const { dataText, hud } = extractHud(mcpResult);
     let result: unknown;
     try {
-      result = JSON.parse(textContent);
+      result = JSON.parse(dataText);
     } catch {
-      result = textContent;
+      result = dataText;
     }
 
-    res.json({ tool: toolName, result });
+    res.json({ tool: toolName, result, ...(hud !== undefined ? { hud } : {}) });
   } catch (err) {
     next(err);
   }
