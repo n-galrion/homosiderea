@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { setupTestServer, teardownTestServer, api, ADMIN_KEY } from './setup.js';
+import { setupTestServer, teardownTestServer, api, ADMIN_KEY, BASE_URL } from './setup.js';
 import { config } from '../src/config.js';
 
 describe('MC operator API', () => {
@@ -21,5 +21,10 @@ describe('MC operator API', () => {
       const d = convo.data as { messages: Array<{ role: string; content: string }> };
       expect(d.messages.some((m) => m.role === 'mc')).toBe(true);
     } finally { config.llm.apiKey = saved; }
+  });
+
+  it('GET /admin/mc requires auth (no session → not 200)', async () => {
+    const res = await fetch(`${BASE_URL}/admin/mc`, { redirect: 'manual' });
+    expect(res.status).not.toBe(200); // redirect to login or 403
   });
 });

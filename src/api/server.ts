@@ -23,6 +23,7 @@ import '../web/middleware/session.js'; // side-effect: augments SessionData type
 import { authWebRoutes } from '../web/routes/auth.web.routes.js';
 import { pagesRoutes } from '../web/routes/pages.routes.js';
 import { adminPagesRoutes } from '../web/routes/admin.pages.routes.js';
+import { mcPagesRoutes } from '../web/routes/mc.pages.routes.js';
 import { requireAuth } from '../web/middleware/roles.js';
 
 export function createApp() {
@@ -73,6 +74,7 @@ export function createApp() {
 
   // Admin page routes (operator only)
   app.use(adminPagesRoutes);
+  app.use(mcPagesRoutes);
 
   // Dashboard map data (unauthenticated, limited fields)
   app.get('/api/public/bodies', async (_req: Request, res: Response, next: NextFunction) => {

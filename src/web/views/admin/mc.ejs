@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('../partials/_head') %>
+</head>
+<body>
+  <div class="app">
+    <%- include('../partials/nav', { user, currentPath }) %>
+    <div style="flex:1; margin-left:var(--sidebar-width);">
+      <%- include('../partials/header', { user }) %>
+      <main class="main">
+        <%- include('../partials/flash', { flash }) %>
+
+        <h1 class="page-title">Master Controller</h1>
+        <p class="text-dim">Converse with the MC. It proposes world events; you approve them before they happen.</p>
+
+        <div class="mc-transcript">
+          <% for (const msg of messages) { %>
+            <div class="msg <%= msg.role === 'operator' ? 'msg-out' : 'msg-in' %>">
+              <div class="msg-meta"><span><%= msg.role === 'operator' ? 'You' : 'Master Controller' %></span><span>Tick <%= msg.tick %></span></div>
+              <div class="msg-body"><%= msg.content %></div>
+              <% if (msg.proposedActions && msg.proposedActions.length) { %>
+                <div class="mc-actions">
+                  <% for (const a of msg.proposedActions) { %>
+                    <div class="mc-action mc-action-<%= a.status %>">
+                      <code><%= a.tool %></code> — <%= JSON.stringify(a.args) %>
+                      <span class="mc-action-status">[<%= a.status %>]</span>
+                      <% if (a.result) { %><div class="text-dim"><%= a.result %></div><% } %>
+                    </div>
+                  <% } %>
+                  <% if (msg.proposedActions.some(a => a.status === 'pending')) { %>
+                    <form method="POST" action="/admin/mc/apply" style="display:inline;">
+                      <input type="hidden" name="messageId" value="<%= msg._id %>" />
+                      <button type="submit" class="btn">Apply</button>
+                    </form>
+                    <form method="POST" action="/admin/mc/discard" style="display:inline;">
+                      <input type="hidden" name="messageId" value="<%= msg._id %>" />
+                      <button type="submit" class="btn btn-secondary">Discard</button>
+                    </form>
+                  <% } %>
+                </div>
+              <% } %>
+            </div>
+          <% } %>
+        </div>
+
+        <form method="POST" action="/admin/mc/chat" class="mc-input" style="margin-top:1.5rem;">
+          <div class="form-group">
+            <textarea name="message" rows="3" class="form-input" placeholder="Tell the Master Controller what to do..." required></textarea>
+          </div>
+          <button type="submit" class="btn btn-accent">Send</button>
+        </form>
+
+      </main>
+    </div>
+  </div>
+</body>
+</html>
