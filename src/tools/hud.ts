@@ -1,5 +1,6 @@
 import { Replicant, Ship, Message, MemoryLog, ActionQueue, KnownEntity, Tick } from '../db/models/index.js';
 import { distance } from '../shared/physics.js';
+import { senderLabel } from '../shared/messaging.js';
 
 export interface Hud {
   tick: number;
@@ -61,6 +62,10 @@ export async function buildHud(replicantId: string): Promise<Hud | null> {
     .sort({ deliverAtTick: -1 }).limit(MAX_ITEMS).lean();
   const unreadCount = await Message.countDocuments({ recipientId: replicantId, delivered: true, read: false });
 
+  const unreadSenderIds = [...new Set(unread.map((m) => m.senderId?.toString()).filter(Boolean))];
+  const unreadSenders = await Replicant.find({ _id: { $in: unreadSenderIds } }, 'name').lean();
+  const unreadNameById = new Map(unreadSenders.map((s) => [s._id.toString(), s.name]));
+
   // Recent notable events from memory logs (world events / observations / captain's logs).
   const events = await MemoryLog.find({
     replicantId,
@@ -108,7 +113,10 @@ export async function buildHud(replicantId: string): Promise<Hud | null> {
     vitals: { credits: replicant.credits, fuelPct, hullPct, location, status: ship?.status ?? 'none' },
     unreadMessages: {
       count: unreadCount,
-      items: unread.map((m) => ({ from: m.senderId.toString(), subject: m.subject, tick: m.sentAtTick })),
+      items: unread.map((m) => {
+        const sid = m.senderId?.toString();
+        return { from: senderLabel(sid, sid ? unreadNameById.get(sid) : null), subject: m.subject, tick: m.sentAtTick };
+      }),
     },
     recentEvents: events.map((e) => ({ title: e.title, tick: e.tick, category: e.category })),
     nearbyEntities,

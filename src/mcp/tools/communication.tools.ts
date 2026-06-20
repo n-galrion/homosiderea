@@ -3,6 +3,7 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { Message, Replicant, Ship, Tick } from '../../db/models/index.js';
 import { distance, lightDelayTicks } from '../../shared/physics.js';
 import type { Position } from '../../shared/types.js';
+import { senderLabel } from '../../shared/messaging.js';
 
 async function getReplicantPosition(repId: string): Promise<Position> {
   const rep = await Replicant.findById(repId);
@@ -144,19 +145,25 @@ export function registerCommunicationTools(server: McpServer, replicantId: strin
       const messages = await Message.find(filter)
         .sort({ deliverAtTick: -1 })
         .limit(limit || 20)
-        .populate('senderId', 'name')
         .lean();
 
-      const result = messages.map(m => ({
-        id: m._id.toString(),
-        from: (m.senderId as unknown as { name: string })?.name || 'Unknown',
-        subject: m.subject,
-        body: m.body,
-        metadata: m.metadata,
-        sentAtTick: m.sentAtTick,
-        deliveredAtTick: m.deliverAtTick,
-        read: m.read,
-      }));
+      const senderIds = [...new Set(messages.map(m => m.senderId?.toString()).filter(Boolean))];
+      const senders = await Replicant.find({ _id: { $in: senderIds } }, 'name').lean();
+      const nameById = new Map(senders.map(s => [s._id.toString(), s.name]));
+
+      const result = messages.map(m => {
+        const sid = m.senderId?.toString();
+        return {
+          id: m._id.toString(),
+          from: senderLabel(sid, sid ? nameById.get(sid) : null),
+          subject: m.subject,
+          body: m.body,
+          metadata: m.metadata,
+          sentAtTick: m.sentAtTick,
+          deliveredAtTick: m.deliverAtTick,
+          read: m.read,
+        };
+      });
 
       return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
     },

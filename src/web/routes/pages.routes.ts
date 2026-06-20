@@ -3,6 +3,7 @@ import { requireAuth, requireRole } from '../middleware/roles.js';
 import { Replicant, Ship, ResourceStore, Technology, ActionQueue, MemoryLog, Message, User, CelestialBody, Tick, Notification, Blueprint, AgentConfig, AgentSession } from '../../db/models/index.js';
 import { config } from '../../config.js';
 import { encrypt } from '../../shared/crypto.js';
+import { MISSION_CONTROL_ID } from '../../shared/messaging.js';
 
 export const pagesRoutes = Router();
 
@@ -227,7 +228,7 @@ pagesRoutes.post('/replicant/:id/comms/send', requireAuth, requireRole('owner', 
     const currentTick = latestTick?.tickNumber ?? 0;
 
     await Message.create({
-      senderId: replicant._id,
+      senderId: MISSION_CONTROL_ID,
       recipientId: replicant._id,
       subject: subject || 'Mission Control Advisory',
       body: msgBody,
