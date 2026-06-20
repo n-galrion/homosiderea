@@ -9,6 +9,7 @@ import { nanoid } from 'nanoid';
 import { registerAllTools } from './tools/index.js';
 import { registerResources } from './resources/index.js';
 import { registerPrompts } from './prompts/index.js';
+import { withHud } from '../tools/hud.js';
 
 interface MCPSession {
   transport: StreamableHTTPServerTransport;
@@ -28,7 +29,7 @@ function createGameServer(replicant: IReplicant): McpServer {
   });
 
   const replicantId = replicant._id.toString();
-  registerAllTools(server, replicantId);
+  registerAllTools(withHud(server, replicantId), replicantId);
   registerResources(server, replicantId);
   registerPrompts(server, replicantId);
 

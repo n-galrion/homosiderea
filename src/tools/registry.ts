@@ -1,4 +1,5 @@
 import { registerAllTools } from '../mcp/tools/index.js';
+import { withHud } from './hud.js';
 
 export interface ToolDef {
   name: string;
@@ -36,7 +37,7 @@ class ToolCapture {
  */
 export function buildToolRegistry(replicantId: string): Map<string, ToolDef> {
   const capture = new ToolCapture();
-  registerAllTools(capture as unknown as Parameters<typeof registerAllTools>[0], replicantId);
+  registerAllTools(withHud(capture as unknown as Parameters<typeof registerAllTools>[0], replicantId), replicantId);
   return capture.tools;
 }
 

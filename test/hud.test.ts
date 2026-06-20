@@ -51,4 +51,16 @@ describe('HUD', () => {
     expect(out.content[0].text).toContain('Error: nope.');
     expect(out.content[0].text).toContain('--- HUD ---');
   });
+
+  it('REST tool responses include _hud when notable', async () => {
+    // rep already has an unread message from the earlier test, so HUD is notable.
+    const { buildToolRegistry } = await import('../src/tools/registry.js');
+    const registry = buildToolRegistry(rep.id);
+    const getPosition = registry.get('get_position');
+    expect(getPosition).toBeTruthy();
+    const out = await getPosition!.handler({});
+    const parsed = JSON.parse(out.content[0].text);
+    expect(parsed._hud).toBeTruthy();
+    expect(parsed._hud.unreadMessages.count).toBeGreaterThanOrEqual(1);
+  });
 });
