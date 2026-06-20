@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { setupTestServer, teardownTestServer, registerReplicant } from './setup.js';
-import { Ship, ActionQueue, Asteroid, CelestialBody } from '../src/db/models/index.js';
+import { Ship, ActionQueue, Asteroid, CelestialBody, Salvage } from '../src/db/models/index.js';
 import { buildToolRegistry } from '../src/tools/registry.js';
 
 describe('Ship.navigation.destinationAsteroidId', () => {
@@ -60,5 +60,29 @@ describe('move_ship destinations', () => {
     const reg = buildToolRegistry(rep.id);
     const out = (await reg.get('move_ship')!.handler({ shipId: rep.shipId, destinationPos: { x: 9000, y: 0, z: 0 } })).content[0].text;
     expect(out).toMatch(/60|range|bounds/i);
+  });
+
+  it('queues a move to a salvage field', async () => {
+    const salvage = await Salvage.create({
+      name: 'Derelict-X',
+      type: 'wreckage',
+      position: { x: 1.4, y: 0.5, z: 0 },
+      sourceShipName: 'Ghost',
+      sourceOwnerType: 'unknown',
+      resources: { metals: 10 },
+      createdAtTick: 1,
+    });
+    const reg = buildToolRegistry(rep.id);
+    const out = JSON.parse((await reg.get('move_ship')!.handler({ shipId: rep.shipId, salvageId: salvage._id.toString() })).content[0].text);
+    const action = await ActionQueue.findById(out.actionId);
+    expect(action!.params.destinationPos).toEqual({ x: 1.4, y: 0.5, z: 0 });
+    expect(action!.params.destinationBodyId).toBeFalsy();
+    expect(action!.params.destinationAsteroidId).toBeFalsy();
+  });
+
+  it('rejects an unknown asteroid id', async () => {
+    const reg = buildToolRegistry(rep.id);
+    const out = (await reg.get('move_ship')!.handler({ shipId: rep.shipId, asteroidId: '64b9f0000000000000000fff' })).content[0].text;
+    expect(out.toLowerCase()).toContain('not found');
   });
 });
