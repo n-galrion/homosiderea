@@ -72,7 +72,7 @@ commsRoutes.post('/', async (req: Request, res: Response, next: NextFunction) =>
 // Read inbox
 commsRoutes.get('/inbox', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { unreadOnly, limit = '50', from } = req.query;
+    const { unreadOnly, limit = '50', from, markRead } = req.query;
     const filter: Record<string, unknown> = {
       recipientId: req.replicantId,
       delivered: true,
@@ -84,6 +84,13 @@ commsRoutes.get('/inbox', async (req: Request, res: Response, next: NextFunction
       .sort({ deliverAtTick: -1 })
       .limit(parseInt(limit as string, 10))
       .lean();
+
+    if (markRead === 'true' && messages.length) {
+      await Message.updateMany(
+        { _id: { $in: messages.map(m => m._id) }, recipientId: req.replicantId },
+        { $set: { read: true } },
+      );
+    }
 
     res.json(messages);
   } catch (err) {

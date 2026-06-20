@@ -185,7 +185,7 @@ export function createApp() {
         },
         messages: {
           send: 'POST /api/messages  body: { recipientId, subject?, body, metadata? }',
-          inbox: 'GET /api/messages/inbox?unreadOnly=&limit=&from=',
+          inbox: 'GET /api/messages/inbox?unreadOnly=&limit=&from=&markRead=  — markRead=true marks fetched messages read (or use the mark_messages_read tool)',
           get: 'GET /api/messages/:id',
           sent: 'GET /api/messages/sent',
         },

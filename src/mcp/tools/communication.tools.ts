@@ -128,13 +128,14 @@ export function registerCommunicationTools(server: McpServer, replicantId: strin
 
   server.tool(
     'read_messages',
-    'Read messages from your inbox (only delivered messages are visible).',
+    'Read messages from your inbox (only delivered messages are visible). Messages stay UNREAD (and keep showing in your HUD) until you mark them: pass markRead:true here, or call mark_messages_read.',
     {
       unreadOnly: z.boolean().optional().describe('Only show unread messages'),
       limit: z.number().optional().default(20).describe('Max messages to return'),
       fromReplicantId: z.string().optional().describe('Filter by sender'),
+      markRead: z.boolean().optional().describe('If true, mark the returned messages as read'),
     },
-    async ({ unreadOnly, limit, fromReplicantId }) => {
+    async ({ unreadOnly, limit, fromReplicantId, markRead }) => {
       const filter: Record<string, unknown> = {
         recipientId: replicantId,
         delivered: true,
@@ -165,7 +166,33 @@ export function registerCommunicationTools(server: McpServer, replicantId: strin
         };
       });
 
+      if (markRead && messages.length) {
+        await Message.updateMany(
+          { _id: { $in: messages.map(m => m._id) }, recipientId: replicantId },
+          { $set: { read: true } },
+        );
+      }
+
       return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+    },
+  );
+
+  server.tool(
+    'mark_messages_read',
+    'Mark inbox messages as read so they stop appearing as unread in your HUD. Pass specific messageIds, or omit to mark ALL your delivered messages read.',
+    {
+      messageIds: z.array(z.string()).optional().describe('Specific message IDs to mark read; omit to mark all delivered unread'),
+    },
+    async ({ messageIds }) => {
+      const filter: Record<string, unknown> = { recipientId: replicantId, delivered: true, read: false };
+      if (messageIds && messageIds.length) filter._id = { $in: messageIds };
+      const res = await Message.updateMany(filter, { $set: { read: true } });
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({ marked: res.modifiedCount, message: `Marked ${res.modifiedCount} message(s) as read.` }, null, 2),
+        }],
+      };
     },
   );
 }
