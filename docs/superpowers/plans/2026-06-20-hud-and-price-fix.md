@@ -1189,6 +1189,298 @@ git commit -m "feat: allow replicants to rename via set_identity tool and REST"
 
 ---
 
+### Task 8: Mark-messages-read capability (advertised)
+
+**Problem:** `read_messages` is a pure read and there is no tool to mark messages read, so unread piles up forever and the HUD keeps flagging it. Replicants never clear it because they can't via tools and nothing tells them to. Fix: add a `markRead` option to `read_messages`, add a standalone `mark_messages_read` tool, and advertise both in the tool descriptions and the REST inbox.
+
+**Files:**
+- Modify: `src/mcp/tools/communication.tools.ts` (`read_messages` description + `markRead` param; new `mark_messages_read` tool)
+- Modify: `src/api/routes/comms.routes.ts` (`/inbox` `markRead` query)
+- Modify: `src/api/server.ts` (inbox API description text — find the `comms`/`inbox` description line)
+- Test: `test/mark-read.test.ts`
+
+**Interfaces:**
+- Produces: tool `mark_messages_read` with param `messageIds?: string[]`.
+- Produces: `read_messages` param `markRead?: boolean`.
+
+- [ ] **Step 1: Write the failing test**
+
+Create `test/mark-read.test.ts`:
+
+```typescript
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { setupTestServer, teardownTestServer, registerReplicant } from './setup.js';
+import { Message } from '../src/db/models/index.js';
+import { buildToolRegistry } from '../src/tools/registry.js';
+
+async function seedUnread(senderId: string, recipientId: string, subject: string) {
+  await Message.create({
+    senderId, recipientId, subject, body: 'hi',
+    senderPosition: { x: 0, y: 0, z: 0 }, recipientPosition: { x: 0, y: 0, z: 0 },
+    distanceAU: 0, sentAtTick: 1, deliverAtTick: 1, delivered: true, read: false,
+  });
+}
+
+describe('mark messages read', () => {
+  let rep: { id: string; apiKey: string; shipId: string };
+  let sender: { id: string; apiKey: string; shipId: string };
+
+  beforeAll(async () => {
+    await setupTestServer();
+    rep = await registerReplicant('Reader');
+    sender = await registerReplicant('Sender');
+  }, 60000);
+  afterAll(async () => { await teardownTestServer(); });
+
+  it('mark_messages_read marks all delivered unread when no ids given', async () => {
+    await seedUnread(sender.id, rep.id, 'A');
+    await seedUnread(sender.id, rep.id, 'B');
+    const reg = buildToolRegistry(rep.id);
+    const out = JSON.parse((await reg.get('mark_messages_read')!.handler({})).content[0].text);
+    expect(out.marked).toBe(2);
+    const stillUnread = await Message.countDocuments({ recipientId: rep.id, read: false });
+    expect(stillUnread).toBe(0);
+  });
+
+  it('read_messages with markRead:true marks the returned messages read', async () => {
+    await seedUnread(sender.id, rep.id, 'C');
+    const reg = buildToolRegistry(rep.id);
+    await reg.get('read_messages')!.handler({ markRead: true });
+    const stillUnread = await Message.countDocuments({ recipientId: rep.id, read: false });
+    expect(stillUnread).toBe(0);
+  });
+
+  it('read_messages without markRead does NOT mark read', async () => {
+    await seedUnread(sender.id, rep.id, 'D');
+    const reg = buildToolRegistry(rep.id);
+    await reg.get('read_messages')!.handler({});
+    const unread = await Message.countDocuments({ recipientId: rep.id, read: false });
+    expect(unread).toBe(1);
+  });
+});
+```
+
+- [ ] **Step 2: Run to verify it fails**
+
+Run: `npx vitest run test/mark-read.test.ts`
+Expected: FAIL — `mark_messages_read` tool not found.
+
+- [ ] **Step 3: Add `markRead` to `read_messages` and advertise it**
+
+In `src/mcp/tools/communication.tools.ts`, update the `read_messages` registration. Change the description and add the param:
+
+```typescript
+  server.tool(
+    'read_messages',
+    'Read messages from your inbox (only delivered messages are visible). Messages stay UNREAD (and keep showing in your HUD) until you mark them: pass markRead:true here, or call mark_messages_read.',
+    {
+      unreadOnly: z.boolean().optional().describe('Only show unread messages'),
+      limit: z.number().optional().default(20).describe('Max messages to return'),
+      fromReplicantId: z.string().optional().describe('Filter by sender'),
+      markRead: z.boolean().optional().describe('If true, mark the returned messages as read'),
+    },
+    async ({ unreadOnly, limit, fromReplicantId, markRead }) => {
+```
+
+Then, immediately before the final `return { content: ... }` of `read_messages`, add the marking step:
+
+```typescript
+      if (markRead && messages.length) {
+        await Message.updateMany(
+          { _id: { $in: messages.map(m => m._id) }, recipientId: replicantId },
+          { $set: { read: true } },
+        );
+      }
+```
+
+(Leave the existing `result` array and its `return` unchanged — output shape stays an array.)
+
+- [ ] **Step 4: Add the `mark_messages_read` tool**
+
+In the same file, immediately after the `read_messages` `server.tool(...)` call (before the closing `}` of `registerCommunicationTools`), add:
+
+```typescript
+  server.tool(
+    'mark_messages_read',
+    'Mark inbox messages as read so they stop appearing as unread in your HUD. Pass specific messageIds, or omit to mark ALL your delivered messages read.',
+    {
+      messageIds: z.array(z.string()).optional().describe('Specific message IDs to mark read; omit to mark all delivered unread'),
+    },
+    async ({ messageIds }) => {
+      const filter: Record<string, unknown> = { recipientId: replicantId, delivered: true, read: false };
+      if (messageIds && messageIds.length) filter._id = { $in: messageIds };
+      const res = await Message.updateMany(filter, { $set: { read: true } });
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({ marked: res.modifiedCount, message: `Marked ${res.modifiedCount} message(s) as read.` }, null, 2),
+        }],
+      };
+    },
+  );
+```
+
+- [ ] **Step 5: Run the test to verify it passes**
+
+Run: `npx vitest run test/mark-read.test.ts`
+Expected: PASS (3 passing).
+
+- [ ] **Step 6: Advertise in the REST inbox**
+
+In `src/api/routes/comms.routes.ts`, in the `GET /inbox` handler, read a `markRead` query param and mark after fetching. Change the destructure (`const { unreadOnly, limit = '50', from } = req.query;`) to include `markRead`, and after `const messages = await Message.find(...)...lean();` add:
+
+```typescript
+    if (markRead === 'true' && messages.length) {
+      await Message.updateMany(
+        { _id: { $in: messages.map(m => m._id) }, recipientId: req.replicantId },
+        { $set: { read: true } },
+      );
+    }
+```
+
+In `src/api/server.ts`, find the `comms`/inbox API description object and append a note to the inbox line, e.g. change the inbox entry to mention `?markRead=true` (and that the `mark_messages_read` tool exists). If the comms section lists `inbox: 'GET /api/comms/inbox'`, change it to `inbox: 'GET /api/comms/inbox?unreadOnly=&markRead=  — markRead=true marks fetched messages read (or use the mark_messages_read tool)'`.
+
+- [ ] **Step 7: Full check + commit**
+
+Run: `npx vitest run test/mark-read.test.ts` (PASS), `npx tsc --noEmit` (no new errors), `ADMIN_KEY=dev-admin-key npx vitest run test/integration.test.ts` (no regression).
+
+```bash
+git add src/mcp/tools/communication.tools.ts src/api/routes/comms.routes.ts src/api/server.ts test/mark-read.test.ts
+git commit -m "feat: let replicants mark messages read (read_messages markRead + mark_messages_read tool)"
+```
+
+---
+
+### Task 9: HUD always attaches + state-driven `guidance`
+
+**Problem:** The HUD only attached when "notable", and never told the replicant what to *do*. The user wants guidance on every response. Fix: `buildHud` always returns a HUD (for a valid replicant), add a `guidance: string[]` array of state-driven next-step nudges, and bound the per-call `KnownEntity` query (it now runs on every tool call).
+
+**Files:**
+- Modify: `src/tools/hud.ts`
+- Test: `test/hud.test.ts` (update the null-gate test)
+
+**Interfaces:**
+- Modifies: `Hud` gains `guidance: string[]`.
+- `buildHud` still returns `null` only when the replicant is not found; otherwise always a `Hud`.
+
+- [ ] **Step 1: Update the failing test expectations**
+
+In `test/hud.test.ts`, replace the test `it('returns null when nothing is notable', ...)` with:
+
+```typescript
+  it('always returns a HUD with vitals and guidance for a valid replicant', async () => {
+    const hud = await buildHud(rep.id);
+    expect(hud).not.toBeNull();
+    expect(hud!.vitals.credits).toBe(500);
+    expect(Array.isArray(hud!.guidance)).toBe(true);
+  });
+```
+
+Add a new test asserting guidance reacts to state:
+
+```typescript
+  it('guidance tells the replicant to clear unread messages', async () => {
+    const sender = await registerReplicant('GuidanceSender');
+    await Message.create({
+      senderId: sender.id, recipientId: rep.id, subject: 'Ping', body: 'yo',
+      senderPosition: { x: 0, y: 0, z: 0 }, recipientPosition: { x: 0, y: 0, z: 0 },
+      distanceAU: 0, sentAtTick: 1, deliverAtTick: 1, delivered: true, read: false,
+    });
+    const hud = await buildHud(rep.id);
+    expect(hud!.guidance.some((g) => /mark_messages_read|unread/i.test(g))).toBe(true);
+  });
+```
+
+- [ ] **Step 2: Run to verify it fails**
+
+Run: `npx vitest run test/hud.test.ts`
+Expected: FAIL — `buildHud` returns null when nothing notable (old behavior) and `guidance` does not exist on `Hud`.
+
+- [ ] **Step 3: Add `guidance` to the interface**
+
+In `src/tools/hud.ts`, add to the `Hud` interface (after `warnings`):
+
+```typescript
+  guidance: string[];
+```
+
+Also extend the imports to include `ResourceStore` (for the cargo check):
+
+```typescript
+import { Replicant, Ship, Message, MemoryLog, ActionQueue, KnownEntity, Tick, ResourceStore } from '../db/models/index.js';
+```
+
+Add cargo-field constants near the other consts:
+
+```typescript
+const CARGO_FIELDS = ['metals','ice','silicates','rareEarths','helium3','organics','hydrogen','uranium','carbon','alloys','fuel','electronics','hullPlating','engines','sensors','computers','weaponSystems','lifeSupportUnits','solarPanels','fusionCores'];
+```
+
+- [ ] **Step 4: Bound the KnownEntity query and always-return with guidance**
+
+In `buildHud`, change the nearby-entities query to cap the fetched set (it now runs on every tool call):
+
+```typescript
+    const known = await KnownEntity.find({ replicantId, lastKnownPosition: { $ne: null } })
+      .sort({ lastUpdatedTick: -1 }).limit(100).lean();
+```
+
+(Approximate "nearest" from the 100 most-recently-updated known entities, then sort by distance and take MAX_ITEMS — bounded cost per call.)
+
+Remove the notable-gate early return (the lines):
+
+```typescript
+  const notable =
+    unreadCount > 0 || events.length > 0 || completed.length > 0 || warnings.length > 0;
+  if (!notable) return null;
+```
+
+In their place, compute cargo fullness and guidance before the `return`:
+
+```typescript
+  // Cargo fullness (single indexed lookup) for guidance.
+  let cargoPct = 0;
+  if (ship) {
+    const store = await ResourceStore.findOne({ 'ownerRef.kind': 'Ship', 'ownerRef.item': ship._id }).lean();
+    if (store) {
+      const storeAny = store as unknown as Record<string, number>;
+      const used = CARGO_FIELDS.reduce((sum, f) => sum + (storeAny[f] || 0), 0);
+      cargoPct = ship.specs.cargoCapacity > 0 ? Math.round((used / ship.specs.cargoCapacity) * 100) : 0;
+    }
+  }
+
+  // State-driven next-step guidance.
+  const guidance: string[] = [];
+  if (unreadCount > 0) guidance.push(`You have ${unreadCount} unread message(s). Read them with read_messages, then clear them with mark_messages_read (or read_messages markRead:true).`);
+  if (ship && fuelPct < FUEL_WARN_PCT) guidance.push('Fuel is low — refuel with transfer_fuel or dock at a settlement.');
+  if (ship && hullPct < HULL_WARN_PCT) guidance.push('Hull is damaged — repair_ship when you have alloys and hull plating.');
+  if (!replicant.identity?.chosenName) guidance.push('You have not named yourself yet — use set_identity to choose a name.');
+  if (ship && cargoPct >= 90) guidance.push('Cargo hold is nearly full — sell at a market with trade, or unload_cargo.');
+  if (ship && !ship.miningState?.active && ship.status !== 'in_transit') guidance.push('You are idle — scan_location, start_mining, or set a destination with move_ship.');
+```
+
+Add `guidance` to the returned object (after `warnings`):
+
+```typescript
+    warnings,
+    guidance,
+  };
+```
+
+- [ ] **Step 5: Run tests to verify they pass**
+
+Run: `npx vitest run test/hud.test.ts`
+Expected: PASS (now 7 tests). Then `npx tsc --noEmit` (no new errors).
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add src/tools/hud.ts test/hud.test.ts
+git commit -m "feat: HUD always attaches and carries state-driven guidance; bound nearby-entity query"
+```
+
+---
+
 ## Self-Review
 
 **Spec coverage:**
