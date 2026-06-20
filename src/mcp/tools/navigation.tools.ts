@@ -101,6 +101,9 @@ export function registerNavigationTools(server: McpServer, replicantId: string):
             fuelAvailable: ship.fuel,
             feasible: ship.fuel >= fuel,
             shipSpeed: ship.specs.maxSpeed,
+            hint: ship.fuel >= fuel
+              ? 'Feasible — commit the trip with move_ship to this destination.'
+              : 'Not enough fuel — refuel with transfer_fuel or pick a closer destination.',
           }, null, 2),
         }],
       };

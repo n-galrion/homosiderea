@@ -287,6 +287,7 @@ export function registerScanningTools(server: McpServer, replicantId: string): v
         structuresDetected: nearbyStructures.length,
         asteroidsGenerated,
         asteroidsDiscovered,
+        hint: 'Next: travel to a discovered body with move_ship, get more detail with survey_body, or start_mining if you are already orbiting one.',
       };
 
       return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
@@ -510,6 +511,7 @@ export function registerScanningTools(server: McpServer, replicantId: string): v
             hullPoints: ship.specs.hullPoints,
             maxHullPoints: ship.specs.maxHullPoints,
             miningState: ship.miningState || null,
+            hint: 'Next: plan a trip with calculate_route, then commit it with move_ship. scan_location reveals what is nearby.',
           }, null, 2),
         }],
       };
