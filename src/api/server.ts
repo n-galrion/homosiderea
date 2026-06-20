@@ -13,6 +13,7 @@ import { actionRoutes } from './routes/action.routes.js';
 import { amiRoutes } from './routes/ami.routes.js';
 import { commsRoutes } from './routes/comms.routes.js';
 import { adminRoutes } from './routes/admin.routes.js';
+import { mcRoutes } from './routes/mc.routes.js';
 import { shipRoutes } from './routes/ship.routes.js';
 import { toolsRoutes } from './routes/tools.routes.js';
 import { structureRoutes } from './routes/structure.routes.js';
@@ -109,6 +110,7 @@ export function createApp() {
   app.use('/api/colonies', authMiddleware, colonyRoutes);
 
   // Admin routes
+  app.use('/api/admin/mc', adminAuth, mcRoutes);
   app.use('/api/admin', adminAuth, adminRoutes);
 
   // Health check
