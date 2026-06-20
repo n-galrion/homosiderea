@@ -15,7 +15,7 @@ export function anchoredPrice(
   cap: number = PRICE_CAP,
 ): number {
   const raw = Math.round(base * supplyMultiplier * noise * 10) / 10;
-  const ceiling = Math.round(base * cap * 10) / 10;
+  const ceiling = base * cap;
   return Math.max(1, Math.min(raw, ceiling));
 }
 
@@ -104,11 +104,11 @@ export async function fluctuateMarketPrices(
 
     if (resource in baseBuy) {
       const buyAttitude = 1 - penalty * 0.3;
-      buyPrices[resource] = anchoredPrice(baseBuy[resource] * buyAttitude, supplyMultiplier, noise);
+      buyPrices[resource] = anchoredPrice(baseBuy[resource], supplyMultiplier * buyAttitude, noise);
     }
     if (resource in baseSell) {
       const sellAttitude = 1 + penalty * 0.5;
-      sellPrices[resource] = anchoredPrice(baseSell[resource] * sellAttitude, supplyMultiplier, noise);
+      sellPrices[resource] = anchoredPrice(baseSell[resource], supplyMultiplier * sellAttitude, noise);
     }
 
     // Preserve market spread.

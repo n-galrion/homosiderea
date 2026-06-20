@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { anchoredPrice } from '../src/engine/systems/SettlementBehavior.js';
+import { anchoredPrice, fluctuateMarketPrices } from '../src/engine/systems/SettlementBehavior.js';
+import { setupTestServer, teardownTestServer } from './setup.js';
+import { Market, Settlement, ResourceStore } from '../src/db/models/index.js';
 
 describe('anchoredPrice', () => {
   it('never compounds — repeated crisis stays bounded by cap', () => {
@@ -26,10 +28,6 @@ describe('anchoredPrice', () => {
     expect(anchoredPrice(50, 1.0, 1.0)).toBe(50);
   });
 });
-
-import { setupTestServer, teardownTestServer } from './setup.js';
-import { Market, Settlement, ResourceStore } from '../src/db/models/index.js';
-import { fluctuateMarketPrices } from '../src/engine/systems/SettlementBehavior.js';
 
 describe('fluctuateMarketPrices (DB)', () => {
   beforeAll(async () => { await setupTestServer(); }, 60000);
@@ -58,6 +56,37 @@ describe('fluctuateMarketPrices (DB)', () => {
       const base = (finalMarket!.basePrices.buy as Record<string, number>)[resource];
       expect(price).toBeLessThanOrEqual(base * 4 + 0.01);
       expect(price).toBeGreaterThanOrEqual(1);
+    }
+  });
+
+  it('hostile settlement sell prices stay within base × 4 cap', async () => {
+    const settlement = await Settlement.findOne({ name: 'Shanghai' });
+    expect(settlement).toBeTruthy();
+
+    // Set hostile attitude
+    settlement!.attitude.general = -1;
+    settlement!.markModified('attitude');
+    await settlement!.save();
+
+    // Empty stockpile to trigger crisis multiplier
+    await ResourceStore.updateOne(
+      { 'ownerRef.kind': 'Settlement', 'ownerRef.item': settlement!._id },
+      { $set: { helium3: 0, rareEarths: 0, ice: 0, uranium: 0 } },
+    );
+
+    for (let t = 2010; t <= 2200; t += 10) {
+      const m = await Market.findOne({ settlementId: settlement!._id });
+      await fluctuateMarketPrices(m!, settlement!, t);
+    }
+
+    const finalMarket = await Market.findOne({ settlementId: settlement!._id });
+    const sell = finalMarket!.prices.sell as Record<string, number>;
+    for (const [resource, price] of Object.entries(sell)) {
+      const base = (finalMarket!.basePrices.sell as Record<string, number>)[resource];
+      if (base !== undefined) {
+        expect(price).toBeLessThanOrEqual(base * 4 + 0.01);
+        expect(price).toBeGreaterThanOrEqual(1);
+      }
     }
   });
 });
