@@ -1,4 +1,4 @@
-import { config } from '../config.js';
+import { runtimeSettings } from './runtimeSettings.js';
 
 /**
  * Game Time System
@@ -16,25 +16,25 @@ import { config } from '../config.js';
 
 /** Game hours elapsed per real second */
 export function gameHoursPerRealSecond(): number {
-  return config.game.gameTimeDilation / 3600;
+  return runtimeSettings.gameTimeDilation / 3600;
 }
 
 /** Game hours elapsed per tick */
 export function gameHoursPerTick(): number {
-  const tickSeconds = config.game.tickIntervalMs / 1000;
+  const tickSeconds = runtimeSettings.tickIntervalMs / 1000;
   return tickSeconds * gameHoursPerRealSecond();
 }
 
 /** Convert game hours to real milliseconds */
 export function gameHoursToRealMs(gameHours: number): number {
-  const realSeconds = (gameHours * 3600) / config.game.gameTimeDilation;
+  const realSeconds = (gameHours * 3600) / runtimeSettings.gameTimeDilation;
   return realSeconds * 1000;
 }
 
 /** Convert real milliseconds to game hours */
 export function realMsToGameHours(realMs: number): number {
   const realSeconds = realMs / 1000;
-  return (realSeconds * config.game.gameTimeDilation) / 3600;
+  return (realSeconds * runtimeSettings.gameTimeDilation) / 3600;
 }
 
 /** Convert game hours to human-readable string */

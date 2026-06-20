@@ -5,6 +5,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import type { Request, Response } from 'express';
 import { Replicant, type IReplicant } from '../db/models/index.js';
+import { resolveDashboardKey } from '../api/middleware/auth.js';
 import { nanoid } from 'nanoid';
 import { registerAllTools } from './tools/index.js';
 import { registerResources } from './resources/index.js';
@@ -40,9 +41,12 @@ function createGameServer(replicant: IReplicant): McpServer {
  * Try to authenticate from headers (legacy API key) or find by session.
  */
 async function tryAuthFromHeaders(req: Request): Promise<IReplicant | null> {
-  // Legacy: X-API-Key header still works
+  // API key header — replicant key (hs_) or dashboard key (hsk_)
   const apiKey = req.headers['x-api-key'] as string | undefined;
   if (apiKey) {
+    if (apiKey.startsWith('hsk_')) {
+      return resolveDashboardKey(apiKey);
+    }
     return Replicant.findOne({ apiKey, status: 'active' });
   }
 

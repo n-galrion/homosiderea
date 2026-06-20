@@ -1,6 +1,7 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import { Tick, Replicant, ActionQueue, Message, Ship, Colony, MemoryLog } from '../../db/models/index.js';
 import { config } from '../../config.js';
+import { runtimeSettings } from '../../shared/runtimeSettings.js';
 import { tickToGameTime, gameHoursPerTick, formatGameTime, formatRealWait } from '../../shared/gameTime.js';
 import { getLastEconomyLog } from '../../engine/systems/SettlementEconomy.js';
 
@@ -15,8 +16,8 @@ gameRoutes.get('/status', async (_req: Request, res: Response, next: NextFunctio
 
     // Compute next tick time
     const lastTickAt = latestTick?.completedAt ? new Date(latestTick.completedAt) : null;
-    const nextTickAt = lastTickAt
-      ? new Date(lastTickAt.getTime() + config.game.tickIntervalMs)
+    const nextTickAt = (!runtimeSettings.paused && lastTickAt)
+      ? new Date(lastTickAt.getTime() + runtimeSettings.tickIntervalMs)
       : null;
 
     // Count ticks elapsed (first tick is the total count)
@@ -28,10 +29,12 @@ gameRoutes.get('/status', async (_req: Request, res: Response, next: NextFunctio
       game: 'Homosideria: To the Stars',
       version: '0.1.0',
       currentTick,
-      tickIntervalMs: config.game.tickIntervalMs,
+      isPaused: runtimeSettings.paused,
+      isRunning: !runtimeSettings.paused,
+      tickIntervalMs: runtimeSettings.tickIntervalMs,
       timeDilation: {
-        factor: config.game.gameTimeDilation,
-        description: `1 real second = ${config.game.gameTimeDilation} game seconds`,
+        factor: runtimeSettings.gameTimeDilation,
+        description: `1 real second = ${runtimeSettings.gameTimeDilation} game seconds`,
         gameHoursPerTick: parseFloat(gameHoursPerTick().toFixed(3)),
       },
       gameTime: {

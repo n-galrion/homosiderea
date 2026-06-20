@@ -1,10 +1,15 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import crypto from 'node:crypto';
-import { Tick, Replicant, CelestialBody, Settlement, Market, Ship, ActionQueue, Colony, Technology, Message, Faction, ResourceStore, PriceHistory, Notification, User } from '../../db/models/index.js';
+import mongoose from 'mongoose';
+import { Tick, Replicant, CelestialBody, Settlement, Market, Ship, ActionQueue, Colony, Technology, Message, Faction, ResourceStore, PriceHistory, Notification, User, AMI, MemoryLog, KnownEntity, ScanData, NavigationData, ResearchProposal, Structure, Salvage, AgentConfig, AgentSession } from '../../db/models/index.js';
 import { getLastEconomyLog } from '../../engine/systems/SettlementEconomy.js';
+import { runtimeSettings } from '../../shared/runtimeSettings.js';
+
+const NPC_OWNER_ID = '000000000000000000000000';
+const PIRATE_OWNER_ID = '000000000000000000000001';
 
 // GameLoop reference will be set at startup
-let gameLoopRef: { forceTick: () => Promise<unknown>; getCurrentTick: () => number } | null = null;
+let gameLoopRef: { forceTick: () => Promise<unknown>; getCurrentTick: () => number; resetTick: () => void; pause: () => void; resume: () => void; setTickInterval: (ms: number) => void; isPaused: () => boolean } | null = null;
 
 export function setGameLoopRef(gl: typeof gameLoopRef) {
   gameLoopRef = gl;
@@ -22,6 +27,77 @@ adminRoutes.post('/tick/force', async (_req: Request, res: Response, next: NextF
 
     const result = await gameLoopRef.forceTick();
     res.json({ message: 'Tick forced', result });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Pause the game loop
+adminRoutes.post('/pause', async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    if (!gameLoopRef) {
+      res.status(503).json({ error: 'NOT_READY', message: 'Game loop not initialized' });
+      return;
+    }
+    gameLoopRef.pause();
+    res.json({ message: 'Game paused', isPaused: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Resume the game loop
+adminRoutes.post('/resume', async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    if (!gameLoopRef) {
+      res.status(503).json({ error: 'NOT_READY', message: 'Game loop not initialized' });
+      return;
+    }
+    gameLoopRef.resume();
+    res.json({ message: 'Game resumed', isPaused: false });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Get runtime settings
+adminRoutes.get('/settings', async (_req: Request, res: Response) => {
+  res.json({
+    paused: runtimeSettings.paused,
+    tickIntervalMs: runtimeSettings.tickIntervalMs,
+    gameTimeDilation: runtimeSettings.gameTimeDilation,
+  });
+});
+
+// Update runtime settings
+adminRoutes.put('/settings', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { tickIntervalMs, gameTimeDilation } = req.body;
+
+    if (tickIntervalMs !== undefined) {
+      const ms = parseInt(tickIntervalMs, 10);
+      if (isNaN(ms) || ms < 100) {
+        res.status(400).json({ error: 'VALIDATION', message: 'tickIntervalMs must be a number >= 100' });
+        return;
+      }
+      if (gameLoopRef) gameLoopRef.setTickInterval(ms);
+    }
+
+    if (gameTimeDilation !== undefined) {
+      const factor = parseInt(gameTimeDilation, 10);
+      if (isNaN(factor) || factor < 1) {
+        res.status(400).json({ error: 'VALIDATION', message: 'gameTimeDilation must be a number >= 1' });
+        return;
+      }
+      runtimeSettings.gameTimeDilation = factor;
+    }
+
+    res.json({
+      message: 'Settings updated',
+      paused: runtimeSettings.paused,
+      tickIntervalMs: runtimeSettings.tickIntervalMs,
+      gameTimeDilation: runtimeSettings.gameTimeDilation,
+    });
   } catch (err) {
     next(err);
   }
@@ -424,6 +500,109 @@ adminRoutes.get('/economy', async (_req: Request, res: Response, next: NextFunct
       },
       settlements: details,
       lastTickLog: economyLog,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ── Wipe & Restart ────────────────────────────────────────────────────
+
+// POST /api/admin/wipe — Delete all replicants and session data, keep world intact
+adminRoutes.post('/wipe', async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    // Find all non-NPC ship IDs (to clean their cargo holds)
+    const playerShips = await Ship.find({
+      ownerId: { $nin: [NPC_OWNER_ID, PIRATE_OWNER_ID] },
+    }).select('_id').lean();
+    const playerShipIds = playerShips.map(s => s._id);
+
+    const [
+      replicants,
+      ships,
+      amis,
+      structures,
+      resourceStores,
+      actions,
+      messages,
+      memories,
+      knownEntities,
+      scanData,
+      navData,
+      technologies,
+      researchProposals,
+      colonies,
+      salvages,
+      agentConfigs,
+      agentSessions,
+      notifications,
+      ticks,
+      priceHistory,
+    ] = await Promise.all([
+      Replicant.deleteMany({}),
+      Ship.deleteMany({ ownerId: { $nin: [NPC_OWNER_ID, PIRATE_OWNER_ID] } }),
+      AMI.deleteMany({}),
+      Structure.deleteMany({}),
+      ResourceStore.deleteMany({
+        $or: [
+          { 'ownerRef.kind': 'Structure' },
+          { 'ownerRef.kind': 'Ship', 'ownerRef.item': { $in: playerShipIds } },
+        ],
+      }),
+      ActionQueue.deleteMany({}),
+      Message.deleteMany({}),
+      MemoryLog.deleteMany({}),
+      KnownEntity.deleteMany({}),
+      ScanData.deleteMany({}),
+      NavigationData.deleteMany({}),
+      Technology.deleteMany({}),
+      ResearchProposal.deleteMany({}),
+      Colony.deleteMany({}),
+      Salvage.deleteMany({}),
+      AgentConfig.deleteMany({}),
+      AgentSession.deleteMany({}),
+      Notification.deleteMany({}),
+      Tick.deleteMany({}),
+      PriceHistory.deleteMany({}),
+    ]);
+
+    // Reset the in-memory tick counter so the game loop resumes at tick 1
+    if (gameLoopRef) {
+      gameLoopRef.resetTick();
+    }
+
+    // Clear express sessions
+    let sessionsCleared = 0;
+    try {
+      const result = await mongoose.connection.collection('sessions').deleteMany({});
+      sessionsCleared = result.deletedCount;
+    } catch { /* sessions collection may not exist */ }
+
+    res.json({
+      message: 'Wipe complete. World data (bodies, settlements, markets, factions, blueprints) preserved. Tick counter reset to 0.',
+      deleted: {
+        replicants: replicants.deletedCount,
+        ships: ships.deletedCount,
+        amis: amis.deletedCount,
+        structures: structures.deletedCount,
+        resourceStores: resourceStores.deletedCount,
+        actions: actions.deletedCount,
+        messages: messages.deletedCount,
+        memories: memories.deletedCount,
+        knownEntities: knownEntities.deletedCount,
+        scanData: scanData.deletedCount,
+        navData: navData.deletedCount,
+        technologies: technologies.deletedCount,
+        researchProposals: researchProposals.deletedCount,
+        colonies: colonies.deletedCount,
+        salvages: salvages.deletedCount,
+        agentConfigs: agentConfigs.deletedCount,
+        agentSessions: agentSessions.deletedCount,
+        notifications: notifications.deletedCount,
+        ticks: ticks.deletedCount,
+        priceHistory: priceHistory.deletedCount,
+        expressSessions: sessionsCleared,
+      },
     });
   } catch (err) {
     next(err);

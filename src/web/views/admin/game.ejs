@@ -27,21 +27,49 @@
             <div class="stat-value" style="font-size:16px;" id="g-interval">---</div>
           </div>
           <div class="stat-box">
-            <div class="stat-label">Running</div>
+            <div class="stat-label">Status</div>
             <div class="stat-value" style="font-size:16px;" id="g-running">---</div>
           </div>
         </div>
 
         <div class="grid-2">
-          <!-- Force Tick -->
+          <!-- Pause/Resume + Force Tick -->
           <div class="card">
-            <div class="card-title">Force Tick</div>
-            <p class="text-dim mb-2" style="font-size:13px;">Manually advance the simulation by one tick. This runs all 19 phases immediately.</p>
-            <form method="POST" action="/admin/game/force-tick">
-              <button type="submit" class="btn btn-accent">Force Tick Now</button>
-            </form>
+            <div class="card-title">Simulation Control</div>
+            <p class="text-dim mb-2" style="font-size:13px;">Pause or resume the game loop. Force Tick runs one tick immediately (works while paused).</p>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <form method="POST" action="/admin/game/pause" id="pause-form">
+                <input type="hidden" name="action" value="pause">
+                <button type="submit" class="btn btn-outline" id="pause-btn">Pause</button>
+              </form>
+              <form method="POST" action="/admin/game/pause" id="resume-form">
+                <input type="hidden" name="action" value="resume">
+                <button type="submit" class="btn btn-accent" id="resume-btn">Resume</button>
+              </form>
+              <form method="POST" action="/admin/game/force-tick">
+                <button type="submit" class="btn btn-outline">Force Tick</button>
+              </form>
+            </div>
           </div>
 
+          <!-- Settings -->
+          <div class="card">
+            <div class="card-title">Simulation Settings</div>
+            <form method="POST" action="/admin/game/settings">
+              <div style="margin-bottom:12px;">
+                <label class="label" style="display:block; margin-bottom:4px;">Tick Interval (ms)</label>
+                <input type="number" name="tickIntervalMs" class="form-input" id="setting-interval" min="100" step="100" style="font-family:var(--font-mono);">
+              </div>
+              <div style="margin-bottom:12px;">
+                <label class="label" style="display:block; margin-bottom:4px;">Time Dilation (1 real sec = N game sec)</label>
+                <input type="number" name="gameTimeDilation" class="form-input" id="setting-dilation" min="1" step="1" style="font-family:var(--font-mono);">
+              </div>
+              <button type="submit" class="btn btn-accent">Save Settings</button>
+            </form>
+          </div>
+        </div>
+
+        <div class="grid-2 mt-3">
           <!-- MC Settings -->
           <div class="card">
             <div class="card-title">MC Configuration</div>
@@ -51,6 +79,15 @@
               <tr><td class="label">LLM Key Set</td><td id="mc-key">---</td></tr>
               <tr><td class="label">Time Dilation</td><td class="mono" id="mc-dilation">---</td></tr>
             </table>
+          </div>
+
+          <!-- Wipe & Restart -->
+          <div class="card" style="border-color: var(--danger);">
+            <div class="card-title" style="color: var(--danger);">Wipe & Restart</div>
+            <p class="text-dim mb-2" style="font-size:13px;">Deletes all replicants, ships, AMIs, structures, cargo, actions, messages, memories, scan data, technologies, colonies, salvage, agent configs/sessions, notifications, tick history, price history, and express sessions. Resets the tick counter to 0. World data (bodies, settlements, markets, factions, blueprints) is preserved.</p>
+            <form method="POST" action="/admin/game/wipe" onsubmit="return confirm('This will permanently delete ALL replicants and their data. This cannot be undone. Are you sure?');">
+              <button type="submit" class="btn btn-danger">Wipe All Replicants & Session Data</button>
+            </form>
           </div>
         </div>
 
@@ -68,9 +105,25 @@
           document.getElementById('g-tick').textContent = d.currentTick ?? '---';
           document.getElementById('g-time').textContent = (d.gameTime && d.gameTime.display) ? d.gameTime.display : '---';
           document.getElementById('g-interval').textContent = (d.tickIntervalMs ?? '---') + ' ms';
-          document.getElementById('g-running').innerHTML = d.isRunning
-            ? '<span class="status-dot active"></span>Yes'
-            : '<span class="status-dot inactive"></span>No';
+          document.getElementById('g-running').innerHTML = d.isPaused
+            ? '<span class="status-dot inactive"></span>Paused'
+            : '<span class="status-dot active"></span>Running';
+
+          var pauseBtn = document.getElementById('pause-btn');
+          var resumeBtn = document.getElementById('resume-btn');
+          if (d.isPaused) {
+            pauseBtn.style.display = 'none';
+            resumeBtn.style.display = '';
+          } else {
+            pauseBtn.style.display = '';
+            resumeBtn.style.display = 'none';
+          }
+
+          var intervalInput = document.getElementById('setting-interval');
+          var dilationInput = document.getElementById('setting-dilation');
+          if (intervalInput && !intervalInput.value) intervalInput.value = d.tickIntervalMs ?? '';
+          if (dilationInput && !dilationInput.value && d.timeDilation) dilationInput.value = d.timeDilation.factor ?? '';
+
           if (d.timeDilation) document.getElementById('mc-dilation').textContent = d.timeDilation.factor + 'x — ' + d.timeDilation.description;
           if (d.llm) {
             document.getElementById('mc-url').textContent = d.llm.baseUrl || '---';

@@ -147,6 +147,57 @@ adminPagesRoutes.post('/admin/game/force-tick', requireAuth, requireRole('operat
   } catch (err) { next(err); }
 });
 
+// ── Admin Pause/Resume (POST) ───────────────────────────────────────
+adminPagesRoutes.post('/admin/game/pause', requireAuth, requireRole('operator'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const port = req.socket.localPort || 3001;
+    const adminKey = config.auth.adminKey;
+    const action = req.body.action === 'resume' ? 'resume' : 'pause';
+
+    await fetch(`http://localhost:${port}/api/admin/${action}`, {
+      method: 'POST',
+      headers: { 'X-Admin-Key': adminKey },
+    });
+
+    res.redirect('/admin/game');
+  } catch (err) { next(err); }
+});
+
+// ── Admin Settings (POST) ────────────────────────────────────────────
+adminPagesRoutes.post('/admin/game/settings', requireAuth, requireRole('operator'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const port = req.socket.localPort || 3001;
+    const adminKey = config.auth.adminKey;
+
+    await fetch(`http://localhost:${port}/api/admin/settings`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'X-Admin-Key': adminKey },
+      body: JSON.stringify(req.body),
+    });
+
+    res.redirect('/admin/game');
+  } catch (err) { next(err); }
+});
+
+// ── Admin Wipe Replicants (POST) ─────────────────────────────────────
+adminPagesRoutes.post('/admin/game/wipe', requireAuth, requireRole('operator'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const port = req.socket.localPort || 3001;
+    const adminKey = config.auth.adminKey;
+
+    const apiRes = await fetch(`http://localhost:${port}/api/admin/wipe`, {
+      method: 'POST',
+      headers: { 'X-Admin-Key': adminKey },
+    });
+
+    if (apiRes.ok) {
+      res.redirect('/admin/game');
+    } else {
+      res.redirect('/admin/game');
+    }
+  } catch (err) { next(err); }
+});
+
 // ── Admin Users ──────────────────────────────────────────────────────
 adminPagesRoutes.get('/admin/users', requireAuth, requireRole('operator'), async (_req: Request, res: Response, next: NextFunction) => {
   try {

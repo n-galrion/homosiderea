@@ -233,7 +233,7 @@ async function buildWorldSummary(tick: number): Promise<string> {
 
   parts.push(`### Active Replicants (${replicants.length})`);
   for (const r of replicants) {
-    const tech = Object.entries(r.techLevels as Record<string, number>).filter(([, v]) => v > 0).map(([k, v]) => `${k}:${v}`).join(', ');
+    const tech = Object.entries((r.techLevels as Record<string, number>) || {}).filter(([, v]) => v > 0).map(([k, v]) => `${k}:${v}`).join(', ');
     parts.push(`  ${r.name}: compute=${r.computeCycles}, energy=${r.energyBudget}${tech ? `, tech=[${tech}]` : ''}`);
   }
 
