@@ -26,3 +26,4 @@ export { Notification, type INotification } from './Notification.js';
 export { User, type IUser } from './User.js';
 export { AgentConfig, type IAgentConfig } from './AgentConfig.js';
 export { AgentSession, type IAgentSession, type ICycleEntry } from './AgentSession.js';
+export { MCConversation, type IMCConversation, type IMCMessage, type IMCProposedAction } from './MCConversation.js';
