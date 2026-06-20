@@ -12,7 +12,7 @@ export interface IShip extends Document {
   dockedAtId: Types.ObjectId | null;
   navigation: {
     destinationBodyId: Types.ObjectId | null;
-    destinationAsteroidId: Types.ObjectId | null;
+    destinationAsteroidId?: Types.ObjectId | null;
     destinationPos: { x: number; y: number; z: number } | null;
     departurePos: { x: number; y: number; z: number } | null;
     departureTick: number | null;
