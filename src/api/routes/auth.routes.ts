@@ -54,7 +54,7 @@ authRoutes.post('/register', async (req: Request, res: Response, next: NextFunct
         hullPoints: 100,
         maxHullPoints: 100,
         maxSpeed: 0.002,
-        cargoCapacity: 200,
+        cargoCapacity: 300,
         fuelCapacity: 100,
         sensorRange: 0.5,
         miningRate: 5,

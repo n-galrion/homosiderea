@@ -72,7 +72,7 @@ describe('Homosideria Integration Tests', () => {
       const s = ship as Record<string, unknown>;
       expect(s.status).toBe('orbiting');
       expect(s.type).toBe('shuttle');
-      expect((s.specs as Record<string, number>).cargoCapacity).toBe(200);
+      expect((s.specs as Record<string, number>).cargoCapacity).toBe(300);
 
       const { data: inv } = await api(`/api/ships/${shipId}/inventory`, { apiKey });
       const i = inv as Record<string, number>;
