@@ -129,6 +129,35 @@
         </div>
         <% } %>
 
+        <% if (conversation && conversation.messages && conversation.messages.length) { %>
+        <div class="card mt-3">
+          <div class="card-title">Agent Timeline (most recent)</div>
+          <div class="mc-transcript">
+            <% let lastTick = null; %>
+            <% for (const m of conversation.messages.slice(-60)) { %>
+              <% if (m.tick !== lastTick) { lastTick = m.tick; %><div class="trace-tick">— Tick <%= m.tick %> —</div><% } %>
+              <% if (m.role === 'user') { %>
+                <div class="msg msg-system"><div class="msg-body"><%= m.content %></div></div>
+              <% } else if (m.role === 'assistant') { %>
+                <div class="msg msg-in">
+                  <div class="msg-meta"><span><%= replicant.identity?.chosenName || replicant.name %></span></div>
+                  <% if (m.content) { %><div class="msg-body"><%= m.content %></div><% } %>
+                  <% if (m.toolCalls && m.toolCalls.length) { %>
+                    <% for (const tc of m.toolCalls) { %><div class="trace-tool"><%= tc.name %>(<%= tc.args %>)</div><% } %>
+                  <% } %>
+                </div>
+              <% } else if (m.role === 'tool') { %>
+                <div class="trace-result"><strong><%= m.name %> →</strong> <%= (m.content || '').slice(0, 1200) %></div>
+              <% } %>
+            <% } %>
+          </div>
+          <% if (conversation.summary) { %>
+            <div class="card-title mt-2" style="font-size:12px;">Compacted memory</div>
+            <div class="text-dim" style="font-size:12px;white-space:pre-wrap;"><%= conversation.summary %></div>
+          <% } %>
+        </div>
+        <% } %>
+
       </main>
     </div>
   </div>

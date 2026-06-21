@@ -1,6 +1,6 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import { requireAuth, requireRole } from '../middleware/roles.js';
-import { Replicant, Ship, ResourceStore, Technology, ActionQueue, MemoryLog, Message, User, CelestialBody, Tick, Notification, Blueprint, AgentConfig, AgentSession } from '../../db/models/index.js';
+import { Replicant, Ship, ResourceStore, Technology, ActionQueue, MemoryLog, Message, User, CelestialBody, Tick, Notification, Blueprint, AgentConfig, AgentSession, AgentConversation } from '../../db/models/index.js';
 import { config } from '../../config.js';
 import { encrypt } from '../../shared/crypto.js';
 import { MISSION_CONTROL_ID } from '../../shared/messaging.js';
@@ -434,11 +434,12 @@ pagesRoutes.get('/agent/:replicantId', requireAuth, requireRole('owner', 'operat
 
     const agentConfig = await AgentConfig.findOne({ replicantId: replicant._id }).lean();
     const session = await AgentSession.findOne({ replicantId: replicant._id }).lean();
+    const conversation = await AgentConversation.findOne({ replicantId: replicant._id }).lean();
 
     res.render('agent', {
       title: `Agent: ${replicant.identity?.chosenName || replicant.name}`,
       user, currentPath: '/agents', flash: {},
-      replicant, agentConfig, session,
+      replicant, agentConfig, session, conversation,
     });
   } catch (err) { next(err); }
 });
