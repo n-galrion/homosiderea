@@ -124,7 +124,8 @@ export async function buildHud(replicantId: string): Promise<Hud | null> {
   if (ship && fuelPct < FUEL_WARN_PCT) guidance.push('Fuel is low — refuel with transfer_fuel or dock at a settlement.');
   if (ship && hullPct < HULL_WARN_PCT) guidance.push('Hull is damaged — repair_ship when you have alloys and hull plating.');
   if (!replicant.identity?.chosenName) guidance.push('You have not named yourself yet — use set_identity to choose a name.');
-  if (ship && cargoPct >= 90) guidance.push('Cargo hold is nearly full — sell at a market with trade, or unload_cargo.');
+  if (ship && cargoPct >= 100) guidance.push('Cargo is OVER capacity — sell with trade or unload_cargo before you can carry more.');
+  else if (ship && cargoPct >= 90) guidance.push('Cargo hold is nearly full — sell at a market with trade, or unload_cargo.');
   if (ship && !ship.miningState?.active && ship.status !== 'in_transit') guidance.push('You are idle — scan_location, start_mining, or set a destination with move_ship.');
 
   return {
