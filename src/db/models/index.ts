@@ -1,4 +1,5 @@
 export { Replicant, type IReplicant } from './Replicant.js';
+export { AgentConversation, type IAgentConversation, type IStoredMessage, type IStoredToolCall } from './AgentConversation.js';
 export { AMI, type IAMI } from './AMI.js';
 export { CelestialBody, type ICelestialBody } from './CelestialBody.js';
 export { Ship, type IShip } from './Ship.js';
