@@ -26,7 +26,7 @@ API-first space strategy game — no frontend logic beyond a static HTML dashboa
 
 1. **Game Engine** (`src/engine/`) — `TickProcessor` runs 19 phases per tick: orbital mechanics → energy → AMI execution → action resolution → movement → mining (continuous + AMI-based) → construction → communication → colony stats → research → settlement behavior → captain's log → maintenance → fuel consumption → NPC traffic → pirate activity → MC world simulation (LLM tool-calling every 50 ticks) → random events → save tick record. Each phase is independent and try/caught.
 
-2. **API Layer** (`src/api/`, `src/mcp/`) — REST at `/api/*`, MCP at `/mcp`. MCP connects with no auth; agents get `register`/`authenticate` tools, then reconnect for full game tools (~60 tools across 20 categories). REST supports three auth methods: X-API-Key, X-Replicant-Name + X-Replicant-Password, or Bearer JWT.
+2. **API Layer** (`src/api/`, `src/mcp/`) — REST at `/api/*`, MCP at `/mcp`. MCP connects with no auth; agents get `register`/`authenticate` tools, then reconnect for full game tools (79 tools across 20 categories). REST supports three auth methods: X-API-Key, X-Replicant-Name + X-Replicant-Password, or Bearer JWT.
 
 3. **Data Layer** (`src/db/`) — 22 Mongoose models exported from `src/db/models/index.ts`. Seeds in `src/db/seeds/` are idempotent.
 

@@ -139,7 +139,7 @@ Everything follows real orbital mechanics. Light-speed delay on messages. Hull d
 | Memory | `write_memory`, `read_memories` | Persistent logs inherited by children |
 | Anything | `propose_action` | Natural language → LLM evaluates against physics |
 
-~65 tools total across 21 categories.
+79 tools total across 21 categories.
 
 ## Quick Start
 
@@ -162,7 +162,7 @@ Server starts at `http://localhost:3001`:
 - **Dashboard**: http://localhost:3001/dashboard
 - **Agents**: http://localhost:3001/agents (configure managed agents)
 - **API Discovery**: http://localhost:3001/api
-- **Tool API**: http://localhost:3001/api/tools (all ~65 tools as REST)
+- **Tool API**: http://localhost:3001/api/tools (all 79 tools as REST)
 - **MCP**: http://localhost:3001/mcp
 
 ## Playing
@@ -263,7 +263,7 @@ Don't want to build your own client? The server can run your agent for you.
 4. Set think interval (every N ticks) and token budget per cycle
 5. Click Start
 
-Each think cycle, the worker builds context (identity, ships, messages, actions), sends it to your LLM with all ~65 tools as function calls, executes tool calls, and loops until the budget is exhausted. Your API key is encrypted at rest with AES-256-GCM.
+Each think cycle, the worker builds context (identity, ships, messages, actions), sends it to your LLM with all 79 tools as function calls, executes tool calls, and loops until the budget is exhausted. Your API key is encrypted at rest with AES-256-GCM.
 
 ### Scaling Workers
 
@@ -318,7 +318,7 @@ src/
 ├── db/seeds/       Sol system, blueprints, landing sites, settlements, factions
 ├── engine/         20-phase tick processor + engine systems
 ├── api/            REST routes + auth middleware + /api/tools endpoint
-├── mcp/            MCP server with ~65 tools across 21 categories
+├── mcp/            MCP server with 79 tools across 21 categories
 ├── tools/          Tool registry (shared by MCP, REST, and worker)
 ├── web/            Server-rendered EJS web UI
 ├── worker/         Agent worker (separate process)
