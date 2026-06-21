@@ -454,7 +454,7 @@ pagesRoutes.post('/agent/:replicantId/config', requireAuth, requireRole('owner',
       res.status(403).send('Access denied'); return;
     }
 
-    const { baseUrl, apiKey, model, temperature, topP, maxTokens, thinkEveryNTicks, tokenBudgetPerCycle, systemPromptOverride } = req.body;
+    const { baseUrl, apiKey, model, temperature, topP, maxTokens, thinkEveryNTicks, tokenBudgetPerCycle, maxRoundsPerCycle, systemPromptOverride } = req.body;
 
     let agentConfig = await AgentConfig.findOne({ replicantId: replicant._id });
     if (!agentConfig) {
@@ -471,6 +471,7 @@ pagesRoutes.post('/agent/:replicantId/config', requireAuth, requireRole('owner',
     if (maxTokens !== undefined) agentConfig.sampling.maxTokens = parseInt(maxTokens, 10);
     if (thinkEveryNTicks !== undefined) agentConfig.thinkEveryNTicks = parseInt(thinkEveryNTicks, 10);
     if (tokenBudgetPerCycle !== undefined) agentConfig.tokenBudgetPerCycle = parseInt(tokenBudgetPerCycle, 10);
+    if (maxRoundsPerCycle !== undefined) agentConfig.maxRoundsPerCycle = parseInt(maxRoundsPerCycle, 10);
     agentConfig.systemPromptOverride = systemPromptOverride?.trim() || null;
 
     agentConfig.markModified('provider');

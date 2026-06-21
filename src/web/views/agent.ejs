@@ -81,8 +81,9 @@
                 <div class="text-muted" style="font-size:11px;margin-top:4px;" id="think-desc">Every ~25 seconds / ~4 game hours</div>
               </div>
               <div class="form-group">
-                <label class="form-label">Token Budget Per Cycle</label>
-                <input type="number" name="tokenBudgetPerCycle" class="form-input" value="<%= agentConfig?.tokenBudgetPerCycle ?? 50000 %>" min="1000" max="200000" step="1000">
+                <label class="form-label">Max Rounds Per Cycle</label>
+                <input type="number" name="maxRoundsPerCycle" class="form-input" value="<%= agentConfig?.maxRoundsPerCycle ?? 20 %>" min="1" max="100" step="1">
+                <div class="text-muted" style="font-size:11px;margin-top:4px;">Tool-call rounds per resume (safety bound). Tokens are no longer hard-capped — context is managed by compaction.</div>
               </div>
             </div>
 

@@ -20,6 +20,7 @@ export interface IAgentConfig extends Document {
 
   thinkEveryNTicks: number;
   tokenBudgetPerCycle: number;
+  maxRoundsPerCycle: number;
   systemPromptOverride: string | null;
 
   createdAt: Date;
@@ -45,6 +46,7 @@ const AgentConfigSchema = new Schema<IAgentConfig>({
 
   thinkEveryNTicks: { type: Number, default: 5, min: 1, max: 100 },
   tokenBudgetPerCycle: { type: Number, default: 50000, min: 1000, max: 200000 },
+  maxRoundsPerCycle: { type: Number, default: 20, min: 1, max: 100 },
   systemPromptOverride: { type: String, default: null },
 }, { timestamps: true });
 
