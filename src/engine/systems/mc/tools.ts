@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import { Settlement, Market, Replicant, Message, Faction, Ship, Salvage, CelestialBody } from '../../../db/models/index.js';
+import { MISSION_CONTROL_ID } from '../../../shared/messaging.js';
 
 export const MC_WORLD_SIM_SYSTEM = `You are the Master Controller of Homosideria, a hard sci-fi space strategy game set in the Sol system. Every ~50 game ticks, you review the state of human civilization and generate dynamic events.
 
@@ -213,7 +214,7 @@ async function execBroadcast(args: Record<string, unknown>, tick: number): Promi
   const replicants = await Replicant.find({ status: 'active' });
   for (const r of replicants) {
     await Message.create({
-      senderId: r._id, recipientId: r._id,
+      senderId: MISSION_CONTROL_ID, recipientId: r._id,
       subject: args.title as string,
       body: args.description as string,
       metadata: { type: 'world_event', source: 'mc_simulation' },
@@ -232,7 +233,7 @@ async function execRumor(args: Record<string, unknown>, tick: number): Promise<s
   const target = replicants[Math.floor(Math.random() * replicants.length)];
 
   await Message.create({
-    senderId: target._id, recipientId: target._id,
+    senderId: MISSION_CONTROL_ID, recipientId: target._id,
     subject: 'Intercepted Transmission',
     body: args.content as string,
     metadata: { type: 'rumor', source: 'mc_simulation', reliability: 'unverified' },
@@ -314,7 +315,7 @@ async function execTriggerDisaster(args: Record<string, unknown>, tick: number):
   const replicants = await Replicant.find({ status: 'active' });
   for (const r of replicants) {
     await Message.create({
-      senderId: r._id, recipientId: r._id,
+      senderId: MISSION_CONTROL_ID, recipientId: r._id,
       subject: `Disaster at ${settlement.name}`,
       body: args.narrative as string,
       metadata: { type: 'world_event', source: 'mc_operator', severity },

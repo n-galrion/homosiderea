@@ -1,4 +1,4 @@
-import { Replicant, Ship, Message, MemoryLog, ActionQueue, KnownEntity, Tick, ResourceStore } from '../db/models/index.js';
+import { Replicant, Ship, Message, MemoryLog, ActionQueue, KnownEntity, Tick, ResourceStore, Settlement } from '../db/models/index.js';
 import { distance } from '../shared/physics.js';
 import { senderLabel } from '../shared/messaging.js';
 
@@ -67,6 +67,11 @@ export async function buildHud(replicantId: string): Promise<Hud | null> {
   const unreadSenderIds = [...new Set(unread.map((m) => m.senderId?.toString()).filter(Boolean))];
   const unreadSenders = await Replicant.find({ _id: { $in: unreadSenderIds } }, 'name').lean();
   const unreadNameById = new Map(unreadSenders.map((s) => [s._id.toString(), s.name]));
+  const unreadUnresolvedIds = unreadSenderIds.filter(id => !unreadNameById.has(id));
+  if (unreadUnresolvedIds.length) {
+    const settlementSenders = await Settlement.find({ _id: { $in: unreadUnresolvedIds } }, 'name').lean();
+    for (const s of settlementSenders) unreadNameById.set(s._id.toString(), s.name);
+  }
 
   // Recent notable events from memory logs (world events / observations / captain's logs).
   const events = await MemoryLog.find({

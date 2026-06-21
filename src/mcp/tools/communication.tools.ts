@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { Message, Replicant, Ship, Tick } from '../../db/models/index.js';
+import { Message, Replicant, Ship, Tick, Settlement } from '../../db/models/index.js';
 import { distance, lightDelayTicks } from '../../shared/physics.js';
 import type { Position } from '../../shared/types.js';
 import { senderLabel } from '../../shared/messaging.js';
@@ -151,6 +151,11 @@ export function registerCommunicationTools(server: McpServer, replicantId: strin
       const senderIds = [...new Set(messages.map(m => m.senderId?.toString()).filter(Boolean))];
       const senders = await Replicant.find({ _id: { $in: senderIds } }, 'name').lean();
       const nameById = new Map(senders.map(s => [s._id.toString(), s.name]));
+      const unresolvedIds = senderIds.filter(id => !nameById.has(id));
+      if (unresolvedIds.length) {
+        const settlements = await Settlement.find({ _id: { $in: unresolvedIds } }, 'name').lean();
+        for (const s of settlements) nameById.set(s._id.toString(), s.name);
+      }
 
       const result = messages.map(m => {
         const sid = m.senderId?.toString();
