@@ -84,12 +84,12 @@ export function registerResourceTools(server: McpServer, replicantId: string): v
       if (targetType === 'Ship') {
         const ship = await Ship.findOne({ _id: targetId, ownerId: replicantId }).lean();
         if (!ship) {
-          return { content: [{ type: 'text', text: 'Error: Ship not found or not owned by you.' }] };
+          return { content: [{ type: 'text', text: `Error: No Ship found for id "${targetId}". get_inventory expects a targetId (ship or structure ID) that you own, and targetType matching the entity type.` }] };
         }
       } else {
         const structure = await Structure.findOne({ _id: targetId, ownerId: replicantId }).lean();
         if (!structure) {
-          return { content: [{ type: 'text', text: 'Error: Structure not found or not owned by you.' }] };
+          return { content: [{ type: 'text', text: `Error: No Structure found for id "${targetId}". get_inventory expects a targetId (ship or structure ID) that you own, and targetType matching the entity type.` }] };
         }
       }
 
