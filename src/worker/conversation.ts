@@ -81,7 +81,11 @@ export async function applyCompaction(
   summarize: (text: string) => Promise<string>,
 ): Promise<void> {
   if (conv.messages.length <= KEEP_RECENT_MESSAGES) return;
-  const cut = conv.messages.length - KEEP_RECENT_MESSAGES;
+  let cut = conv.messages.length - KEEP_RECENT_MESSAGES;
+  // Never start `recent` on an orphaned tool result — fold each assistant(tool_calls)
+  // group together. Advance the cut past any tool messages at the boundary.
+  while (cut < conv.messages.length && conv.messages[cut].role === 'tool') cut++;
+  if (cut >= conv.messages.length) return; // nothing safe to compact this round
   const older = conv.messages.slice(0, cut);
   const recent = conv.messages.slice(cut);
   const transcript = older.map((m) => {

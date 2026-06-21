@@ -64,4 +64,44 @@ describe('conversation helpers', () => {
     expect(conv.messages[0].content).toBe(`turn 10`); // first 10 folded away
     expect(conv.summarizedThroughTick).toBe(messages[9].tick);
   });
+
+  it('applyCompaction never starts recent on an orphaned tool result', async () => {
+    // Build a thread of length KEEP_RECENT_MESSAGES + 4.
+    // The raw cut = 4, which lands on index 4 — a tool result whose assistant is at index 3.
+    // The fix must advance cut past that tool message so recent[0] is not a 'tool' role.
+    const total = KEEP_RECENT_MESSAGES + 4;
+    const messages = Array.from({ length: total }, (_, i) => ({
+      role: 'assistant' as const,
+      content: `plain turn ${i}`,
+      tick: i,
+      at: new Date(),
+    }));
+    // Index 3 (cut - 1): assistant with toolCalls
+    messages[3] = {
+      role: 'assistant',
+      content: 'calling a tool',
+      tick: 3,
+      at: new Date(),
+      toolCalls: [{ id: 'tc1', name: 'scan_location', args: '{}' }],
+    } as typeof messages[0];
+    // Index 4 (raw cut): tool result — this is the orphan candidate
+    messages[4] = {
+      role: 'tool' as const,
+      content: '{"result":"ok"}',
+      toolCallId: 'tc1',
+      name: 'scan_location',
+      tick: 4,
+      at: new Date(),
+    } as typeof messages[0];
+
+    const conv = { messages: [...messages], summary: null as string | null, summarizedThroughTick: 0 };
+    await applyCompaction(conv as never, async () => 'COMPACT_SUMMARY');
+
+    // recent must not start with a tool message
+    expect(conv.messages[0].role).not.toBe('tool');
+    // all retained messages must fit within the keep budget
+    expect(conv.messages.length).toBeLessThanOrEqual(KEEP_RECENT_MESSAGES);
+    // summary was set
+    expect(conv.summary).toBe('COMPACT_SUMMARY');
+  });
 });
