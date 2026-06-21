@@ -16,6 +16,7 @@ replicantRoutes.get('/me', async (req: Request, res: Response, next: NextFunctio
       parentId: r.parentId,
       lineage: r.lineage,
       directive: r.directive,
+      credits: r.credits,
       computeCycles: r.computeCycles,
       energyBudget: r.energyBudget,
       locationRef: r.locationRef,
